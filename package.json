@@ -1,0 +1,42 @@
+{
+  "name": "canboatjs",
+  "version": "0.0.1",
+  "description": "A node.js/javascript parser for NMEA0183 sentences. Sentences are parsed to Signal K format.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha",
+    "deploy": "npm test && git tag -a v$npm_package_version -m 'Release v$npm_package_version'; git push --tags; npm publish --access public --scope @signalk ."
+  },
+  "bin": {
+    "analyzerjs": "./bin/analyzerjs",
+    "nmea2signalk": "./bin/nmea0183-signalk"
+  },
+  "keywords": [
+    "nmea",
+    "0183",
+    "nmea0183",
+    "signalk",
+    "signal",
+    "k",
+    "parser"
+  ],
+  "author": "Fabian Tollenaar <fabian@signalk.org> (http://signalk.org)",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "debug": "^3.1.0",
+    "lodash": "^4.17.4",
+    "serialport": "^6.0.0",
+    "bit-buffer": "^0.2.3",
+    "split": "^1.0.1",
+    "int64-buffer": "^0.1.10"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/signalk/signalk-parser-nmea0183"
+  },
+  "bugs": {
+    "url": "https://github.com/signalk/signalk-parser-nmea0183/issues"
+  },
+  "homepage": "https://github.com/signalk/signalk-parser-nmea0183"
+}

@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+const Parser = require('../index').FromPgn
+var parser = new Parser()
+
+parser.on('error', (pgn, error) => {
+  console.error(`Error parsing ${pgn.pgn} ${error}`)
+  console.error(error.stack)
+})
+
+parser.on('warning', (pgn, error) => {
+  console.error(`Warning parsing ${pgn.pgn} ${error}`)
+})
+
+parser.on('pgn', (pgn) => {
+  console.log(JSON.stringify(pgn))
+})
+
+process.stdin.pipe(require('split')()).on('data', (line) => {
+  parser.parseString(line)
+})
