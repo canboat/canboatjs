@@ -1,0 +1,4 @@
+module.exports = [{
+  "expected": {"timestamp":"2017-04-15T14:57:59.409Z","prio":4,"src":43,"dst":255,"pgn":129039,"description":"AIS Class B Position Report","fields":{"Message ID":18,"Repeat Indicator":"Initial","User ID":338184312,"Longitude":-76.4640032,"Latitude":39.0700267,"Position Accuracy":"High","RAIM":"in use","Time Stamp":"59","COG":2.1206,"SOG":2.46,"Communication State":"393222","AIS Transceiver information":"Own information not broadcast","Regional Application":0,"Regional Application":0,"Unit type":"CS","Integrated Display":"No","DSC":"Yes","Band":"entire marine band","Can handle Msg 22":"Yes","AIS mode":"Autonomous","AIS communication state":"ITDMA"}},
+  "input": "2017-04-15T14:57:59.409Z,4,129039,43,255,27,12,78,48,28,14,e0,84,6c,d2,eb,9c,49,17,ef,d6,52,f6,00,06,00,26,ff,ff,00,74,01,ff"
+}]
