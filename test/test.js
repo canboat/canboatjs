@@ -5,19 +5,19 @@ chai.use(require('chai-json-equal'));
 
 const fs = require('fs')
 const _ = require("lodash")
-const FromPgn = require('../index').FromPgn
+const { FromPgn, toPgn, toActisenseSerialFormat} = require('../index')
 
-describe('pgn test data converts', function () {
+const testData = {}
+fs
+  .readdirSync('./test/pgns')
+  .forEach(filename => {
+    testData[filename.split('.')[0]] = (require(`./pgns/${filename}`))
+  })
 
-  const testData = {}
-  fs
-    .readdirSync('./test/pgns')
-    .forEach(filename => {
-      testData[filename.split('.')[0]] = (require(`./pgns/${filename}`))
-    })
+describe('from pgn test data converts', function () {
 
   _.keys(testData).forEach(key => {
-    it(`pgn ${key} converts`, function (done) {
+    it(`from pgn ${key} converts`, function (done) {
       var dataList = testData[key]
 
       dataList.forEach(data => {
@@ -47,6 +47,21 @@ describe('pgn test data converts', function () {
         })
         
         fromPgn.parseString(data.input)
+      })
+    })
+  })
+})
+    
+describe('to pgn test data converts', function () {
+
+  _.keys(testData).forEach(key => {
+    it(`to pgn ${key} converts`, function (done) {
+      var dataList = testData[key]
+
+      dataList.forEach(data => {
+        var res = toPgn(data.expected)
+        var str = toActisenseSerialFormat(data.expected.pgn, res)
+        str.should.equal(data.input)
       })
     })
   })

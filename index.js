@@ -17,6 +17,8 @@
  */
 
 module.exports = {
-  FromPgn: require('./lib/fromPgn'),
-  serial: require('./lib/serial')
+  FromPgn: require('./lib/fromPgn').Parser,
+  serial: require('./lib/serial'),
+  toPgn: require('./lib/toPgn').toPgn,
+  toActisenseSerialFormat: require('./lib/toPgn').toActisenseSerialFormat
 }
