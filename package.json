@@ -1,13 +1,14 @@
 {
   "name": "canboatjs",
   "version": "0.0.1",
-  "description": "Native node version of canboat",
+  "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
     "test": "mocha"
   },
   "bin": {
-    "analyzerjs": "./bin/analyzerjs"
+    "analyzerjs": "./bin/analyzerjs",
+    "to-pgn": "./bin/to-pgn"
   },
   "keywords": [
     "nmea2000",

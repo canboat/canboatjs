@@ -1,4 +1,4 @@
 module.exports = [{
   "expected": {"timestamp":"2017-04-15T14:57:58.470Z","prio":4,"src":43,"dst":255,"pgn":129041,"description":"AIS Aids to Navigation (AtoN) Report","fields":{"Message ID":21,"Repeat Indicator":"First retransmission","User ID":993672089,"Longitude":-76.1019632,"Latitude":39.3792600,"Position Accuracy":"High","AIS RAIM Flag":"not in use","Time Stamp":"Manual input mode","AtoN Type":"Fixed beacon: starboard hand","Off Position Indicator":"No","Virtual AtoN Flag":"No","Assigned Mode Flag":"Autonomous and continuous","AIS Spare":"0","Position Fixing Device Type":"Surveyed","AtoN Status":"0","AIS Transceiver information":"Channel A VDL reception","AtoN Name":"48                  @"}},
-  "input": "2017-04-15T14:57:58.470Z,4,129041,43,255,49,55,99,3b,3a,3b,10,c3,a3,d2,58,cc,78,17,f5,ff,ff,ff,ff,ff,ff,ff,ff,0e,0e,00,00,17,01,34,38,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,40"
+  "input": "2017-04-15T14:57:58.470Z,4,129041,43,255,49,55,99,3b,3a,3b,10,c3,a3,d2,58,cc,78,17,f5,ff,ff,ff,ff,ff,ff,ff,ff,0e,ee,00,e0,16,00,34,38,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,40"
 }]

@@ -17,8 +17,9 @@ fs
 describe('from pgn test data converts', function () {
 
   _.keys(testData).forEach(key => {
-    it(`from pgn ${key} converts`, function (done) {
-      var dataList = testData[key]
+    var dataList = testData[key]
+    
+    it(`from pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
 
       dataList.forEach(data => {
         var fromPgn = new FromPgn()
@@ -52,13 +53,14 @@ describe('from pgn test data converts', function () {
   })
 })
 
-/*
+
 
 describe('to pgn test data converts', function () {
 
   _.keys(testData).forEach(key => {
-    it(`to pgn ${key} converts`, function (done) {
-      var dataList = testData[key]
+    var dataList = testData[key]
+
+    it(`to pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
 
       dataList.forEach(test => {
         var data = toPgn(test.expected)
@@ -69,11 +71,11 @@ describe('to pgn test data converts', function () {
 
         result[2].should.equal(expected[2])
 
-        result.slice(5).should.equal(expected.slice(5))
+        result.slice(5).should.deep.equal(expected.slice(5))
         done()
       })
     })
   })
 })
 
-*/
+
