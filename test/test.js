@@ -18,11 +18,16 @@ describe('from pgn test data converts', function () {
 
   _.keys(testData).forEach(key => {
     var dataList = testData[key]
-    
+
     it(`from pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
 
       dataList.forEach(data => {
-        var fromPgn = new FromPgn()
+        if ( data.disabled ) {
+          done()
+          return
+        }
+        
+        var fromPgn = new FromPgn({format: 1})
         
         fromPgn.on('error', (pgn, error) => {
           console.error(`Error parsing ${pgn.pgn} ${error}`)
@@ -63,6 +68,11 @@ describe('to pgn test data converts', function () {
     it(`to pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
 
       dataList.forEach(test => {
+        if ( test.disabled ) {
+          done()
+          return
+        }
+        
         var data = toPgn(test.expected)
         var str = toActisenseSerialFormat(test.expected.pgn, data)
 
