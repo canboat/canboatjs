@@ -1,6 +1,9 @@
 ## Change Log
 
-### v0.0.3 (2018/02/02 00:46 +00:00)
+### v1.0.0-2 (2018/02/02 22:14 +00:00)
+- [#419](https://github.com/SignalK/signalk-server-node/pull/419) feature: enable security by default (@sbender9)
+- [#435](https://github.com/SignalK/signalk-server-node/pull/435) Update baconjs to the latest version 🚀 (@greenkeeper[bot])
+- [#429](https://github.com/SignalK/signalk-server-node/pull/429) feature: add support for native canboatjs (@sbender9)
 - [#423](https://github.com/SignalK/signalk-server-node/pull/423) feature: new multiplexed provider that autodetects input type (@sbender9)
 - [#430](https://github.com/SignalK/signalk-server-node/pull/430)  fix: support starting up with an empty or missing settings file and using -c (@sbender9)
 - [#432](https://github.com/SignalK/signalk-server-node/pull/432) feature: use node lts version (@tkurki)
