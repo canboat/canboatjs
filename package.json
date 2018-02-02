@@ -10,7 +10,8 @@
   },
   "bin": {
     "analyzerjs": "./bin/analyzerjs",
-    "to-pgn": "./bin/to-pgn"
+    "to-pgn": "./bin/to-pgn",
+    "candumpanalyzerjs": "./bin/candumpanalyzerjs"
   },
   "keywords": [
     "nmea2000",
