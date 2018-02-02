@@ -10,7 +10,8 @@
   },
   "bin": {
     "analyzerjs": "./bin/analyzerjs",
-    "to-pgn": "./bin/to-pgn"
+    "to-pgn": "./bin/to-pgn",
+    "candumpanalyzerjs": "./bin/candumpanalyzerjs"
   },
   "keywords": [
     "nmea2000",
@@ -49,6 +50,9 @@
     "chai-things": "^0.2.0",
     "github-changes": "^1.1.2",
     "mocha": "^5.0.0"
+  },
+  "optionalDependencies": {
+    "socketcan": "^2.2.2"
   },
   "repository": {
     "type": "git",
