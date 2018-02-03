@@ -90,3 +90,51 @@ const pgn = {
 app.emit('nmea2000out', pgn)
 ```
 
+# Canbus 
+The canbus provider participates correctly in the SAE J1939 Address Claim Procedure. This means the your canbus device will get a correct canbus address and register with and be recognized by other N2K devices on the network.
+
+By default it attempts to register using address 100, but will adjust accourdingly if there is another device on the network with the same address. If there are issues with that process, you can configure Canboatjs to default to a different address by setting the `preferedAddress` option:
+```
+    {                                                                           
+      "id": "canbus-canboatjse",                                          
+      "enabled": true,                                                          
+      "pipeElements": [                                                         
+        {                                                                       
+          "type": "providers/canbus",                                           
+          "options": {
+            "canDevice": "can0",
+            "preferredAddress": 7
+          }                                                                     
+        },                                                                      
+        {                                                                       
+          "type": "providers/canboatjs"                                         
+        },                                                                      
+        {                                                                       
+          "type": "providers/n2k-signalk"                                       
+        }                                                                       
+      ]                                                                         
+    }                                                                           
+```
+
+Canboatjs also responds to an ISO Request for PGN 126464, which is a request to find out which PGNs the device transmits. It currently defaults with PGNs supported internally and the PGNs supported bu signalk-to-nmea2000. You can add to this list by providing the `transmitPGNs` option:
+```
+    {                                                                           
+      "id": "canbus-canboatjse",                                          
+      "enabled": true,                                                          
+      "pipeElements": [                                                         
+        {                                                                       
+          "type": "providers/canbus",                                           
+          "options": {
+            "canDevice": "can0",
+            "transmitPGNs": [ 123456, 123457 ] 
+          }                                                                     
+        },                                                                      
+        {                                                                       
+          "type": "providers/canboatjs"                                         
+        },                                                                      
+        {                                                                       
+          "type": "providers/n2k-signalk"                                       
+        }                                                                       
+      ]                                                                         
+    }                                                                           
+```
