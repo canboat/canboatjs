@@ -11,8 +11,8 @@ Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) 
 - Supports input in canboat analyzer json format
 - Take input in canboat analyzer json format and convert to binary N2K format and output to the NGT-1 or canbus
 
-# PGN Data
-The details about the PGN's recognized by canboatjs come from the canboat project in the [pgns.json](https://github.com/canboat/canboat/blob/master/analyzer/pgns.json) file. If you want to add or update PGN data, please make changes to the pgn.h file in canboat and submit a pull request there. Please include sample data and raise an issue here so that I can include your changes in canboatjs.
+# PGN Descriptions
+The details about the PGN's recognized by Canboatjs come from the canboat project in [pgns.json](https://github.com/canboat/canboat/blob/master/analyzer/pgns.json). If you want to add or update PGN details, please make changes to the pgn.h file in canboat and submit a pull request there. Include sample data and raise an issue here so that I can include your changes in Canboatjs.
 
 
 # Command Line Programs
