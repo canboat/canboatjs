@@ -28,7 +28,7 @@ This program take input in the candump forat and outputs canboat json format
 
 # Signal K Node Server Configuration
 
-## Actisense NTG-1
+## Actisense NTG-1 Configuration
 You can use the admin ui to use canbusjs with an Actisense NTG-1. Add a new provider, make the input type "NMEA 2000" and select "Actisense NTG-1 (pure js, experimental)" for the "NMEA 2000 Source".
 
 To configure in the settings file manually, add the following to your pipedProviders and fill in the correct usb device.
@@ -53,7 +53,7 @@ To configure in the settings file manually, add the following to your pipedProvi
     },                                                                          
 ```
 
-## canbus
+## canbus Configuration
 Current the only way to configure for canbus is to manually edit your settings file.
 ```
     {                                                                           
@@ -90,7 +90,7 @@ const pgn = {
 app.emit('nmea2000out', pgn)
 ```
 
-# Canbus 
+# Canbus and SAE J1939
 The canbus provider participates correctly in the SAE J1939 Address Claim Procedure. This means the your canbus device will get a correct canbus address and register with and be recognized by other N2K devices on the network.
 
 By default it attempts to register using address 100, but will adjust accourdingly if there is another device on the network with the same address. If there are issues with that process, you can configure Canboatjs to default to a different address by setting the `preferedAddress` option:
