@@ -8,7 +8,7 @@ Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) 
 
 - Read directly from an Actisense NGT-1 
 - Read from a canbus using [socketcan](https://www.npmjs.com/package/socketcan)
-- Converts input to canboat analyzer json format
+- Supports input in canboat analyzer json format
 - Take input in canboat analyzer json format and convert to binary N2K format and output to the NGT-1 or canbus
 
 # PGN Data
