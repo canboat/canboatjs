@@ -1,4 +1,4 @@
-# canboatjs
+# Canboatjs
 Pure javascript NMEA 2000 decoder and encoder
 
 Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) to javascript and it is inteded to be used with the [Signal K Node Server](https://github.com/SignalK/signalk-server-node)
@@ -116,7 +116,7 @@ By default it attempts to register using address 100, but will adjust accourding
     }                                                                           
 ```
 
-Canboatjs also responds to an ISO Request for PGN 126464, which is a request to find out which PGNs the device transmits. It currently defaults with PGNs supported internally and the PGNs supported bu signalk-to-nmea2000. You can add to this list by providing the `transmitPGNs` option:
+Canboatjs also responds to an ISO Request for PGN 126464, which is a request to find out which PGNs the device transmits. It currently defaults with PGNs supported internally and the PGNs supported by signalk-to-nmea2000. You can add to this list by providing the `transmitPGNs` option:
 ```
     {                                                                           
       "id": "canbus-canboatjse",                                          
