@@ -23,8 +23,8 @@ This program is similar to the canboat `analizer` command-line. It takes input i
 ## to-pgn
 This program takes input in the canboat json format and outputs actisense serial format.
 
-## candumpanalyer
-This program take input in the candump forat and outputs canboat json format
+## candumpanalyzer
+This program take input in the candump format and outputs canboat json format
 
 # Signal K Node Server Configuration
 
