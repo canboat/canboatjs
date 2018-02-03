@@ -18,13 +18,13 @@ The details about the PGN's recognized by canboatjs come from the canboat projec
 # Command Line Programs
 
 ## analyzerjs
-This program is similar to the canboat `analizer` command-line. It takes input in the actisense serial format and outputs canboat json for mat.
+This program is similar to the canboat `analyzer` command-line. It takes input in the actisense serial format and outputs canboat json for mat.
 
 ## to-pgn
 This program takes input in the canboat json format and outputs actisense serial format.
 
 ## candumpanalyzer
-This program take input in the candump format and outputs canboat json format
+This program takes input in the candump format and outputs canboat json format
 
 # Signal K Node Server Configuration
 
