@@ -1,4 +1,6 @@
 # Canboatjs
+![Build status](https://travis-ci.org/sbender9/canboatjs.svg?branch=master)
+
 Pure javascript NMEA 2000 decoder and encoder
 
 Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) to javascript and it is inteded to be used with the [Signal K Node Server](https://github.com/SignalK/signalk-server-node)
