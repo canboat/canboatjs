@@ -1,5 +1,5 @@
 # Canboatjs
-![Build status](https://travis-ci.org/sbender9/canboatjs.svg?branch=master)
+[![Build Status](https://travis-ci.org/sbender9/canboatjs.svg?branch=master)](https://travis-ci.org/sbender9/canboatjs)
 
 Pure javascript NMEA 2000 decoder and encoder
 
