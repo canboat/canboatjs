@@ -1,5 +1,8 @@
 ## Change Log
 
+### v0.0.10 (2018/02/21 22:28 +00:00)
+- [#5](https://github.com/sbender9/canboatjs/pull/5) feature: add support for "ASCII string starting with length byte" fields (@sbender9)
+
 ### v0.0.9 (2018/02/05 02:56 +00:00)
 - [#4](https://github.com/sbender9/canboatjs/pull/4) feature: support latest node server plugin api (@sbender9)
 
