@@ -1,6 +1,6 @@
 {
   "name": "canboatjs",
-  "version": "0.0.12",
+  "version": "1.0.0",
   "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,8 @@
   "bin": {
     "analyzerjs": "./bin/analyzerjs",
     "to-pgn": "./bin/to-pgn",
-    "candumpanalyzerjs": "./bin/candumpanalyzerjs"
+    "candumpanalyzerjs": "./bin/candumpanalyzerjs",
+    "actisense-serialjs": "./bin/actisense-serialjs"
   },
   "keywords": [
     "nmea2000",
