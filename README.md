@@ -3,7 +3,7 @@
 
 Pure javascript NMEA 2000 decoder and encoder
 
-Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) to javascript and it is inteded to be used with the [Signal K Node Server](https://github.com/SignalK/signalk-server-node)
+Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) to javascript and it is intended to be used with the [Signal K Node Server](https://github.com/SignalK/signalk-server-node)
 
 # Contributors
 Canboajs js is built on the backs of a few people whithout whom it would not be possible.
