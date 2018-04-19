@@ -42,8 +42,6 @@ describe('from pgn test data converts', function () {
         fromPgn.on('pgn', (pgn) => {
           try {
             //console.log(JSON.stringify(data.expected))
-            delete pgn.timestamp
-            delete data.expected.timestamp
             
             pgn.should.jsonEqual(data.expected)
             done()
