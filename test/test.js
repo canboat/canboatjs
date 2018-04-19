@@ -70,7 +70,13 @@ describe('to pgn test data converts', function () {
           done()
           return
         }
-        
+
+        if (test.input.startsWith("$PCDIN")) {
+          // PASS - No conversion to PCDIN available at the moment.
+          done()
+          return
+        }
+
         var data = toPgn(test.expected)
         var str = toActisenseSerialFormat(test.expected.pgn, data)
 
