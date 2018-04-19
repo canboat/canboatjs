@@ -1,5 +1,9 @@
 ## Change Log
 
+### v1.0.1 (2018/04/19 20:46 +00:00)
+- [#14](https://github.com/canboat/canboatjs/pull/14) fix: timestamp should be in iso format when parsing $PCDIN sentences (@sarfata)
+- [#11](https://github.com/canboat/canboatjs/pull/11) README s/inteded/intended (@webmasterkai)
+
 ### v1.0.0 (2018/04/06 15:02 +00:00)
 - [#10](https://github.com/canboat/canboatjs/pull/10) feature: add command line actisense serial reader  (@sbender9)
 
