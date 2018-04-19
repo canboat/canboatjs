@@ -42,8 +42,6 @@ describe('from pgn test data converts', function () {
         fromPgn.on('pgn', (pgn) => {
           try {
             //console.log(JSON.stringify(data.expected))
-            delete pgn.timestamp
-            delete data.expected.timestamp
             
             pgn.should.jsonEqual(data.expected)
             done()
@@ -72,7 +70,13 @@ describe('to pgn test data converts', function () {
           done()
           return
         }
-        
+
+        if (test.input.startsWith("$PCDIN")) {
+          // PASS - No conversion to PCDIN available at the moment.
+          done()
+          return
+        }
+
         var data = toPgn(test.expected)
         var str = toActisenseSerialFormat(test.expected.pgn, data)
 
