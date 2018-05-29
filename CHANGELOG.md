@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.0.3 (2018/05/29 19:19 +00:00)
+- [#15](https://github.com/canboat/canboatjs/pull/15) fix: actisense input broken when logging is turned on in node server (@sbender9)
+
 ### v1.0.1 (2018/04/19 20:46 +00:00)
 - [#14](https://github.com/canboat/canboatjs/pull/14) fix: timestamp should be in iso format when parsing $PCDIN sentences (@sarfata)
 - [#11](https://github.com/canboat/canboatjs/pull/11) README s/inteded/intended (@webmasterkai)
