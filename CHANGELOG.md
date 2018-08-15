@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.0 (2018/08/15 17:59 +00:00)
+- [#17](https://github.com/canboat/canboatjs/pull/17) feature: provide connection status to the server (@sbender9)
+
 ### v1.0.4 (2018/08/12 14:50 +00:00)
 - [#16](https://github.com/canboat/canboatjs/pull/16) fix: bin/candumpanalyzerjs not working because of missing fromPgnStream.js (@sbender9)
 
