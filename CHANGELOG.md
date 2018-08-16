@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.1 (2018/08/16 16:08 +00:00)
+- [#18](https://github.com/canboat/canboatjs/pull/18) feature: include the actisence device path in the status message (@sbender9)
+
 ### v1.1.0 (2018/08/15 17:59 +00:00)
 - [#17](https://github.com/canboat/canboatjs/pull/17) feature: provide connection status to the server (@sbender9)
 
