@@ -7884,7 +7884,7 @@
         "Id":"fluidLevel",
         "Description":"Fluid Level",
         "Complete":true,
-        "Length":7,
+        "Length":8,
         "RepeatingFields":0,
         "Fields":[
           {
@@ -7930,6 +7930,16 @@
             "BitStart":0,
             "Units":"L",
             "Resolution":"0.1",
+            "Signed":false},
+          {
+            "Order":5,
+            "Id":"reserved",
+            "Name":"Reserved",
+            "Description":"Reserved",
+            "BitLength":8,
+            "BitOffset":56,
+            "BitStart":0,
+            "Type":"Binary data",
             "Signed":false}]},
       {
         "PGN":127506,
