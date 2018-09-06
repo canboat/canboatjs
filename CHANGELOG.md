@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.2 (2018/09/06 17:34 +00:00)
+- [#20](https://github.com/canboat/canboatjs/pull/20) fix: stops working with invalid/unknown/unrecognized data (@sbender9)
+
 ### v1.1.1 (2018/08/16 16:08 +00:00)
 - [#18](https://github.com/canboat/canboatjs/pull/18) feature: include the actisence device path in the status message (@sbender9)
 
