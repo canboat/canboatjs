@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.3 (2018/09/12 19:17 +00:00)
+- [#22](https://github.com/canboat/canboatjs/pull/22) fix: server crashes if logging is turned on with a canbus device (@sbender9)
+
 ### v1.1.2 (2018/09/06 17:35 +00:00)
 - [#20](https://github.com/canboat/canboatjs/pull/20) fix: stops working with invalid/unknown/unrecognized data (@sbender9)
 
