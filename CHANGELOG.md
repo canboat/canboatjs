@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.4 (2018/09/13 14:05 +00:00)
+- [#23](https://github.com/canboat/canboatjs/pull/23) fix: allow input to be in both "fast" and "plain" (@sbender9)
+
 ### v1.1.3 (2018/09/12 19:17 +00:00)
 - [#22](https://github.com/canboat/canboatjs/pull/22) fix: server crashes if logging is turned on with a canbus device (@sbender9)
 
