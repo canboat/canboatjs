@@ -1,5 +1,10 @@
 ## Change Log
 
+### v1.1.5 (2018/10/14 17:28 +00:00)
+- [#27](https://github.com/canboat/canboatjs/pull/27) chore: update to the latest pgn definitions from canboat (@sbender9)
+- [#26](https://github.com/canboat/canboatjs/pull/26) fix: issues with address claims not being handled properly (@sbender9)
+- [#24](https://github.com/canboat/canboatjs/pull/24) chore: add debugging of toPgn conversion results (@sbender9)
+
 ### v1.1.4 (2018/09/13 14:05 +00:00)
 - [#23](https://github.com/canboat/canboatjs/pull/23) fix: allow input to be in both "fast" and "plain" (@sbender9)
 
