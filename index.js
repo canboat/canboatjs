@@ -22,5 +22,7 @@ module.exports = {
   toPgn: require('./lib/toPgn').toPgn,
   toActisenseSerialFormat: require('./lib/toPgn').toActisenseSerialFormat,
   pgnToActisenseSerialFormat: require('./lib/toPgn').pgnToActisenseSerialFormat,
-  canbus: require('./lib/canbus')
+  pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
+  canbus: require('./lib/canbus'),
+  iKonvert: require('./lib/ikonvert')
 }
