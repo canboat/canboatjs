@@ -35,8 +35,8 @@ This program takes input in the candump format and outputs canboat json format
 
 # Signal K Node Server Configuration
 
-## Actisense NTG-1 Configuration
-You can use the admin ui to use canbusjs with an Actisense NTG-1. Add a new provider, make the input type "NMEA 2000" and select "Actisense NTG-1 (pure js, experimental)" for the "NMEA 2000 Source".
+## Actisense NGT-1 Configuration
+You can use the admin ui to use canbusjs with an Actisense NTG-1. Add a new provider, make the input type "NMEA 2000" and select "Actisense NGT-1 (pure js, experimental)" for the "NMEA 2000 Source".
 
 To configure in the settings file manually, add the following to your pipedProviders and fill in the correct usb device.
 ```
