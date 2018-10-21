@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.6 (2018/10/21 17:55 +00:00)
+- [#30](https://github.com/canboat/canboatjs/pull/30)  chore: update pgns.json to include Airmar: Speed Pulse Count (@sbender9)
+
 ### v1.1.5 (2018/10/14 17:28 +00:00)
 - [#27](https://github.com/canboat/canboatjs/pull/27) chore: update to the latest pgn definitions from canboat (@sbender9)
 - [#26](https://github.com/canboat/canboatjs/pull/26) fix: issues with address claims not being handled properly (@sbender9)
