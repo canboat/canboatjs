@@ -15,6 +15,7 @@ const pgns = [
       "src":2,
       "dst":255,
       "prio":3,
+      "timer": 0.563,
       "fields":{
         "Date": "2141.11.12",
         "Reserved1": "6",
@@ -33,6 +34,7 @@ const pgns = [
       "prio":3,
       "src":2,
       "dst":255,
+      "timer": 483.236,
       "fields":{
         "SID":81,
         "Date":"2018.10.19",
