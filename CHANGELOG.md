@@ -1,5 +1,9 @@
 ## Change Log
 
+### v1.1.7 (2018/10/31 19:24 +00:00)
+- [#32](https://github.com/canboat/canboatjs/pull/32) fix: definition for 127501 (Binary Switch Bank Status) was wrong (@sbender9)
+- [#31](https://github.com/canboat/canboatjs/pull/31) fix: timestamps from actisense log files not formatted properly (@sbender9)
+
 ### v1.1.6 (2018/10/21 17:55 +00:00)
 - [#30](https://github.com/canboat/canboatjs/pull/30)  chore: update pgns.json to include Airmar: Speed Pulse Count (@sbender9)
 
