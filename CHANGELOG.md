@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.8 (2018/11/02 14:33 +00:00)
+- [#33](https://github.com/canboat/canboatjs/pull/33)  fix: revert timestamp change #31 (@sbender9)
+
 ### v1.1.7 (2018/10/31 19:24 +00:00)
 - [#32](https://github.com/canboat/canboatjs/pull/32) fix: definition for 127501 (Binary Switch Bank Status) was wrong (@sbender9)
 - [#31](https://github.com/canboat/canboatjs/pull/31) fix: timestamps from actisense log files not formatted properly (@sbender9)
