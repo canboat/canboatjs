@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const fromPgnStream = new (require('../lib/fromPgnStream'))()
-const canbus = new (require('../index').canbus)({})
+const canbus = new (require('../index').canbus)({fromStdIn:true})
 const { Transform } = require('stream');
 
 const toStringTr = new Transform({
