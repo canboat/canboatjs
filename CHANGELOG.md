@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.9 (2018/11/06 19:57 +00:00)
+- [#34](https://github.com/canboat/canboatjs/pull/34) fix: changes in canboat to 130306 and 129029 broke n2k output (@sbender9)
+
 ### v1.1.8 (2018/11/02 14:33 +00:00)
 - [#33](https://github.com/canboat/canboatjs/pull/33)  fix: revert timestamp change #31 (@sbender9)
 
