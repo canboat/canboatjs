@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.1.10 (2018/12/12 19:52 +00:00)
+- [#37](https://github.com/canboat/canboatjs/pull/37) fix: new bit-buffer release breaks reading n2k data (@sbender9)
+
 ### v1.1.9 (2018/11/06 19:57 +00:00)
 - [#34](https://github.com/canboat/canboatjs/pull/34) fix: changes in canboat to 130306 and 129029 broke n2k output (@sbender9)
 
