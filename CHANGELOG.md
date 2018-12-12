@@ -1,5 +1,9 @@
 ## Change Log
 
+### v1.2.1 (2018/12/12 21:08 +00:00)
+- [#28](https://github.com/canboat/canboatjs/pull/28) feature: add support for Digital Yacht’s iKonvert (@sbender9)
+- [#36](https://github.com/canboat/canboatjs/pull/36) chore: make serialport an optional dependency (@tkurki)
+
 ### v1.1.10 (2018/12/12 19:52 +00:00)
 - [#37](https://github.com/canboat/canboatjs/pull/37) fix: new bit-buffer release breaks reading n2k data (@sbender9)
 
