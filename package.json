@@ -38,7 +38,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "bit-buffer": "^0.2.3",
+    "bit-buffer": "0.2.3",
     "debug": "^3.1.0",
     "int64-buffer": "^0.1.10",
     "lodash": "^4.17.4",
