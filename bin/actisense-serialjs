@@ -2,7 +2,7 @@
 
 var device
 
-if ( process.argv.length < 3 ) {        
+if ( process.argv.length < 3 ) {
   console.error('Please specify a device')
   process.exit(1)
 }
@@ -12,7 +12,7 @@ const { Transform } = require('stream');
 
 const toStringTr = new Transform({
   objectMode: true,
-  
+
   transform(chunk, encoding, callback) {
     this.push(chunk + "\n");
     callback();
@@ -20,4 +20,3 @@ const toStringTr = new Transform({
 });
 
 serial.pipe(toStringTr).pipe(process.stdout)
-
