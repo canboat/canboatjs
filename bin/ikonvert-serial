@@ -3,7 +3,7 @@
 const { Transform } = require('stream');
 const SerialPort = require('serialport')
 
-if ( process.argv.length < 3 ) {        
+if ( process.argv.length < 3 ) {
   console.error('Please specify a device')
   console.error('usage: ikonvert-serial [device] [baud,default:230400]')
   process.exit(1)
@@ -19,7 +19,7 @@ let serial = new SerialPort(device, {
 
 const toStringTr = new Transform({
   objectMode: true,
-  
+
   transform(line, encoding, callback) {
     //this.push(JSON.stringify(chunk) + "\n");
     console.log(line)
@@ -27,7 +27,7 @@ const toStringTr = new Transform({
     if ( line.startsWith('$PDGY,000000,,,,,') ) {
       serial.write('$PDGY,N2NET_INIT,ALL\r\n')
     }
-    
+
     callback();
   }
 });
@@ -46,4 +46,3 @@ serial.on(
     console.log(x)
   }
 )
-

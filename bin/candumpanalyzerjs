@@ -6,7 +6,7 @@ const { Transform } = require('stream');
 
 const toStringTr = new Transform({
   objectMode: true,
-  
+
   transform(chunk, encoding, callback) {
     this.push(JSON.stringify(chunk) + "\n");
     callback();
