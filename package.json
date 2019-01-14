@@ -38,7 +38,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@canboat/pgns": "1.0.x",
+    "@canboat/pgns": "git+https://github.com/oceanplanetenergy/canboat-pgns.git",
     "bit-buffer": "0.2.3",
     "debug": "^3.1.0",
     "int64-buffer": "^0.1.10",
