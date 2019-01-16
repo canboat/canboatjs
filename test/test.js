@@ -20,21 +20,25 @@ describe('from pgn test data converts', function () {
     var dataList = testData[key]
 
     it(`from pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
-
+      let testsRemaining = dataList.length
+      function success() {
+        testsRemaining -= 1
+        if (!testsRemaining) done()
+      }
       dataList.forEach(data => {
         if ( data.disabled ) {
-          done()
+          success()
           return
         }
-        
+
         var fromPgn = new FromPgn({format: 1})
-        
+
         fromPgn.on('error', (pgn, error) => {
           console.error(`Error parsing ${pgn.pgn} ${error}`)
           console.error(error.stack)
           done(error)
         })
-        
+
         fromPgn.on('warning', (pgn, warning) => {
           done(new Error(`${pgn.pgn} ${warning}`))
         })
@@ -42,14 +46,14 @@ describe('from pgn test data converts', function () {
         fromPgn.on('pgn', (pgn) => {
           try {
             //console.log(JSON.stringify(data.expected))
-            
+
             pgn.should.jsonEqual(data.expected)
-            done()
+            success()
           } catch ( e ) {
           done(e)
           }
         })
-        
+
         fromPgn.parseString(data.input)
       })
     })
@@ -64,10 +68,14 @@ describe('to pgn test data converts', function () {
     var dataList = testData[key]
 
     it(`to pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
-
+      let testsRemaining = dataList.length
+      function success() {
+        testsRemaining -= 1
+        if (!testsRemaining) done()
+      }
       dataList.forEach(test => {
         if ( test.disabled ) {
-          done()
+          success()
           return
         }
 
@@ -80,10 +88,8 @@ describe('to pgn test data converts', function () {
         result[2].should.equal(expected[2])
 
         result.slice(5).should.deep.equal(expected.slice(5))
-        done()
+        success()
       })
     })
   })
 })
-
-
