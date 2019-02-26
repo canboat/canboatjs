@@ -5,7 +5,7 @@ chai.use(require('chai-json-equal'));
 
 const { FromPgn } = require('../index')
 
-describe('from pcdin data converts', function () {
+describe('Convert Yacht Devices RAW format data', function () {
 
   var tests = [
     {
@@ -59,29 +59,29 @@ describe('from pcdin data converts', function () {
       }
     }
   ]
-  
+
   tests.forEach(test => {
     it(`from ${test.expected.pgn} converts`, function (done) {
-      
+
       var fromPgn = new FromPgn()
-    
+
       fromPgn.on('error', (pgn, error) => {
         console.error(`Error parsing ${pgn.pgn} ${error}`)
         console.error(error.stack)
         done(error)
       })
-      
+
       fromPgn.on('warning', (pgn, warning) => {
         done(new Error(`${pgn.pgn} ${warning}`))
       })
-      
+
       fromPgn.on('pgn', (pgn) => {
         try {
           //console.log(JSON.stringify(pgn))
-          
+
           let timestamp = pgn.timestamp
           delete pgn.timestamp
-          
+
           pgn.should.jsonEqual(test.expected)
           done()
         } catch ( e ) {
