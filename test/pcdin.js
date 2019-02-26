@@ -47,6 +47,6 @@ describe('from pcdin data converts', function () {
       }
     })
   
-    fromPgn.parseString(pcdin)
+    fromPgn.parseN2KOver0183(pcdin)
   })
 })
