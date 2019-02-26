@@ -1,5 +1,13 @@
 ## Change Log
 
+### v1.3.0 (2019/02/26 19:36 +00:00)
+- [#45](https://github.com/canboat/canboatjs/pull/45) refactor: pcdin implmentation (@sbender9)
+- [#44](https://github.com/canboat/canboatjs/pull/44) refactor: Yacht Devices RAW format code cleanup. #42 (@webmasterkai)
+- [#43](https://github.com/canboat/canboatjs/pull/43) feature: add support for Yacht Devices NMEA 2000 Wi-Fi Gateway (@sbender9)
+- [#40](https://github.com/canboat/canboatjs/pull/40) fix: Handle offset values (@webmasterkai)
+- [#38](https://github.com/canboat/canboatjs/pull/38) style: whitespace (@webmasterkai)
+- [#39](https://github.com/canboat/canboatjs/pull/39) chore: Edit git and editor config (@webmasterkai)
+
 ### v1.2.1 (2018/12/12 21:08 +00:00)
 - [#28](https://github.com/canboat/canboatjs/pull/28) feature: add support for Digital Yacht’s iKonvert (@sbender9)
 - [#36](https://github.com/canboat/canboatjs/pull/36) chore: make serialport an optional dependency (@tkurki)
