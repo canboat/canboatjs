@@ -24,5 +24,6 @@ module.exports = {
   pgnToActisenseSerialFormat: require('./lib/toPgn').pgnToActisenseSerialFormat,
   pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
   canbus: require('./lib/canbus'),
-  iKonvert: require('./lib/ikonvert')
+  iKonvert: require('./lib/ikonvert'),
+  Ydwg02: require('./lib/ydwg02')
 }
