@@ -2,6 +2,7 @@ const chai = require('chai')
 chai.Should()
 chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'));
+chai.use(require('chai-string'));
 
 const { FromPgn } = require('../index')
 
@@ -15,7 +16,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         "prio":2,
         "dst":255,
         "pgn":129025,
-        //"timestamp":"2019-02-26T21:29:27.082Z",
+        "timestamp":"T21:29:27.082Z",
         "fields": {
           "Latitude":33.0875728,
           "Longitude":-97.0205113}
@@ -37,7 +38,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         "prio":3,
         "dst":255,
         "pgn":129029,
-        //"timestamp":"2019-02-26T21:29:27.990Z",
+        "timestamp":"T21:29:27.990Z",
         "fields": {
           "SID":0,
           "Date":"2019.02.17",
@@ -81,7 +82,9 @@ describe('Convert Yacht Devices RAW format data', function () {
 
           let timestamp = pgn.timestamp
           delete pgn.timestamp
-
+          timestamp.should.endWith(test.expected.timestamp)
+          delete test.expected.timestamp
+          
           pgn.should.jsonEqual(test.expected)
           done()
         } catch ( e ) {
