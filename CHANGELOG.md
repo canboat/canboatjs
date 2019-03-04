@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.3.1 (2019/03/04 14:49 +00:00)
+- [#47](https://github.com/canboat/canboatjs/pull/47) fix: YDWG date parse error (@jncarter123)
+
 ### v1.3.0 (2019/02/26 19:36 +00:00)
 - [#45](https://github.com/canboat/canboatjs/pull/45) refactor: pcdin implmentation (@sbender9)
 - [#44](https://github.com/canboat/canboatjs/pull/44) refactor: Yacht Devices RAW format code cleanup. #42 (@webmasterkai)
