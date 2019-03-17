@@ -93,3 +93,30 @@ describe('to pgn test data converts', function () {
     })
   })
 })
+
+describe('callback is called', function (done) {
+  const testData = require('./pgns/59392')
+  const fromPgn = new FromPgn({ format: 1 })
+
+  it('successfully for string input', done => {
+    fromPgn.parse(testData[0].input, (err, result) => {
+      result.should.deep.equal(testData[0].expected)
+      done()
+    })
+  })
+
+  // it('with error', done => {
+  //   const testData = require('./pgns/59392')
+  //   const fromPgn = new FromPgn({ format: 1 })
+  //   //error is emitted, so we must have an error handler
+  //   fromPgn.on('error', err => { })
+  //   fromPgn.parse(testData[0].input.replace(',ff,', ',kk,'), (err, result) => {
+  //     try {
+  //       (typeof err).should.not.equal('undefined')
+  //       done()
+  //     } catch (err) {
+  //       done(err)
+  //     }
+  //   })
+  // })
+})
