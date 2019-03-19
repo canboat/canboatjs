@@ -1,5 +1,8 @@
 ## Change Log
 
+### v1.4.0 (2019/03/19 17:34 +00:00)
+- [#48](https://github.com/canboat/canboatjs/pull/48) feature: add callback interface to parse (@tkurki)
+
 ### v1.3.1 (2019/03/04 14:49 +00:00)
 - [#47](https://github.com/canboat/canboatjs/pull/47) fix: YDWG date parse error (@jncarter123)
 
