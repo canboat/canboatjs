@@ -26,5 +26,7 @@ module.exports = {
   pgnToYdwgRawFormat: require('./lib/toPgn').pgnToYdwgRawFormat,
   canbus: require('./lib/canbus'),
   iKonvert: require('./lib/ikonvert'),
-  Ydwg02: require('./lib/ydwg02')
+  Ydwg02: require('./lib/ydwg02'),
+  Venus: require('./lib/venus'),
+  VenusMQTT: require('./lib/venus-mqtt')
 }
