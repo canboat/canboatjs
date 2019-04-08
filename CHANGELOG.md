@@ -1,5 +1,9 @@
 ## Change Log
 
+### v1.5.1 (2019/04/08 21:25 +00:00)
+- [#52](https://github.com/canboat/canboatjs/pull/52) fix: issues with the YDWG (@sbender9)
+- [#51](https://github.com/canboat/canboatjs/pull/51) feature: add support NMEA 2000 via MQTT on Venus (@sbender9)
+
 ### v1.5.0 (2019/04/04 13:53 +00:00)
 - [#50](https://github.com/canboat/canboatjs/pull/50) feature: add the ability for to ouput to the YDWG-02 (@jncarter123)
 
