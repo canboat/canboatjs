@@ -27,11 +27,19 @@ The details about the PGN's recognized by Canboatjs come from the canboat projec
 ## analyzerjs
 This program is similar to the canboat `analyzer` command-line. It takes input in the actisense serial format and outputs canboat json for mat.
 
+Examples: 
+
+- `actisense-serialjs /dev/ttyUSB0 | analyzerjs`
+- `ikonvert-serial /dev/ttyUSB0 | analyzerjs`
+- `nc ydgw 1475 | analyzerjs`
+
 ## to-pgn
 This program takes input in the canboat json format and outputs actisense serial format.
 
 ## candumpanalyzer
 This program takes input in the candump format and outputs canboat json format
+
+Example: `candump can0 | candumpanalyzer`
 
 # Use in your own software
 
