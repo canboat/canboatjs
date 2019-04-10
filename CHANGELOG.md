@@ -1,5 +1,10 @@
 ## Change Log
 
+### v1.5.2 (2019/04/10 12:29 +00:00)
+- [#55](https://github.com/canboat/canboatjs/pull/55) fix: make iKonvert and YDGW emit nmea2000OutAvailable (@sbender9)
+- [#54](https://github.com/canboat/canboatjs/pull/54) fix: some proprietary pgns not getting parsed with the YDGW (@sbender9)
+- [#53](https://github.com/canboat/canboatjs/pull/53) fix: YDGW output broken (@sbender9)
+
 ### v1.5.1 (2019/04/08 21:25 +00:00)
 - [#52](https://github.com/canboat/canboatjs/pull/52) fix: issues with the YDWG (@sbender9)
 - [#51](https://github.com/canboat/canboatjs/pull/51) feature: add support NMEA 2000 via MQTT on Venus (@sbender9)
