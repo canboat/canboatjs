@@ -1,7 +1,6 @@
 # Canboatjs
 
 [![npm version](https://img.shields.io/npm/v/@canboat/canboatjs.svg)](https://www.npmjs.com/@canboat/canboatjs)
-[![Build Status](https://travis-ci.org/sbender9/canboatjs.svg?branch=master)](https://travis-ci.org/sbender9/canboatjs)
 
 Pure javascript NMEA 2000 decoder and encoder
 
@@ -159,4 +158,48 @@ Output:  `!PDGY,127245,255,/Pj/f/9///8=`
 
 ## Generate YDGW-02 format from canboat json
 
+```js
+const pgnToYdwgRawFormat = require('./index').pgnToYdwgRawFormat
 
+const array = pgnToYdwgRawFormat({
+  "src":127,
+  "prio":3,
+  "dst":255,
+  "pgn":129029,
+  "fields": {
+    "SID":0,
+    "Date":"2019.02.17",
+    "Time":"16:29:28",
+    "Latitude":33.08757283333333,
+    "Longitude":-97.02051133333333,
+    "Altitude":148.94,
+    "GNSS type":"GPS+GLONASS",
+    "Method":"GNSS fix",
+    "Integrity":"No integrity checking",
+    "Number of SVs":0,
+    "HDOP":0.5,
+    "PDOP":1,
+    "Geoidal Separation":-24,
+    "Reference Stations":0,
+    "list":[{"Reference Station ID":15}]
+  },
+})
+
+if ( array ) {
+  console.log(JSON.stringify(array, null, 2))
+}
+```
+
+Output:
+
+```json
+[
+  "0df8057f 40 2f 00 18 46 80 d6 62",
+  "0df8057f 41 23 40 63 1b cc b8 81",
+  "0df8057f 42 97 04 7f c2 7f fc 96",
+  "0df8057f 43 23 89 f2 e0 a4 e0 08",
+  "0df8057f 44 00 00 00 00 12 fc 00",
+  "0df8057f 45 32 00 64 00 a0 f6 ff",
+  "0df8057f 46 ff 00 ff 00 ff ff ff"
+]
+```
