@@ -1,4 +1,6 @@
 # Canboatjs
+
+[![npm version](https://img.shields.io/npm/v/@canboat/canboatjs.svg)](https://www.npmjs.com/@canboat/canboatjs)
 [![Build Status](https://travis-ci.org/sbender9/canboatjs.svg?branch=master)](https://travis-ci.org/sbender9/canboatjs)
 
 Pure javascript NMEA 2000 decoder and encoder
@@ -13,13 +15,12 @@ Canboajs js is built on the backs of a few people whithout whom it would not be 
 
 # Features
 
-- Read directly from an Actisense NGT-1 
-- Read from a canbus using [socketcan](https://www.npmjs.com/package/socketcan)
+- Read directly from an Actisense NGT-1, canbus devices, Digital Yachts' iKonvert and Yacht Devices YDWG-02
 - Supports input in canboat analyzer json format
-- Take input in canboat analyzer json format and convert to binary N2K format and output to the NGT-1 or canbus
+- Take input in canboat analyzer json format and convert to binary N2K format and output to supported devices
 
 # PGN Descriptions
-The details about the PGN's recognized by Canboatjs come from the canboat project in [pgns.json](https://github.com/canboat/canboat/blob/master/analyzer/pgns.json). If you want to add or update PGN details, please make changes to the pgn.h file in canboat and submit a pull request there. Include sample data and raise an issue here so that I can include your changes in Canboatjs.
+The details about the PGN's recognized by Canboatjs come from the canboat project in [pgns.json](https://github.com/canboat/pgns). If you want to add or update PGN details, please make changes to the pgn.h file in canboat and submit a pull request there. Include sample data and raise an issue here so that I can include your changes in Canboatjs.
 
 
 # Command Line Programs
@@ -33,115 +34,129 @@ This program takes input in the canboat json format and outputs actisense serial
 ## candumpanalyzer
 This program takes input in the candump format and outputs canboat json format
 
-# Signal K Node Server Configuration
+# Use in your own software
 
-## Actisense NGT-1 Configuration
-You can use the admin ui to use canbusjs with an Actisense NTG-1. Add a new provider, make the input type "NMEA 2000" and select "Actisense NGT-1 (pure js, experimental)" for the "NMEA 2000 Source".
+## Installation
 
-To configure in the settings file manually, add the following to your pipedProviders and fill in the correct usb device.
-```
-    {                                                                           
-      "id": "actisense-canboatjs",                                                        
-      "pipeElements": [                                                         
-        {                                                                       
-          "type": "providers/actisense-serial",                                 
-          "options": {                                                          
-            "device": "/dev/ttyUSB0"                                            
-          }                                                                     
-        },                                                                      
-        {                                                                       
-          "type": "providers/canboatjs"                                         
-        },                                                                      
-        {                                                                       
-          "type": "providers/n2k-signalk",                                      
-        }                                                                       
-      ],                                                                        
-      "enabled": true                                                          
-    },                                                                          
+- `npm install @canboat/canboatjs`
+
+## Create the parser
+
+```js
+const FromPgn = require('@canboat/canboatjs').FromPgn
+
+const parser = new FromPgn()
+
+parser.on('warning', (pgn, warning) => {
+  console.log(`[warning] ${pgn.pgn} ${warning}`)
+})
+
 ```
 
-## canbus Configuration
-Current the only way to configure for canbus is to manually edit your settings file.
-```
-    {                                                                           
-      "id": "canbus-canboatjse",                                          
-      "enabled": true,                                                          
-      "pipeElements": [                                                         
-        {                                                                       
-          "type": "providers/canbus",                                           
-          "options": {
-            "canDevice": "can0"
-          }                                                                     
-        },                                                                      
-        {                                                                       
-          "type": "providers/canboatjs"                                         
-        },                                                                      
-        {                                                                       
-          "type": "providers/n2k-signalk"                                       
-        }                                                                       
-      ]                                                                         
-    }                                                                           
-```
+## Parse input from the Actisense NGT-1 or iKonvert string formats
 
-# Sending NMEA 2000 PGNs From Node Server Plugins
-You can send out N2K PGNs from server plugins by emiting 'nmea2000out' to the app object in either actisense serial format or analizer json format. Please note that the [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) plugin can convert many things in Signal K to N2K and automatically output via Canboatjs.
-
-#### Example Output In a Plugin
-```
-const pgn = {
-  pgn: 130306,
-  'Wind Speed': speed,
-  'Wind Angle': angle < 0 ? angle + Math.PI*2 : angle,
-  'Reference': "Apparent"
+```js
+const json = parser.parseString('2017-03-13T01:00:00.146Z,2,127245,204,255,8,fc,f8,ff,7f,ff,7f,ff,ff')
+if ( json ) {
+  console.log(JSON.stringify(json))
 }
-app.emit('nmea2000out', pgn)
+
 ```
 
-# Canbus and SAE J1939
-The canbus provider participates correctly in the SAE J1939 Address Claim Procedure. This means the your canbus device will get a correct canbus address and register with and be recognized by other N2K devices on the network.
-
-By default it attempts to register using address 100, but will adjust accourdingly if there is another device on the network with the same address. If there are issues with that process, you can configure Canboatjs to default to a different address by setting the `preferedAddress` option:
-```
-    {                                                                           
-      "id": "canbus-canboatjse",                                          
-      "enabled": true,                                                          
-      "pipeElements": [                                                         
-        {                                                                       
-          "type": "providers/canbus",                                           
-          "options": {
-            "canDevice": "can0",
-            "preferredAddress": 7
-          }                                                                     
-        },                                                                      
-        {                                                                       
-          "type": "providers/canboatjs"                                         
-        },                                                                      
-        {                                                                       
-          "type": "providers/n2k-signalk"                                       
-        }                                                                       
-      ]                                                                         
-    }                                                                           
+Output:
+```json
+{
+   "description" : "Rudder",
+   "dst" : 255,
+   "prio" : 2,
+   "pgn" : 127245,
+   "fields" : {
+      "Reserved1" : "62",
+      "Direction Order" : 0,
+      "Instance" : 252
+   },
+   "src" : 204,
+   "timestamp" : "2017-03-13T01:00:00.146Z"
+}
 ```
 
-Canboatjs also responds to an ISO Request for PGN 126464, which is a request to find out which PGNs the device transmits. It currently defaults with PGNs supported internally and the PGNs supported by signalk-to-nmea2000. You can add to this list by providing the `transmitPGNs` option:
+## Parse input from the YDWG-02
+
+```js
+const json = parser.parseString('16:29:27.082 R 09F8017F 50 C3 B8 13 47 D8 2B C6')
+if ( json ) {
+  console.log(JSON.stringify(json))
+}
 ```
-    {                                                                           
-      "id": "canbus-canboatjse",                                          
-      "enabled": true,                                                          
-      "pipeElements": [                                                         
-        {                                                                       
-          "type": "providers/canbus",                                           
-          "options": {
-            "canDevice": "can0",
-            "transmitPGNs": [ 123456, 123457 ] 
-          }                                                                     
-        },                                                                      
-        {                                                                       
-          "type": "providers/canboatjs"                                         
-        },                                                                      
-        {                                                                       
-          "type": "providers/n2k-signalk"                                       
-        }                                                                       
-      ]                                                                         
-    }                                                                           
+
+Output:
+```json
+{
+   "src" : 127,
+   "pgn" : 129025,
+   "description" : "Position, Rapid Update",
+   "timestamp" : "2019-04-10T20:29:27.082Z",
+   "dst" : 255,
+   "prio" : 2,
+   "fields" : {
+      "Latitude" : 33.0875728,
+      "Longitude" : -97.0205113
+   }
+}
 ```
+
+## Generate Actisense format from canboat json
+
+```js
+const pgnToActisenseSerialFormat = require('./index').pgnToActisenseSerialFormat
+
+const string = pgnToActisenseSerialFormat({
+   "dst" : 255,
+   "prio" : 2,
+   "pgn" : 127245,
+   "fields" : {
+      "Reserved1" : "62",
+      "Direction Order" : 0,
+      "Instance" : 252
+   },
+   "src" : 204,
+})
+
+if ( string ) {
+  console.log(string)
+}
+```
+
+Output:
+
+`2019-04-10T12:00:32.733Z,2,127245,0,255,8,fc,f8,ff,7f,ff,7f,ff,ff`
+
+## Generate iKconvert format from canboat json
+
+```js
+
+
+const pgnToiKonvertSerialFormat = require('./index').pgnToiKonvertSerialFormat
+
+const string = pgnToiKonvertSerialFormat({
+   "dst" : 255,
+   "prio" : 2,
+   "pgn" : 127245,
+   "fields" : {
+      "Reserved1" : "62",
+      "Direction Order" : 0,
+      "Instance" : 252
+   },
+   "src" : 204,
+})
+
+if ( string ) {
+  console.log(string)
+}
+```
+
+Output:  `!PDGY,127245,255,/Pj/f/9///8=`
+
+## Generate YDGW-02 format from canboat json
+
+
