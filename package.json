@@ -7,7 +7,8 @@
     "test": "mocha --exit",
     "changelog": "github-changes -o canboat -r canboatjs -a --only-pulls --use-commit-body --data=pulls  --tag-name=v$npm_package_version",
     "release": "git tag -d v$npm_package_version; npm run changelog && git add CHANGELOG.md && git commit -m 'chore: update changelog' && git tag v$npm_package_version && git push --tags && git push",
-    "build": "WEBPACK_ENV=build webpack"
+    "build": "WEBPACK_ENV=build webpack",
+    "dev": "WEBPACK_ENV=dev webpack --progress --colors --watch"
   },
   "bin": {
     "analyzerjs": "./bin/analyzerjs",
@@ -47,9 +48,7 @@
     "lodash": "^4.17.4",
     "mqtt": "^2.18.8",
     "sleep": "^6.0.0",
-    "split": "^1.0.1",
-    "webpack": "^4.29.6",
-    "webpack-cli": "^3.3.0"
+    "split": "^1.0.1"
   },
   "devDependencies": {
     "chai": "^4.1.2",
@@ -57,7 +56,9 @@
     "chai-things": "^0.2.0",
     "github-changes": "^1.1.2",
     "chai-string": "^1.5.0",
-    "mocha": "^5.0.0"
+    "mocha": "^5.0.0",
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
   },
   "optionalDependencies": {
     "serialport": "^6.0.0",
