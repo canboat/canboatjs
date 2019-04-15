@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Copyright 2016/2017 Signal K and Fabian Tollenaar <fabian@signalk.org>.
+ * Copyright 2019 Scott Bender <scott@scottbender.net>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
