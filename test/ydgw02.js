@@ -93,7 +93,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         }
       })
       test.input.forEach(sentence => {
-        fromPgn.parseYDWG02(sentence)
+        fromPgn.parseYDGW02(sentence)
       })
     })
   })
