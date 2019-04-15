@@ -1,0 +1,36 @@
+#!/usr/bin/env node
+
+const Parser = require('../index').FromPgn
+var parser = new Parser()
+
+parser.on('error', (pgn, error) => {
+  console.error(`Error parsing ${pgn.pgn} ${error}`)
+  console.error(error.stack)
+})
+
+parser.on('warning', (pgn, error) => {
+  //console.error(`Warning parsing ${pgn.pgn} ${error}`)
+})
+
+/*
+parser.on('pgn', (pgn) => {
+  console.log(JSON.stringify(pgn))
+})
+*/
+
+
+var readline = require('readline')
+var rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: false
+})
+
+var input = []
+rl.on('line', function (line) {
+  const res = parser.parseYDGW02(line)
+  //console.log(line + ': ' + JSON.stringify(res))
+  if ( res ) {
+    console.log(JSON.stringify(res))
+  }
+})
