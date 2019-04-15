@@ -1,3 +1,4 @@
+const moment = require('moment')
 const chai = require('chai')
 chai.Should()
 chai.use(require('chai-things'))
@@ -16,7 +17,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         "prio":2,
         "dst":255,
         "pgn":129025,
-        "timestamp":"T16:29:27.082Z",
+        "timestamp":"16:29:27.082",
         "fields": {
           "Latitude":33.0875728,
           "Longitude":-97.0205113}
@@ -38,7 +39,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         "prio":3,
         "dst":255,
         "pgn":129029,
-        "timestamp":"T16:29:27.990Z",
+        "timestamp":"16:29:27.990",
         "fields": {
           "SID":0,
           "Date":"2019.02.17",
@@ -82,7 +83,7 @@ describe('Convert Yacht Devices RAW format data', function () {
 
           let timestamp = pgn.timestamp
           delete pgn.timestamp
-          timestamp.should.endWith(test.expected.timestamp)
+          moment(timestamp).format('HH:mm:ss.SSS').should.equal(test.expected.timestamp)
           delete test.expected.timestamp
 
           pgn.should.jsonEqual(test.expected)

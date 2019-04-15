@@ -1,4 +1,4 @@
 module.exports = [{
-  "expected": {"timestamp":"2017-04-15T14:57:58.726Z","prio":4,"src":43,"dst":255,"pgn":129038,"description":"AIS Class A Position Report","fields":{"Message ID":1,"Repeat Indicator":"Initial","User ID":367515850,"Longitude":-76.3859882,"Latitude":39.0746050,"Position Accuracy":"High","RAIM":"not in use","Time Stamp":"59","COG":5.6933,"SOG":0.00,"Communication State":"34965","AIS Transceiver information":"Channel A VDL reception","Heading":0.0698,"Rate of Turn":0.00000,"Nav Status":"Under way using engine","Regional Application":0}},
-  "input": "2017-04-15T14:57:58.726Z,4,129038,43,255,27,01,ca,d8,e7,15,56,6c,78,d2,c2,4f,4a,17,ed,65,de,00,00,95,88,00,ba,02,00,00,f0,fe"
+  "expected": {"timestamp":"2019-04-15T15:12:21.553Z","prio":4,"pgn":129038,"src":43,"dst":255,"fields":{"Message ID":1,"Repeat Indicator":"Initial","User ID":367306490,"Longitude":-76.5379949,"Latitude":39.241965,"Position Accuracy":"Low","RAIM":"not in use","Time Stamp":"22","COG":5.4297,"SOG":1.95,"Communication State":"2257","AIS Transceiver information":"Channel B VDL reception","Special Maneuver Indicator":"Not available","Reserved1":"0","AIS Spare":"0","Reserved2":"0"},"description":"AIS Class A Position Report"},
+  "input": "2019-04-15T15:12:21.553Z,4,129038,43,255,28,01,fa,a6,e4,15,93,3a,61,d2,42,d9,63,17,58,19,d4,c3,00,d1,08,08,ff,ff,ff,7f,0f,00,ff"
 }]
