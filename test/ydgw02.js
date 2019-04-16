@@ -22,6 +22,7 @@ describe('Convert Yacht Devices RAW format data', function () {
           "Latitude":33.0875728,
           "Longitude":-97.0205113}
         ,
+        canId: 0x09F8017F,
         "description":"Position, Rapid Update"
       }
     },
@@ -57,6 +58,7 @@ describe('Convert Yacht Devices RAW format data', function () {
           "Reference Stations":0,
           "list":[{"Reference Station ID":15}]
           },
+        canId: 0x0DF8057F,
         "description":"GNSS Position Data"
       }
     }
