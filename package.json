@@ -4,7 +4,8 @@
   "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --exit",
+    "dev-test": "jest --watch",
+    "test": "jest && mocha --exit",
     "create-release": "github-create-release --owner canboat --repository canboatjs",
     "release": "git tag -d v$npm_package_version && git tag v$npm_package_version && git push --tags && git push && npm run create-release"
   },
@@ -14,12 +15,21 @@
     "candumpanalyzerjs": "./bin/candumpanalyzerjs",
     "actisense-serialjs": "./bin/actisense-serialjs"
   },
+  "jest": {
+    "rootDir": "lib"
+  },
   "keywords": [
-    "nmea2000",
-    "signalk",
-    "signal",
+    "boat",
+    "bus",
+    "can",
+    "canboat",
     "k",
-    "parser"
+    "marine",
+    "nmea2000",
+    "parser",
+    "pgn",
+    "signalk",
+    "signal"
   ],
   "author": "Scott Bender <scott@scottbender.net>",
   "contributors": [
@@ -54,13 +64,14 @@
     "chai-json-equal": "0.0.1",
     "chai-string": "^1.5.0",
     "chai-things": "^0.2.0",
+    "jest": "^24.7.1",
     "mocha": "^5.0.0",
     "moment": "^2.24.0"
   },
   "optionalDependencies": {
+    "mdns": "^2.3.4",
     "serialport": "^6.0.0",
-    "socketcan": "^2.2.2",
-    "mdns": "^2.3.4"
+    "socketcan": "^2.2.2"
   },
   "repository": {
     "type": "git",
