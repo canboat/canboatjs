@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { toPgn, pgnToActisenseSerialFormat, pgnToiKonvertSerialFormat} = require('../index')
-const { encodeActisense } = require('../stringMsg')
+const { encodeActisense } = require('../lib/stringMsg')
 
 var readline = require('readline')
 var rl = readline.createInterface({
