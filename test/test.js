@@ -5,7 +5,8 @@ chai.use(require('chai-json-equal'));
 
 const fs = require('fs')
 const _ = require("lodash")
-const { FromPgn, toPgn, toActisenseSerialFormat} = require('../index')
+const { FromPgn, toPgn } = require('../index')
+const { encodeActisense } = require('../stringMsg')
 
 const testData = {}
 fs
@@ -59,8 +60,6 @@ describe('from pgn test data converts', function () {
     })
   })
 })
-
-
 
 describe('to pgn test data converts', function () {
 

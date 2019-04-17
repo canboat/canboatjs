@@ -20,7 +20,7 @@ module.exports = {
   FromPgn: require('./lib/fromPgn').Parser,
   serial: require('./lib/serial'),
   toPgn: require('./lib/toPgn').toPgn,
-  toActisenseSerialFormat: require('./lib/toPgn').toActisenseSerialFormat,
+  toActisenseSerialFormat: require('./lib/stringMsg').encodeActisense,
   pgnToActisenseSerialFormat: require('./lib/toPgn').pgnToActisenseSerialFormat,
   pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
   pgnToYdwgRawFormat: require('./lib/toPgn').pgnToYdwgRawFormat,
