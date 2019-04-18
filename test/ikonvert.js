@@ -71,22 +71,21 @@ describe('to ikconnect data converts', function () {
 })
 
 describe('from ikconnect data converts', function () {
-
   pgns.forEach(info => {
     it(`from ${info.expected.pgn} converts`, function (done) {
-    
+
       var fromPgn = new FromPgn()
-      
+
       fromPgn.on('error', (pgn, error) => {
         console.error(`Error parsing ${pgn.pgn} ${error}`)
         console.error(error.stack)
         done(error)
       })
-      
+
       fromPgn.on('warning', (pgn, warning) => {
         done(new Error(`${pgn.pgn} ${warning}`))
       })
-      
+
       fromPgn.on('pgn', (pgn) => {
         try {
           //console.log(JSON.stringify(pgn))
@@ -97,8 +96,20 @@ describe('from ikconnect data converts', function () {
           done(e)
         }
       })
-      
+
       fromPgn.parseString(info.pdgy)
     })
+  })
+  it('errors out on invalid string', (done) => {
+    const fromPgn = new FromPgn()
+    fromPgn.on('error', (pgn, err) => {
+      pgn.input.should.equal('!PDSOME,1234,invalid,3,2,255,fwD8AIAA')
+      err.message.should.equal('Parser not found for input.')
+      done()
+    })
+    fromPgn.on('pgn', (pgn) => {
+      done(new Error('should not emit pgn'))
+    })
+    fromPgn.parseString('!PDSOME,1234,invalid,3,2,255,fwD8AIAA')
   })
 })

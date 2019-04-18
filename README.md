@@ -29,7 +29,7 @@ The details about the PGN's recognized by Canboatjs come from the canboat projec
 ## analyzerjs
 This program is similar to the canboat `analyzer` command-line. It takes input in the actisense serial format and outputs canboat json for mat.
 
-Examples: 
+Examples:
 
 - `actisense-serialjs /dev/ttyUSB0 | analyzerjs`
 - `ikonvert-serial /dev/ttyUSB0 | analyzerjs`
@@ -212,4 +212,51 @@ Output:
   "0df8057f 45 32 00 64 00 a0 f6 ff",
   "0df8057f 46 ff 00 ff 00 ff ff ff"
 ]
+```
+
+## Parse a N2K string into canId parts and create Buffer
+
+Before the conversion of the individual fields happens the string needs to be parsed for attributes like priority, pgn, destination, source (collectively the CanId) and the hex or base64 needs to be converted to a Buffer. Use `parseN2kString` for this purpose.
+
+```javascript
+const { parseN2kString } = require('@canboat/canboatjs')
+
+const n2kParts1 = parseN2kString('$PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59')
+const matches1 = (n2kParts1 === {
+  data: Buffer.from('2AAF00D1067414FF', 'hex'),
+  dst: 255,
+  format: 'PCDIN',
+  prefix: '$PCDIN',
+  pgn: 127257,
+  prio: 0,
+  src: 15,
+  timer: 0,
+  timestamp: new Date(0),
+})
+
+const n2kParts2 = parseN2kString('16:29:27.082 R 09F8017F 50 C3 B8 13 47 D8 2B C6')
+const today = (new Date()).toISOString().split('T')[0]
+const matches2 = (n2kParts2 === {
+  canId: 0x09F8017F,
+  data: Buffer.from('50C3B81347D82BC6', 'hex'),
+  direction: 'R',
+  dst: 255,
+  format: 'YDRAW',
+  pgn: 129025,
+  prio: 2,
+  src: 127,
+  timestamp: new Date(`${today}T16:29:27.082Z`),
+})
+
+const n2kParts3 = parseN2kString('2016-04-09T16:41:09.078Z,3,127257,17,255,8,00,ff,7f,52,00,21,fe,ff')
+const matches3 = (n2kParts3 === {
+  data: Buffer.from('00ff7f520021feff', 'hex'),
+  dst: 255,
+  len: 8,
+  format: 'Actisense',
+  pgn: 127257,
+  prio: 3,
+  src: 17,
+  timestamp: '2016-04-09T16:41:09.078Z',
+})
 ```

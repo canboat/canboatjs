@@ -81,11 +81,9 @@ describe('Convert Yacht Devices RAW format data', function () {
 
       fromPgn.on('pgn', (pgn) => {
         try {
-          //console.log(JSON.stringify(pgn))
-
-          let timestamp = pgn.timestamp
+          const timestamp = pgn.timestamp.split('T')[1]
           delete pgn.timestamp
-          moment(timestamp).format('HH:mm:ss.SSS').should.equal(test.expected.timestamp)
+          timestamp.should.equal(test.expected.timestamp + 'Z')
           delete test.expected.timestamp
 
           pgn.should.jsonEqual(test.expected)

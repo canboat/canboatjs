@@ -5,7 +5,8 @@ chai.use(require('chai-json-equal'));
 
 const fs = require('fs')
 const _ = require("lodash")
-const { FromPgn, toPgn, toActisenseSerialFormat} = require('../index')
+const { FromPgn, toPgn } = require('../index')
+const { encodeActisense } = require('../lib/stringMsg')
 
 const testData = {}
 fs
@@ -46,7 +47,7 @@ describe('from pgn test data converts', function () {
         fromPgn.on('pgn', (pgn) => {
           try {
             //console.log(JSON.stringify(data.expected))
-
+            pgn.timestamp.should.be.a('string')
             pgn.should.jsonEqual(data.expected)
             success()
           } catch ( e ) {
@@ -59,8 +60,6 @@ describe('from pgn test data converts', function () {
     })
   })
 })
-
-
 
 describe('to pgn test data converts', function () {
 
@@ -80,7 +79,7 @@ describe('to pgn test data converts', function () {
         }
 
         var data = toPgn(test.expected)
-        var str = toActisenseSerialFormat(test.expected.pgn, data)
+        var str = encodeActisense({ pgn: test.expected.pgn, data })
 
         var expected = test.input.split(',')
         var result = str.split(',')
