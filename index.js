@@ -18,6 +18,7 @@
 
 module.exports = {
   FromPgn: require('./lib/fromPgn').Parser,
+  parseN2kString: require('./lib/stringMsg').parseN2kString,
   serial: require('./lib/serial'),
   toPgn: require('./lib/toPgn').toPgn,
   toActisenseSerialFormat: require('./lib/stringMsg').toActisenseSerialFormat,
