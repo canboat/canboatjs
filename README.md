@@ -248,5 +248,17 @@ const matches2 = (n2kParts2 === {
   timestamp: new Date(`${today}T16:29:27.082Z`),
 })
 
+const n2kParts3 = parseN2kString('2016-04-09T16:41:09.078Z,3,127257,17,255,8,00,ff,7f,52,00,21,fe,ff')
+const matches3 = (n2kParts3 === {
+  canId: 0x09F8017F,
+  data: Buffer.from('50C3B81347D82BC6', 'hex'),
+  direction: 'R',
+  dst: 255,
+  format: 'YDRAW',
+  pgn: 129025,
+  prio: 2,
+  src: 127,
+  timestamp: new Date(`${today}T16:29:27.082Z`),
+})
 
 ```
