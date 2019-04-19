@@ -17,7 +17,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         "prio":2,
         "dst":255,
         "pgn":129025,
-        "timestamp":"16:29:27.082",
+        "time":"16:29:27.082",
         "fields": {
           "Latitude":33.0875728,
           "Longitude":-97.0205113}
@@ -40,7 +40,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         "prio":3,
         "dst":255,
         "pgn":129029,
-        "timestamp":"16:29:27.990",
+        "time":"16:29:27.990",
         "fields": {
           "SID":0,
           "Date":"2019.02.17",
@@ -81,11 +81,7 @@ describe('Convert Yacht Devices RAW format data', function () {
 
       fromPgn.on('pgn', (pgn) => {
         try {
-          const timestamp = pgn.timestamp.split('T')[1]
           delete pgn.timestamp
-          timestamp.should.equal(test.expected.timestamp + 'Z')
-          delete test.expected.timestamp
-
           pgn.should.jsonEqual(test.expected)
           done()
         } catch ( e ) {
