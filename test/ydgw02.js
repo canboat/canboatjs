@@ -6,25 +6,28 @@ chai.use(require('chai-json-equal'));
 chai.use(require('chai-string'));
 
 const { FromPgn } = require('../index')
+const { pgnToYdgwRawFormat } = require('../lib/toPgn')
+
+const positionInfo = {
+  "src":127,
+  "prio":2,
+  "dst":255,
+  "pgn":129025,
+  "timestamp":"16:29:27.082",
+  "fields": {
+    "Latitude":33.0875728,
+    "Longitude":-97.0205113}
+  ,
+  canId: 0x09F8017F,
+  "description":"Position, Rapid Update"
+}
 
 describe('Convert Yacht Devices RAW format data', function () {
 
   var tests = [
     {
       input: [ '16:29:27.082 R 09F8017F 50 C3 B8 13 47 D8 2B C6'],
-      expected: {
-        "src":127,
-        "prio":2,
-        "dst":255,
-        "pgn":129025,
-        "timestamp":"16:29:27.082",
-        "fields": {
-          "Latitude":33.0875728,
-          "Longitude":-97.0205113}
-        ,
-        canId: 0x09F8017F,
-        "description":"Position, Rapid Update"
-      }
+      expected: positionInfo
     },
     {
       input: [ '16:29:27.986 R 0DF8057F 00 2B 00 18 46 80 D6 62',
@@ -96,5 +99,11 @@ describe('Convert Yacht Devices RAW format data', function () {
         fromPgn.parseYDGW02(sentence)
       })
     })
+  })
+  it('should create ydraw string from fully parsed n2k', (done) => {
+    pgnToYdgwRawFormat(positionInfo).should.eql([
+      '09f8017f 50 c3 b8 13 47 d8 2b c6'
+    ])
+    done()
   })
 })
