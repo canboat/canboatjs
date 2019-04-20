@@ -13,7 +13,7 @@ const positionInfo = {
   "prio":2,
   "dst":255,
   "pgn":129025,
-  "timestamp":"16:29:27.082",
+  "time":"16:29:27.082",
   "fields": {
     "Latitude":33.0875728,
     "Longitude":-97.0205113}
