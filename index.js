@@ -30,5 +30,6 @@ module.exports = {
   Ydwg02: require('./lib/ydgw02'),
   Ydgw02: require('./lib/ydgw02'),
   Venus: require('./lib/venus'),
-  VenusMQTT: require('./lib/venus-mqtt')
+  VenusMQTT: require('./lib/venus-mqtt'),
+  discover: require('./lib/discovery')
 }
