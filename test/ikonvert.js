@@ -104,7 +104,7 @@ describe('from ikconnect data converts', function () {
     const fromPgn = new FromPgn()
     fromPgn.on('error', (pgn, err) => {
       pgn.input.should.equal('!PDSOME,1234,invalid,3,2,255,fwD8AIAA')
-      err.message.should.equal('Parser not found for input.')
+      err.message.should.equal('Parser not found for input. - !PDSOME,1234,invalid,3,2,255,fwD8AIAA')
       done()
     })
     fromPgn.on('pgn', (pgn) => {
