@@ -55,7 +55,6 @@
     "int64-buffer": "^0.1.10",
     "lodash": "^4.17.4",
     "mqtt": "^2.18.8",
-    "sleep": "^6.0.0",
     "split": "^1.0.1"
   },
   "devDependencies": {
