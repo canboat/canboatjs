@@ -112,4 +112,16 @@ describe('from ikconnect data converts', function () {
     })
     fromPgn.parseString('!PDSOME,1234,invalid,3,2,255,fwD8AIAA')
   })
+  it('errors out on missing data', (done) => {
+    const fromPgn = new FromPgn()
+    fromPgn.on('error', (pgn, err) => {
+      pgn.input.should.equal('!PDGY,126992,3,2,255,0.563')
+      err.message.should.equal('Invalid parts. - !PDGY,126992,3,2,255,0.563')
+      done()
+    })
+    fromPgn.on('pgn', (pgn) => {
+      done(new Error('should not emit pgn'))
+    })
+    fromPgn.parseString('!PDGY,126992,3,2,255,0.563')
+  })
 })
