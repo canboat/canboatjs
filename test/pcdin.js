@@ -11,8 +11,8 @@ describe('from pcdin data converts', function () {
     var pcdin = '$PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59'
     var expected = {
       "pgn":127257,
-      "timestamp": "1970-01-01T00:00:00.000Z",
-      "timer": 0,
+      "timestamp": "2010-01-01T00:00:00.000Z",
+      "timer": 1262304000000,
       "src":15,
       "dst":255,
       "prio":0,
