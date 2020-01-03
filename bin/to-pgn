@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { toPgn, pgnToActisenseSerialFormat, pgnToiKonvertSerialFormat} = require('../index')
-const { encodeActisense } = require('../lib/stringMsg')
+const { toActisenseSerialFormat } = require('../lib/stringMsg')
 
 var readline = require('readline')
 var rl = readline.createInterface({
@@ -12,7 +12,7 @@ var rl = readline.createInterface({
 
 var input = []
 rl.on('line', function (line) {
-  var pgn = JSON.parse(line)
-  console.log(encodeActisense(pgn))
+  var msg = JSON.parse(line)
+  console.log(toActisenseSerialFormat(msg.pgn, toPgn(msg), msg.dst, msg.src))
   //console.log(pgnToiKonvertSerialFormat(pgn))
 })
