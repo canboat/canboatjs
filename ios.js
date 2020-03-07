@@ -10,6 +10,9 @@ global.parseYDGW02 = (pgn_data) => {
 global.parseVenusMQTT = (pgn_data) => {
   return parser.parseVenusMQTT(pgn_data)
 }
+global.parseString = (pgn_data) => {
+  return parser.parseString(pgn_data)
+}
 global.actisenseToYdgwRawFormat = actisenseToYdgwRawFormat
 global.pgnToYdgwRawFormat = pgnToYdgwRawFormat
 global.pgnToPCDIN = pgnToPCDIN
