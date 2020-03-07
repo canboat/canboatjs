@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { toPgn, pgnToActisenseSerialFormat, pgnToiKonvertSerialFormat} = require('../index')
+const { toPgn, pgnToActisenseSerialFormat, pgnToiKonvertSerialFormat, pgnToYdgwRawFormat } = require('../index')
 const { toActisenseSerialFormat } = require('../lib/stringMsg')
 
 var readline = require('readline')
@@ -15,4 +15,5 @@ rl.on('line', function (line) {
   var msg = JSON.parse(line)
   console.log(toActisenseSerialFormat(msg.pgn, toPgn(msg), msg.dst, msg.src))
   //console.log(pgnToiKonvertSerialFormat(pgn))
+  //console.log(pgnToYdgwRawFormat(msg))
 })
