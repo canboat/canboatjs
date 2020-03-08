@@ -42,7 +42,14 @@ var rl = readline.createInterface({
 var input = []
 rl.on('line', function (line) {
   var msg = JSON.parse(line)
-  console.log(formatter(msg))
+  const res = formatter(msg)
+  if ( Array.isArray(res) ) {
+    res.forEach(m => {
+      console.log(m)
+    })
+  } else {
+    console.log(res)
+  }
   //console.log(pgnToActisenseSerialFormat(msg))
   //console.log(pgnToiKonvertSerialFormat(pgn))
   //console.log(pgnToYdgwRawFormat(msg))
