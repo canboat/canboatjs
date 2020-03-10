@@ -32,7 +32,7 @@ describe('from pgn test data converts', function () {
           return
         }
 
-        var fromPgn = new FromPgn({format: 1})
+        var fromPgn = new FromPgn({format: 1, mixedFormat: true})
 
         fromPgn.on('error', (pgn, error) => {
           console.error(`Error parsing ${pgn.pgn} ${error}`)
@@ -47,15 +47,24 @@ describe('from pgn test data converts', function () {
         fromPgn.on('pgn', (pgn) => {
           try {
             //console.log(JSON.stringify(data.expected))
-            pgn.timestamp.should.be.a('string')
+            delete pgn.bus
+            if ( data.expected.timestamp ) {
+              pgn.timestamp.should.be.a('string')
+            } else {
+              delete pgn.timestamp
+            }
             pgn.should.jsonEqual(data.expected)
             success()
           } catch ( e ) {
-          done(e)
+            done(e)
           }
         })
 
-        fromPgn.parseString(data.input)
+        let input = data.input
+        if ( !Array.isArray(input) ) {
+          input = [ input ]
+        }
+        input.forEach((msg) => { fromPgn.parseString(msg) })
       })
     })
   })
@@ -73,7 +82,7 @@ describe('to pgn test data converts', function () {
         if (!testsRemaining) done()
       }
       dataList.forEach(test => {
-        if ( test.disabled ) {
+        if ( test.disabled || Array.isArray(test.input) ) {
           success()
           return
         }
