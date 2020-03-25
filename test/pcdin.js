@@ -40,7 +40,7 @@ describe('from pcdin data converts', function () {
     fromPgn.on('pgn', (pgn) => {
       try {
         //console.log(JSON.stringify(pgn))
-
+        delete pgn.input
         pgn.should.jsonEqual(expected)
         done()
       } catch ( e ) {
