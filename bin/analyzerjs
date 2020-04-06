@@ -31,5 +31,11 @@ rl.on('line', function (line) {
   if ( argv['log-input'] ) {
     console.log(line)
   }
-  parser.parseString(line)
+  if ( line.length > 13 && line.charAt(13) === ';' ) {
+    if ( line.charAt(14) === 'A' ) {
+      parser.parseString(line.substring(16))
+    }
+  } else {
+    parser.parseString(line)
+  }
 })
