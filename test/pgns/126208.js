@@ -1,4 +1,4 @@
 module.exports = [{
-  "expected": {"timestamp":"2017-04-15T14:57:58.471Z","prio":3,"src":204,"dst":172,"pgn":126208,"description":"NMEA - Request group function","fields":{"Function Code":"Request","PGN":126720,"# of Parameters":4,"list":[{"Parameter":1,"Value":1851},{"Parameter":3,"Value":4},{"Parameter":4,"Value":1372},{"Parameter":15}]}},
-  "input": "2017-04-15T14:57:58.471Z,3,126208,204,172,21,00,00,ef,01,ff,ff,ff,ff,ff,ff,04,01,3b,07,03,04,04,5c,05,0f,ff"
+  "expected": {"prio":2,"pgn":126208,"dst":67,"src":0,"timestamp":"2020-04-19T00:35:55.571Z","fields":{"Function Code":"Command","PGN":126998,"# of Parameters":1,"list":[{"Parameter":2,"Value":"YD:VOLUME 60"}]},"description":"NMEA - Command group function"},
+  "input": "2020-04-19T00:35:55.571Z,2,126208,0,67,21,01,16,f0,01,ff,01,02,0e,01,59,44,3a,56,4f,4c,55,4d,45,20,36,30"
 }]
