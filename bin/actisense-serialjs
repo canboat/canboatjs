@@ -7,7 +7,7 @@ if ( process.argv.length < 3 ) {
   process.exit(1)
 }
 
-const serial = new (require('../lib/serial'))({ device:process.argv[2], plainText:true})
+const serial = new (require('../lib/serial'))({ device:process.argv[2], plainText:true, disableSetTransmitPGNs: true})
 const { Transform } = require('stream');
 
 const toStringTr = new Transform({
