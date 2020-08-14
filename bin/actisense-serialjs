@@ -1,13 +1,31 @@
 #!/usr/bin/env node
 
+const { EventEmitter } = require('events');
+
 var device
 
-if ( process.argv.length < 3 ) {
+const argv = require('minimist')(process.argv.slice(2), {
+  boolean: ['disable-output'],
+  alias: { h: 'help' }
+})
+
+if ( argv['help'] ) {
+  console.error(`Usage: ${process.argv[0]} [options] device_path
+
+Options:
+  --disable-output don't output pgns
+  -h, --help       output usage information`)
+  process.exit(1)
+}
+
+if ( argv['_'].length === 0 ) {
   console.error('Please specify a device')
   process.exit(1)
 }
 
-const serial = new (require('../lib/serial'))({ device:process.argv[2], plainText:true, disableSetTransmitPGNs: true})
+const app = new EventEmitter();
+
+const serial = new (require('../lib/serial'))({ app:app, device:argv['_'][0], plainText:true, disableSetTransmitPGNs: true, outputOnly: argv['disable-output'] })
 const { Transform } = require('stream');
 
 const toStringTr = new Transform({
@@ -18,5 +36,17 @@ const toStringTr = new Transform({
     callback();
   }
 });
+
+var readline = require('readline')
+var rl = readline.createInterface({
+  input: process.stdin,
+  terminal: false
+})
+
+var input = []
+rl.on('line', function (line) {
+  app.emit('nmea2000out', line)
+})
+
 
 serial.pipe(toStringTr).pipe(process.stdout)
