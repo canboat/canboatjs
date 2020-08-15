@@ -41,7 +41,7 @@ This program takes input in the canboat json format and outputs actisense serial
 ## candumpanalyzer
 This program takes input in the candump format and outputs canboat json format
 
-Example: `candump can0 | candumpanalyzer`
+Example: `candump can0 | candumpanalyzerjs`
 
 # Use in your own software
 
