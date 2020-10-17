@@ -32,7 +32,8 @@ module.exports = {
   Ydgw02: require('./lib/ydgw02'),
   Venus: require('./lib/venus'),
   VenusMQTT: require('./lib/venus-mqtt'),
-  discover: require('./lib/discovery')
+  discover: require('./lib/discovery'),
+  SimpleCan: require('./lib/simpleCan')
 }
 
 try {
