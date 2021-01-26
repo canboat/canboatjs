@@ -26,6 +26,7 @@ module.exports = {
   pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
   pgnToYdgwRawFormat: require('./lib/toPgn').pgnToYdgwRawFormat,
   pgnToPCDIN: require('./lib/toPgn').pgnToPCDIN,
+  pgnToMXPGN: require('./lib/toPgn').pgnToMXPGN,
   canbus: require('./lib/canbus'),
   iKonvert: require('./lib/ikonvert'),
   Ydwg02: require('./lib/ydgw02'),

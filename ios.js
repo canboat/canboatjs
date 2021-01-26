@@ -17,9 +17,15 @@ global.actisenseToYdgwRawFormat = actisenseToYdgwRawFormat
 global.pgnToYdgwRawFormat = pgnToYdgwRawFormat
 global.pgnToPCDIN = pgnToPCDIN
 global.actisenseToPCDIN = actisenseToPCDIN
-  
+global.pgnToMXPGN = pgnToMXPGN
+global.actisenseToMXPGN = actisenseToMXPGN
+
 global.parsePCDIN = (pcdin) => {
   return parser.parseN2KOver0183(pcdin)
+}
+
+global.parseMXPGN = (mxpgn) => {
+  return parser.parseN2KOver0183(mxpgn)
 }
 
 global.parseHelmSmart = global.parsePCDIN
