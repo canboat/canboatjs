@@ -14,7 +14,8 @@
     "analyzerjs": "./bin/analyzerjs",
     "to-pgn": "./bin/to-pgn",
     "candumpanalyzerjs": "./bin/candumpanalyzerjs",
-    "actisense-serialjs": "./bin/actisense-serialjs"
+    "actisense-serialjs": "./bin/actisense-serialjs",
+    "actisense-file": "./bin/actisense-file"
   },
   "jest": {
     "rootDir": "lib"
