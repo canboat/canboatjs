@@ -34,7 +34,8 @@ module.exports = {
   Venus: require('./lib/venus'),
   VenusMQTT: require('./lib/venus-mqtt'),
   discover: require('./lib/discovery'),
-  SimpleCan: require('./lib/simpleCan')
+  SimpleCan: require('./lib/simpleCan'),
+  addCustomPgn: require('./lib/pgns').addCustomPgn
 }
 
 try {
