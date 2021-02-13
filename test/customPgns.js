@@ -11,9 +11,11 @@ describe('custom pgns', function () {
   it(`custom pgn in`, function (done) {
     
     const emitter = new EventEmitter();
-    var fromPgn = new FromPgn({}, emitter)
 
-    emitter.emit('canboat-custom-pgn', definition)
+    emitter.on('canboat-custom-pgn-available', () => {
+      emitter.emit('canboat-custom-pgn', definition)
+    })
+    var fromPgn = new FromPgn({}, emitter)
 
     fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
@@ -45,6 +47,37 @@ describe('custom pgns', function () {
     actisense = actisense.slice(actisense.indexOf(','))
     actisense.should.equal(',2,127999,0,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff')
     done()
+  })
+
+  it(`custom pgn callback works`, function (done) {
+    
+    const emitter = new EventEmitter();
+
+    emitter.on('canboat-custom-pgn-available', () => {
+      emitter.emit('canboat-custom-pgn', definition, (pgn) => {
+        try {
+          //console.log(JSON.stringify(pgn))
+          delete pgn.input
+          pgn.should.jsonEqual(expected)
+          done()
+        } catch ( e ) {
+          done(e)
+        }
+      })
+    })
+    var fromPgn = new FromPgn({}, emitter)
+
+    fromPgn.on('error', (pgn, error) => {
+      console.error(`Error parsing ${pgn.pgn} ${error}`)
+      console.error(error.stack)
+      done(error)
+    })
+
+    fromPgn.on('warning', (pgn, warning) => {
+      done(new Error(`${pgn.pgn} ${warning}`))
+    })
+
+    fromPgn.parseString(input)
   })
 })
 
