@@ -1,6 +1,15 @@
 
 const FromPgn = require('./lib/fromPgn').Parser
-const { pgnToYdgwRawFormat, actisenseToYdgwRawFormat, pgnToPCDIN, actisenseToPCDIN} = require('./lib/toPgn')
+const {
+  pgnToYdgwRawFormat,
+  actisenseToYdgwRawFormat,
+  pgnToPCDIN,
+  actisenseToPCDIN,
+  pgnToiKonvertSerialFormat,
+  actisenseToiKonvert,
+  pgnToMXPGN,
+  actisenseToMXPGN
+} = require('./lib/toPgn')
 
 const parser = new FromPgn({})
 
@@ -19,6 +28,8 @@ global.pgnToPCDIN = pgnToPCDIN
 global.actisenseToPCDIN = actisenseToPCDIN
 global.pgnToMXPGN = pgnToMXPGN
 global.actisenseToMXPGN = actisenseToMXPGN
+global.pgnToiKonvertSerialFormat = pgnToiKonvertSerialFormat
+global.actisenseToiKonvert = actisenseToiKonvert
 
 global.parsePCDIN = (pcdin) => {
   return parser.parseN2KOver0183(pcdin)
@@ -29,6 +40,19 @@ global.parseMXPGN = (mxpgn) => {
 }
 
 global.parseHelmSmart = global.parsePCDIN
+
+global.isN2KOver0183 = (msg) => {
+  return parser.isN2KOver0183(msg)
+}
+global.parseN2KOver0183 = (msg) => {
+  return parser.parseN2KOver0183(msg)
+}
+global.parsePDGY = (pdgy) => {
+  if ( !pdgy.startsWith('!PDGY') ) {
+    return
+  }
+  return parser.parsePDGY(pdgy)
+}
 
 //global.toPgn: require('./lib/toPgn').toPgn,
 
