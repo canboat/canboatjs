@@ -6,112 +6,6 @@ chai.use(require('chai-json-equal'));
 const { FromPgn, pgnToActisenseSerialFormat } = require('../index')
 const PropertyValues =  require('@signalk/server-api').PropertyValues
 
-
-describe('custom pgns', function () {
-
-  it(`custom pgn in`, function (done) {
-    
-    const propertyValues = new PropertyValues();
-
-    propertyValues.emitPropertyValue({
-      timestamp: Date.now(),
-      setter: 'customPgns',
-      name: 'canboat-custom-pgns',
-      value: definitions
-    })
-    
-    var fromPgn = new FromPgn({}, propertyValues)
-
-    fromPgn.on('error', (pgn, error) => {
-      console.error(`Error parsing ${pgn.pgn} ${error}`)
-      console.error(error.stack)
-      done(error)
-    })
-
-    fromPgn.on('warning', (pgn, warning) => {
-      done(new Error(`${pgn.pgn} ${warning}`))
-    })
-
-    fromPgn.on('pgn', (pgn) => {
-      try {
-        //console.log(JSON.stringify(pgn))
-        delete pgn.input
-        pgn.should.jsonEqual(expected)
-        done()
-      } catch ( e ) {
-        done(e)
-      }
-    })
-
-    fromPgn.parseString(input)
-  })
-
-  it(`custom pgn out`, function (done) {
-
-    var actisense = pgnToActisenseSerialFormat(expected)
-    actisense = actisense.slice(actisense.indexOf(','))
-    actisense.should.equal(',2,127999,0,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff')
-    done()
-  })
-
-  it(`custom pgn callback works`, function (done) {
-    
-    const propertyValues = new PropertyValues();
-
-    const defs = {
-      ...definitions,
-      callback: (pgn) => {
-        try {
-          delete pgn.input
-          pgn.should.jsonEqual(expected)
-          done()
-        } catch ( e ) {
-          done(e)
-        }
-      }
-    }
-
-    propertyValues.emitPropertyValue({
-      timestamp: Date.now(),
-      setter: 'customPgns',
-      name: 'canboat-custom-pgns',
-      value: defs
-    })
-    
-    var fromPgn = new FromPgn({}, propertyValues)
-
-    fromPgn.on('error', (pgn, error) => {
-      console.error(`Error parsing ${pgn.pgn} ${error}`)
-      console.error(error.stack)
-      done(error)
-    })
-
-    fromPgn.on('warning', (pgn, warning) => {
-      done(new Error(`${pgn.pgn} ${warning}`))
-    })
-
-    fromPgn.parseString(input)
-  })
-})
-
-
-const input = "2017-04-15T14:57:58.469Z,2,127999,172,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff"
-var expected = {
-  "timestamp":"2017-04-15T14:57:58.469Z",
-  "prio":2,
-  "src":172,
-  "dst":255,
-  "pgn":127999,
-  "description":"Heading/Track control",
-  "fields":{
-    "Rudder Limit Exceeded":"No",
-    "Override":"No",
-    "Steering Mode":2,
-    "Turn Mode":"Rudder Limit controlled",
-    "Commanded Rudder Direction":"Move to starboard",
-    "Commanded Rudder Angle":-0.0015
-  }
-}
 const definitions = {
   PGNs: [
     {
@@ -335,4 +229,89 @@ const definitions = {
           "Signed":false}]
     }
   ]
+}
+
+
+describe('custom pgns', function () {
+
+  const propertyValues = new PropertyValues();
+
+  propertyValues.emitPropertyValue({
+    timestamp: Date.now(),
+    setter: 'customPgns',
+    name: 'canboat-custom-pgns',
+    value: definitions
+  })
+  
+  var fromPgn = new FromPgn({
+    onPropertyValues: (name, cb) => {
+      propertyValues.onPropertyValues(name, cb)
+    }
+  })
+
+  it(`custom pgn in`, function (done) {
+    try {
+      let pgn = fromPgn.parseString(input)
+      delete pgn.input
+      pgn.should.jsonEqual(expected)
+      done()
+    } catch ( e ) {
+      done(e)
+    }
+  })
+
+  it(`custom pgn out`, function (done) {
+
+    var actisense = pgnToActisenseSerialFormat(expected)
+    actisense = actisense.slice(actisense.indexOf(','))
+    actisense.should.equal(',2,127999,0,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff')
+    done()
+  })
+
+  it(`custom pgn callback works`, function (done) {
+
+
+    definitions.callback = (pgn) => {
+      try {
+        delete pgn.input
+        pgn.should.jsonEqual(expected)
+        done()
+      } catch ( e ) {
+        done(e)
+      }
+    }
+
+    /*
+    fromPgn.on('error', (pgn, error) => {
+      console.error(`Error parsing ${pgn.pgn} ${error}`)
+      console.error(error.stack)
+      done(error)
+    })
+
+    fromPgn.on('warning', (pgn, warning) => {
+      done(new Error(`${pgn.pgn} ${warning}`))
+    })
+*/
+
+    fromPgn.parseString(input)
+  })
+})
+
+
+const input = "2017-04-15T14:57:58.469Z,2,127999,172,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff"
+var expected = {
+  "timestamp":"2017-04-15T14:57:58.469Z",
+  "prio":2,
+  "src":172,
+  "dst":255,
+  "pgn":127999,
+  "description":"Heading/Track control",
+  "fields":{
+    "Rudder Limit Exceeded":"No",
+    "Override":"No",
+    "Steering Mode":2,
+    "Turn Mode":"Rudder Limit controlled",
+    "Commanded Rudder Direction":"Move to starboard",
+    "Commanded Rudder Angle":-0.0015
+  }
 }
