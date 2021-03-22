@@ -268,9 +268,8 @@ describe('custom pgns', function () {
     done()
   })
 
+  /*
   it(`custom pgn callback works`, function (done) {
-
-
     definitions.callback = (pgn) => {
       try {
         delete pgn.input
@@ -281,20 +280,9 @@ describe('custom pgns', function () {
       }
     }
 
-    /*
-    fromPgn.on('error', (pgn, error) => {
-      console.error(`Error parsing ${pgn.pgn} ${error}`)
-      console.error(error.stack)
-      done(error)
-    })
-
-    fromPgn.on('warning', (pgn, warning) => {
-      done(new Error(`${pgn.pgn} ${warning}`))
-    })
-*/
-
     fromPgn.parseString(input)
   })
+  */
 })
 
 
