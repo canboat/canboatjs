@@ -1,6 +1,6 @@
 {
   "name": "@canboat/canboatjs",
-  "version": "1.21.1",
+  "version": "1.21.2",
   "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
