@@ -1,19 +1,21 @@
 {
   "name": "@canboat/canboatjs",
-  "version": "1.7.0",
+  "version": "1.21.2",
   "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
     "dev-test": "jest --watch",
     "test": "jest && mocha --exit",
     "create-release": "github-create-release --owner canboat --repository canboatjs",
-    "release": "git tag -d v$npm_package_version && git tag v$npm_package_version && git push --tags && git push && npm run create-release"
+    "release": "git tag -d v$npm_package_version && git tag v$npm_package_version && git push --tags && git push && npm run create-release",
+    "build_ios": "webpack ios.js -o ios_canboat.js"
   },
   "bin": {
     "analyzerjs": "./bin/analyzerjs",
     "to-pgn": "./bin/to-pgn",
     "candumpanalyzerjs": "./bin/candumpanalyzerjs",
-    "actisense-serialjs": "./bin/actisense-serialjs"
+    "actisense-serialjs": "./bin/actisense-serialjs",
+    "actisense-file": "./bin/actisense-file"
   },
   "jest": {
     "rootDir": "lib"
@@ -48,28 +50,33 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@canboat/pgns": "^1.0.4",
+    "@canboat/pgns": "^1.4.0",
     "bit-buffer": "0.2.3",
     "date-fns": "2.0.0-alpha.27",
-    "debug": "^3.1.0",
+    "debug": "^4.1.1",
     "dnssd": "^0.4.1",
     "int64-buffer": "^0.1.10",
     "lodash": "^4.17.4",
+    "minimist": "^1.2.0",
     "mqtt": "^2.18.8",
     "split": "^1.0.1"
   },
   "devDependencies": {
     "@signalk/github-create-release": "^1.0.1",
+    "@signalk/server-api": "^1.39.0",
+    "baconjs": "^1.0.1",
     "chai": "^4.1.2",
     "chai-json-equal": "0.0.1",
     "chai-string": "^1.5.0",
     "chai-things": "^0.2.0",
     "jest": "^24.7.1",
     "mocha": "^5.0.0",
-    "moment": "^2.24.0"
+    "moment": "^2.24.0",
+    "webpack": "^4.41.5",
+    "webpack-cli": "^3.3.10"
   },
   "optionalDependencies": {
-    "serialport": "^7.1.5",
+    "serialport": "^9.0.7",
     "socketcan": "^2.2.2"
   },
   "repository": {

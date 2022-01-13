@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const argv = require('minimist')(process.argv.slice(2))
+
 const Parser = require('../index').FromPgn
 var parser = new Parser()
 
@@ -26,5 +28,14 @@ var rl = readline.createInterface({
 
 var input = []
 rl.on('line', function (line) {
-  parser.parseString(line)
+  if ( argv['log-input'] ) {
+    console.log(line)
+  }
+  if ( line.length > 13 && line.charAt(13) === ';' ) {
+    if ( line.charAt(14) === 'A' ) {
+      parser.parseString(line.substring(16))
+    }
+  } else {
+    parser.parseString(line)
+  }
 })

@@ -19,17 +19,26 @@
 module.exports = {
   FromPgn: require('./lib/fromPgn').Parser,
   parseN2kString: require('./lib/stringMsg').parseN2kString,
-  serial: require('./lib/serial'),
+  isN2KString: require('./lib/stringMsg').isN2KString,
   toPgn: require('./lib/toPgn').toPgn,
   toActisenseSerialFormat: require('./lib/stringMsg').toActisenseSerialFormat,
   pgnToActisenseSerialFormat: require('./lib/toPgn').pgnToActisenseSerialFormat,
   pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
   pgnToYdgwRawFormat: require('./lib/toPgn').pgnToYdgwRawFormat,
+  pgnToPCDIN: require('./lib/toPgn').pgnToPCDIN,
+  pgnToMXPGN: require('./lib/toPgn').pgnToMXPGN,
   canbus: require('./lib/canbus'),
   iKonvert: require('./lib/ikonvert'),
   Ydwg02: require('./lib/ydgw02'),
   Ydgw02: require('./lib/ydgw02'),
   Venus: require('./lib/venus'),
   VenusMQTT: require('./lib/venus-mqtt'),
-  discover: require('./lib/discovery')
+  discover: require('./lib/discovery'),
+  SimpleCan: require('./lib/simpleCan'),
+  addCustomPgn: require('./lib/pgns').addCustomPgn
+}
+
+try {
+  module.exports.serial = require('./lib/serial')
+} catch ( ex ) {
 }

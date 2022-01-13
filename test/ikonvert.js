@@ -90,6 +90,7 @@ describe('from ikconnect data converts', function () {
         try {
           //console.log(JSON.stringify(pgn))
           info.expected.timestamp = pgn.timestamp
+          delete pgn.input
           pgn.should.jsonEqual(info.expected)
           done()
         } catch ( e ) {

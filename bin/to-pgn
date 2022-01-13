@@ -1,7 +1,37 @@
 #!/usr/bin/env node
 
-const { toPgn, pgnToActisenseSerialFormat, pgnToiKonvertSerialFormat} = require('../index')
+const argv = require('minimist')(process.argv.slice(2), {
+  string: ['format'],
+  alias: { h: 'help' }
+})
+const { pgnToActisenseSerialFormat, pgnToiKonvertSerialFormat, pgnToYdgwRawFormat, pgnToPCDIN, pgnToMXPGN } = require('../index')
 const { toActisenseSerialFormat } = require('../lib/stringMsg')
+
+if ( argv['help'] ) {
+  console.error(`Usage: ${process.argv[0]} [options]
+
+Options:
+  --format <format>   actisense, ikconvert, ydgw, pcdin, mxpgn
+  -h, --help          output usage information`)
+  process.exit(1)
+}
+
+
+const formatters = {
+  actisense: pgnToActisenseSerialFormat,
+  ikconvert: pgnToiKonvertSerialFormat,
+  ydgw: pgnToYdgwRawFormat,
+  'pcdin': pgnToPCDIN,
+  'mxpgn': pgnToMXPGN
+}
+
+const format = argv['format'] || 'actisense'
+const formatter = formatters[format]
+if ( !formatter ) {
+  console.error(`unknown format: ${argv['format']}`)
+  process.exit(1)
+}
+                             
 
 var readline = require('readline')
 var rl = readline.createInterface({
@@ -13,6 +43,15 @@ var rl = readline.createInterface({
 var input = []
 rl.on('line', function (line) {
   var msg = JSON.parse(line)
-  console.log(toActisenseSerialFormat(msg.pgn, toPgn(msg), msg.dst, msg.src))
+  const res = formatter(msg)
+  if ( Array.isArray(res) ) {
+    res.forEach(m => {
+      console.log(m)
+    })
+  } else {
+    console.log(res)
+  }
+  //console.log(pgnToActisenseSerialFormat(msg))
   //console.log(pgnToiKonvertSerialFormat(pgn))
+  //console.log(pgnToYdgwRawFormat(msg))
 })
