@@ -5,6 +5,7 @@ module.exports = [
   },
   {
     "expected": {"canId":234358051,"prio":3,"src":35,"dst":255,"pgn":129029,"fields":{"SID":126,"Date":"2020.03.09","Time":"17:47:47.80000","Latitude":42.4913166,"Longitude":-70.8850733,"Altitude":41.4,"GNSS type":"GPS+SBAS/WAAS","Method":"DGNSS fix","Integrity":"No integrity checking","Number of SVs":10,"HDOP":0.9,"PDOP":1.6,"Geoidal Separation":-30.9,"Reference Stations":0,"list":[{"Reference Station ID":15}]},"description":"GNSS Position Data"},
+    "format": 0,
     "input": ['can0  0DF80523   [8]  C0 2B 7E 9A 47 70 F8 2F',
               'can0  0DF80523   [8]  C1 26 00 0C D1 EF 45 98',
               'can0  0DF80523   [8]  C2 E5 05 00 7E C2 94 03',
