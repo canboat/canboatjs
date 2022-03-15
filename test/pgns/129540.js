@@ -3,6 +3,7 @@ module.exports = [{
   "input": "2017-04-15T14:57:58.469Z,6,129540,3,255,219,b8,ff,12,03,d1,15,9f,d0,1c,0c,00,00,00,00,f5,04,39,28,44,75,f0,0a,00,00,00,00,f5,0a,17,04,2c,71,f0,0a,00,00,00,00,f5,0e,ff,2c,ff,3b,b8,0b,00,00,00,00,f5,10,ae,0f,4f,86,e4,0c,00,00,00,00,f5,16,5d,1f,da,bc,1c,0c,00,00,00,00,f5,19,ba,11,ff,1d,e4,0c,00,00,00,00,f5,1a,74,23,cf,7e,28,0a,00,00,00,00,f5,1f,b9,2f,dd,08,1c,0c,00,00,00,00,f5,43,51,1d,67,6c,80,0c,00,00,00,00,f5,44,22,33,e5,cd,48,0d,00,00,00,00,f5,45,ae,0f,f0,de,28,0a,00,00,00,00,f5,4d,2e,17,dd,17,54,0b,00,00,00,00,f5,4e,68,30,2b,cb,8c,0a,00,00,00,00,f5,4f,e8,19,09,a7,ac,0d,00,00,00,00,f5,2e,e8,19,da,8f,b8,0b,00,00,00,00,f5,30,97,0b,66,a8,54,0b,00,00,00,00,f5,33,dd,17,b7,98,ac,0d,00,00,00,00,f5"
 }, {
   "expected": {"prio":6,"pgn":129540,"dst":255,"src":1,"timestamp":"2020-08-16T09:00:00.364Z","fields":{"SID":82,"Mode":2,"Sats in View":12,"list":[{"PRN":7,"Elevation":0.2443,"Azimuth":5.6199,"SNR":33,"Range residuals":0,"Status":"Used"},{"PRN":10,"Elevation":0.6632,"Azimuth":3.0543,"SNR":35,"Range residuals":0,"Status":"Used"},{"PRN":13,"Elevation":0.3141,"Azimuth":0.5934,"SNR":37,"Range residuals":0,"Status":"Used"},{"PRN":15,"Elevation":0.4363,"Azimuth":1.1693,"SNR":39,"Range residuals":0,"Status":"Used"},{"PRN":16,"Elevation":0.8028,"Azimuth":4.0142,"SNR":31,"Range residuals":0,"Status":"Used"},{"PRN":18,"Elevation":0.8203,"Azimuth":1.4311,"SNR":32,"Range residuals":0,"Status":"Used"},{"PRN":20,"Elevation":1.0471,"Azimuth":2.3038,"SNR":36,"Range residuals":0,"Status":"Used"},{"PRN":21,"Elevation":0.9599,"Azimuth":4.2935,"SNR":28,"Range residuals":0,"Status":"Used"},{"PRN":26,"Elevation":0.3316,"Azimuth":3.4557,"SNR":35,"Range residuals":0,"Status":"Used"},{"PRN":27,"Elevation":1.0471,"Azimuth":4.8869,"SNR":35,"Range residuals":0,"Status":"Used"},{"PRN":8,"Elevation":0.4886,"Azimuth":5.1661,"SNR":24,"Range residuals":0,"Status":"Used"},{"PRN":87,"Elevation":1.2217,"Azimuth":5.2359,"SNR":28,"Range residuals":0,"Status":"Used"},{"SNR":2.55}]},"description":"GNSS Sats in View"},
+  "format": 0,
   "input": [
     '2020-08-16T09:00:00.333Z,6,129540,1,255,8,20,93,52,fe,0c,07,8b,09',
     '2020-08-16T09:00:00.334Z,6,129540,1,255,8,21,87,db,e4,0c,00,00,00',
@@ -27,5 +28,5 @@ module.exports = [{
     '2020-08-16T09:00:00.363Z,6,129540,1,255,8,34,cc,f0,0a,00,00,00,00',
     '2020-08-16T09:00:00.364Z,6,129540,1,255,8,35,f2,ff,ff,ff,ff,ff,ff'
   ]
-}
+} 
 ]
