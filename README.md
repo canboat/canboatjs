@@ -205,9 +205,9 @@ Output: `!PDGY,127245,255,/Pj/f/9///8=`
 ## Generate YDGW-02 format from canboat json
 
 ```js
-const pgnToYdwgRawFormat = require("./index").pgnToYdwgRawFormat;
+const pgnToYdgwRawFormat = require("./index").pgnToYdgwRawFormat;
 
-const array = pgnToYdwgRawFormat({
+const array = pgnToYdgwRawFormat({
   src: 127,
   prio: 3,
   dst: 255,

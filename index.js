@@ -36,6 +36,7 @@ module.exports = {
   discover: require('./lib/discovery'),
   SimpleCan: require('./lib/simpleCan'),
   setupN2KOver0183Output: require('./lib/toPgn').setupN2KOver0183Output,
+  addCustomPgn: require('./lib/pgns').addCustomPgn
 }
 
 try {
