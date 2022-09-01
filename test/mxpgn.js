@@ -45,6 +45,6 @@ describe('from mxpgn data converts', function () {
       }
     })
 
-    fromPgn.parseString(mxpgn)
+    fromPgn.parseN2KOver0183(mxpgn)
   })
 })
