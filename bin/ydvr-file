@@ -28,4 +28,6 @@ filestream.on('error', (err) => {
 filestream.on('end', () => {
   process.exit(0);
 });
-filestream.pipe(serial);
+filestream.pipe(serial).on("data", (chunk) => {
+  console.log(JSON.stringify(chunk));
+});
