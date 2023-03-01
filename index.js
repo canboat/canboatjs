@@ -23,6 +23,7 @@ module.exports = {
   toPgn: require('./lib/toPgn').toPgn,
   toActisenseSerialFormat: require('./lib/stringMsg').toActisenseSerialFormat,
   pgnToActisenseSerialFormat: require('./lib/toPgn').pgnToActisenseSerialFormat,
+  pgnToActisenseN2KAsciiFormat: require('./lib/toPgn').pgnToActisenseN2KAsciiFormat,
   pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
   pgnToYdgwRawFormat: require('./lib/toPgn').pgnToYdgwRawFormat,
   pgnToPCDIN: require('./lib/toPgn').pgnToPCDIN,
