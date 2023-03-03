@@ -53,7 +53,7 @@
     "@canboat/pgns": "^1.4.0",
     "bit-buffer": "0.2.3",
     "date-fns": "2.0.0-alpha.27",
-    "debug": "^4.1.1",
+    "debug": "^4.3.4",
     "dnssd": "^0.4.1",
     "int64-buffer": "^0.1.10",
     "lodash": "^4.17.4",

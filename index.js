@@ -32,6 +32,7 @@ module.exports = {
   iKonvert: require('./lib/ikonvert'),
   Ydwg02: require('./lib/ydgw02'),
   Ydgw02: require('./lib/ydgw02'),
+  W2k01: require('./lib/w2k01'),
   Venus: require('./lib/venus'),
   VenusMQTT: require('./lib/venus-mqtt'),
   discover: require('./lib/discovery'),
