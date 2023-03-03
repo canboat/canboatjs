@@ -50,6 +50,12 @@ This program takes input in the candump format and outputs canboat json format
 
 Example: `candump can0 | candumpanalyzerjs`
 
+## ydvr-file
+
+This program takes input in the [YDVR](https://www.yachtd.com/products/recorder.html) file format and outputs canboat json format
+
+Example: `ydvr-file <file>`
+
 # Usage
 
 ## Installation
