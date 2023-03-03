@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+
+const debug = require('debug')('canboatjs:w2k01')
+const net = require('net');
+const { readN2KActisense } = require('../lib/n2k-actisense')
+
+const argv = require('minimist')(process.argv.slice(2), {
+  alias: { h: 'help' }
+})
+
+if ( argv['help'] ) {
+  console.error(`Usage: ${process.argv[0]} [options] host port
+
+Options:
+  -h, --help       output usage information`)
+  process.exit(1)
+}
+
+if ( argv['_'].length < 2 ) {
+  console.error('Please specify a host and port')
+  process.exit(1)
+}
+
+
+var client = new net.Socket();
+client.connect(argv['_'][1], argv['_'][0], function() {
+  console.log('Connected');
+});
+
+const context = {}
+client.on('data', function(data) {
+  readN2KActisense(data, true, context, (result) => {
+    console.log(result)
+  })
+});
+
+client.on('close', function() {
+  console.log('Connection closed');
+})
+
+process.on('SIGINT', () => {
+  console.info('SIGINT signal received.');
+  client.destroy()
+});
+  
