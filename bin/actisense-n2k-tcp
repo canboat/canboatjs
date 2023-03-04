@@ -24,7 +24,7 @@ if ( argv['_'].length < 2 ) {
 
 var client = new net.Socket();
 client.connect(argv['_'][1], argv['_'][0], function() {
-  console.log('Connected');
+  debug('Connected');
 });
 
 const context = {}
@@ -35,11 +35,11 @@ client.on('data', function(data) {
 });
 
 client.on('close', function() {
-  console.log('Connection closed');
+  debug('Connection closed');
 })
 
 process.on('SIGINT', () => {
-  console.info('SIGINT signal received.');
+  debug('SIGINT signal received.');
   client.destroy()
 });
   
