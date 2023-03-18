@@ -15,7 +15,10 @@
     "to-pgn": "./bin/to-pgn",
     "candumpanalyzerjs": "./bin/candumpanalyzerjs",
     "actisense-serialjs": "./bin/actisense-serialjs",
-    "actisense-file": "./bin/actisense-file"
+    "actisense-file": "./bin/actisense-file",
+    "actisense-n2k-tcp": "./bin/actisense-n2k-tcp",
+    "candumpjs": "./bin/candumpjs",
+    "ikonvert-serial": "./bin/ikonvert-serial"
   },
   "jest": {
     "rootDir": "lib"
