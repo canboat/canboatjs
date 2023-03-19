@@ -17,9 +17,9 @@ Canboajs js is built on the backs of a few people whithout whom it would not be 
 # Features
 
 - Reads directly from CAN bus devices and NMEA 2000 gateways including:
-  - Actisense NGT-1
+  - Actisense NGT-1 and W2K-1
   - Digital Yacht iKonvert
-  - Yacht Devices YDWG-02
+  - Yacht Devices YDWG-02 and YDEN-02
   - Shipmodul MiniPlex-3-N2K
 - Parses input in canboat analyzer json format
 - Converts and outputs binary N2K format to supported devices
@@ -39,6 +39,7 @@ Examples:
 - `actisense-serialjs /dev/ttyUSB0 | analyzerjs`
 - `ikonvert-serial /dev/ttyUSB0 | analyzerjs`
 - `nc ydgw 1475 | analyzerjs`
+- `nc w2k-1 6002 | analyzerjs` // port should be N2K ACSCII format server on a w2k-1
 
 ## to-pgn
 
@@ -50,6 +51,12 @@ This program takes input in the candump format and outputs canboat json format
 
 Example: `candump can0 | candumpanalyzerjs`
 
+## candumpjs
+
+Read directly from a socketcan device without the need to install can-utils
+
+Example: candumpjs can0
+
 ## ydvr-file
 
 This program takes input in the [YDVR](https://www.yachtd.com/products/recorder.html) file format and outputs canboat json format
@@ -58,7 +65,11 @@ Example: `ydvr-file <file>`
 
 # Usage
 
-## Installation
+## Instalation for command line programs
+
+- `sudo npm install -g @canboat/canboatjs`
+
+## Installation for a nodejs project
 
 - `npm install @canboat/canboatjs`
 
