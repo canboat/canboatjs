@@ -18,7 +18,7 @@ const pgns = [
       "timer": 0.563,
       "fields":{
         "Date": "2141.11.12",
-        "Reserved1": "6",
+        "Reserved1": 6,
         "SID": 119,
         "Source": 13,
         "Time": "55:11:40.08140"
