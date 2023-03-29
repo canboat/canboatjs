@@ -51,7 +51,7 @@ const pgns = [
           {
             "Reference Station Type":"GPS",
             "Reference Station ID":0,
-            "Age of DGNSS Corrections":0
+            "Age of DGNSS Corrections":"00:00:00"
           }
         ]
       },
