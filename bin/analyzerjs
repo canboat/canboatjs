@@ -36,6 +36,6 @@ rl.on('line', function (line) {
       parser.parseString(line.substring(16))
     }
   } else {
-    parser.parseString(line)
+    parser.parseString(line.trim())
   }
 })
