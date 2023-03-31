@@ -57,14 +57,18 @@ parser.on('pgn', (pgn) => {
 
 const canDevice = argv['_'][0]
 
-this.channel = socketcan.createRawChannel(canDevice);
+const channel = socketcan.createRawChannel(canDevice);
 
-this.channel.addListener('onMessage', (msg) => {
+channel.addListener('onStopped', (msg) => {
+  console.error('socketcan stopped')
+})
+
+channel.addListener('onMessage', (msg) => {
   var pgn = parseCanId(msg.id)
   
   pgn.timestamp = new Date().toISOString()
-
+  
   parser.parse({ pgn, length: msg.data.length, data: msg.data })
 })
 
-this.channel.start()
+channel.start()
