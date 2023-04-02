@@ -264,7 +264,7 @@ describe('custom pgns', function () {
 
     var actisense = pgnToActisenseSerialFormat(expected)
     actisense = actisense.slice(actisense.indexOf(','))
-    actisense.should.equal(',2,127999,0,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff')
+    actisense.should.equal(',2,127999,172,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff')
     done()
   })
 
