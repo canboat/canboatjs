@@ -80,7 +80,7 @@
   },
   "optionalDependencies": {
     "serialport": "^9.0.7",
-    "socketcan": "^2.2.2"
+    "socketcan": "^4.0.3"
   },
   "repository": {
     "type": "git",
