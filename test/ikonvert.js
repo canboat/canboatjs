@@ -18,7 +18,7 @@ const pgns = [
       "timer": 0.563,
       "fields":{
         "Date": "2141.11.12",
-        "Reserved1": "6",
+        "Reserved1": 6,
         "SID": 119,
         "Source": 13,
         "Time": "55:11:40.08140"
@@ -51,7 +51,7 @@ const pgns = [
           {
             "Reference Station Type":"GPS",
             "Reference Station ID":0,
-            "Age of DGNSS Corrections":0
+            "Age of DGNSS Corrections":"00:00:00"
           }
         ]
       },
