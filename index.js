@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+const pgns = require('./lib/pgns')
+
 module.exports = {
   FromPgn: require('./lib/fromPgn').Parser,
   parseN2kString: require('./lib/stringMsg').parseN2kString,
@@ -37,7 +39,9 @@ module.exports = {
   VenusMQTT: require('./lib/venus-mqtt'),
   discover: require('./lib/discovery'),
   SimpleCan: require('./lib/simpleCan'),
-  addCustomPgn: require('./lib/pgns').addCustomPgn
+  addCustomPgn: pgns.addCustomPgn,
+  lookupEnumerationValue: pgns.lookupEnumerationValue,
+  lookupEnumerationName: pgns.lookupEnumerationName
 }
 
 try {
