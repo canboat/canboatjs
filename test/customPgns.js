@@ -7,6 +7,18 @@ const { FromPgn, pgnToActisenseSerialFormat } = require('../index')
 const PropertyValues =  require('@signalk/server-api').PropertyValues
 
 const definitions = {
+  LookupEnumerations:[
+    {
+      "Name":"MY_YES_NO",
+      "MaxValue":11,
+      "EnumValues":[
+        {"Name":"No","Value":"0"},
+        {"Name":"Yes","Value":"1"},
+        {"Name":"Error","Value":"10"},
+        {"Name":"Unavailable","Value":"11"}
+      ],
+    },
+  ],
   PGNs: [
     {
       "PGN":127999,
@@ -24,13 +36,9 @@ const definitions = {
           "BitLength":2,
           "BitOffset":0,
           "BitStart":0,
-          "Type":"Lookup table",
+          "FieldType":"LOOKUP",
           "Signed":false,
-          "EnumValues":[
-            {"name":"No","value":"0"},
-            {"name":"Yes","value":"1"},
-            {"name":"Error","value":"10"},
-            {"name":"Unavailable","value":"11"}]},
+          "LookupEnumeration": "MY_YES_NO"},
         {
           "Order":2,
           "Id":"offHeadingLimitExceeded",
@@ -38,13 +46,10 @@ const definitions = {
           "BitLength":2,
           "BitOffset":2,
           "BitStart":2,
-          "Type":"Lookup table",
+          "FieldType":"LOOKUP",
           "Signed":false,
-          "EnumValues":[
-            {"name":"No","value":"0"},
-            {"name":"Yes","value":"1"},
-            {"name":"Error","value":"10"},
-            {"name":"Unavailable","value":"11"}]},
+          "LookupEnumeration": "MY_YES_NO"
+        },
         {
           "Order":3,
           "Id":"offTrackLimitExceeded",
@@ -52,13 +57,9 @@ const definitions = {
           "BitLength":2,
           "BitOffset":4,
           "BitStart":4,
-          "Type":"Lookup table",
+          "FieldType":"LOOKUP",
           "Signed":false,
-          "EnumValues":[
-            {"name":"No","value":"0"},
-            {"name":"Yes","value":"1"},
-            {"name":"Error","value":"10"},
-            {"name":"Unavailable","value":"11"}]},
+          "LookupEnumeration": "MY_YES_NO"},
         {
           "Order":4,
           "Id":"override",
@@ -66,13 +67,10 @@ const definitions = {
           "BitLength":2,
           "BitOffset":6,
           "BitStart":6,
-          "Type":"Lookup table",
+          "FieldType":"LOOKUP",
           "Signed":false,
-          "EnumValues":[
-            {"name":"No","value":"0"},
-            {"name":"Yes","value":"1"},
-            {"name":"Error","value":"10"},
-            {"name":"Unavailable","value":"11"}]},
+          "LookupEnumeration": "MY_YES_NO"
+        },
         {
           "Order":5,
           "Id":"steeringMode",
@@ -80,15 +78,8 @@ const definitions = {
           "BitLength":3,
           "BitOffset":8,
           "BitStart":0,
-          "Type":"Lookup table",
           "Signed":false,
-          "EnumValues":[
-            {"name":"Main Steering","value":"0"},
-            {"name":"Non-Follow-up Device","value":"1"},
-            {"name":"Follow-up Device","value":"10"},
-            {"name":"Heading Control Standalone","value":"11"},
-            {"name":"Heading Control","value":"100"},
-            {"name":"Track Control","value":"101"}]},
+        },
         {
           "Order":6,
           "Id":"turnMode",
@@ -96,12 +87,8 @@ const definitions = {
           "BitLength":3,
           "BitOffset":11,
           "BitStart":3,
-          "Type":"Lookup table",
-          "Signed":false,
-          "EnumValues":[
-            {"name":"Rudder Limit controlled","value":"0"},
-            {"name":"turn rate controlled","value":"1"},
-            {"name":"radius controlled","value":"10"}]},
+          "Signed":false
+        },
         {
           "Order":7,
           "Id":"headingReference",
@@ -109,13 +96,8 @@ const definitions = {
           "BitLength":2,
           "BitOffset":14,
           "BitStart":6,
-          "Type":"Lookup table",
-          "Signed":false,
-          "EnumValues":[
-            {"name":"True","value":"0"},
-            {"name":"Magnetic","value":"1"},
-            {"name":"Error","value":"2"},
-            {"name":"Null","value":"3"}]},
+          "Signed":false
+        },
         {
           "Order":8,
           "Id":"reserved",
@@ -123,7 +105,7 @@ const definitions = {
           "BitLength":5,
           "BitOffset":16,
           "BitStart":0,
-          "Type":"Binary data",
+          "FieldType":"Binary data",
           "Signed":false},
         {
           "Order":9,
@@ -132,12 +114,8 @@ const definitions = {
           "BitLength":3,
           "BitOffset":21,
           "BitStart":5,
-          "Type":"Lookup table",
-          "Signed":false,
-          "EnumValues":[
-            {"name":"No Order","value":"0"},
-            {"name":"Move to starboard","value":"1"},
-            {"name":"Move to port","value":"10"}]},
+          "Signed":false
+        },
         {
           "Order":10,
           "Id":"commandedRudderAngle",
@@ -298,8 +276,8 @@ var expected = {
     "Rudder Limit Exceeded":"No",
     "Override":"No",
     "Steering Mode":2,
-    "Turn Mode":"Rudder Limit controlled",
-    "Commanded Rudder Direction":"Move to starboard",
+    "Turn Mode":0,
+    "Commanded Rudder Direction":1,
     "Commanded Rudder Angle":-0.0015
   }
 }
