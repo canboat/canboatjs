@@ -15,7 +15,7 @@ module.exports = [
               'can0  0DF80523   [8]  C6 FF 00 FF FF FF FF FF']
   },
   {
-    "expected": {"prio":3,"pgn":129029,"dst":255,"src":5,"timestamp":"2023-07-22T15:25:03.923Z", "fields":{"Date":"2023.07.22","GNSS type":"GPS+SBAS/WAAS+GLONASS","Method":"GNSS fix","Integrity":"No integrity checking","Number of SVs":0,"Reference Stations":0,"list":[]},"description":"GNSS Position Data"},
+    "expected": {"prio":3,"pgn":129029,"dst":255,"src":5,"timestamp":"2023-07-22T15:25:03.923Z", "fields":{"Date":"2023.07.22","GNSS type":"GPS+SBAS/WAAS+GLONASS","Method":"GNSS fix","Integrity":"No integrity checking","Number of SVs":0,"Reference Stations":0,"list":[],"Altitude":null,"Geoidal Separation":null,"HDOP":null,"PDOP":null,"Reserved1":null,"SID":null,"Longitude":null,"Latitude":null},"description":"GNSS Position Data"},
     "input": "2023-07-22T15:25:03.923Z,3,129029,5,255,43,ff,68,4c,fe,ff,ff,ff,fe,ff,ff,ff,ff,ff,ff,7f,fe,ff,ff,ff,ff,ff,ff,7f,fe,ff,ff,ff,ff,ff,ff,7f,14,fc,00,fe,7f,fe,7f,fe,ff,ff,7f,00",
     "skipEncoderTest": true
   }
