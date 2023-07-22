@@ -39,7 +39,7 @@ module.exports = {
   VenusMQTT: require('./lib/venus-mqtt'),
   discover: require('./lib/discovery'),
   SimpleCan: require('./lib/simpleCan'),
-  addCustomPgn: pgns.addCustomPgn,
+  addCustomPgns: pgns.addCustomPgns,
   lookupEnumerationValue: pgns.lookupEnumerationValue,
   lookupEnumerationName: pgns.lookupEnumerationName
 }

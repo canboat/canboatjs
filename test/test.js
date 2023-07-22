@@ -8,12 +8,19 @@ const _ = require("lodash")
 const { FromPgn, toPgn } = require('../index')
 const { encodeActisense } = require('../lib/stringMsg')
 
-const testData = {}
+let testData = {}
+
 fs
   .readdirSync('./test/pgns')
   .forEach(filename => {
     testData[filename.split('.')[0]] = (require(`./pgns/${filename}`))
   })
+
+const TEST_PGN = process.env.TEST_PGN
+
+if ( TEST_PGN ) {
+  testData = { [TEST_PGN]: testData[TEST_PGN] }
+} 
 
 describe('from pgn test data converts', function () {
 
@@ -74,7 +81,6 @@ describe('from pgn test data converts', function () {
 })
 
 describe('to pgn test data converts', function () {
-
   _.keys(testData).forEach(key => {
     var dataList = testData[key]
 
