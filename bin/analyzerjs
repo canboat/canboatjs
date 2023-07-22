@@ -1,9 +1,25 @@
 #!/usr/bin/env node
 
-const argv = require('minimist')(process.argv.slice(2))
+const argv = require('minimist')(process.argv.slice(2), {
+  alias: { h: 'help' },
+  boolean: ['n']
+})
+
+if ( argv['help'] ) {
+  console.error(`Usage: ${process.argv[1]} [options]
+
+Options:
+  -c                  don't check for invalid values
+  -n                  output null values
+  -h, --help          output usage information`)
+  process.exit(1)
+}
 
 const Parser = require('../index').FromPgn
-var parser = new Parser()
+var parser = new Parser( {
+  returnNulls: argv['n'] === true,
+  checkForInvalidFields: argv['n']
+})
 
 parser.on('error', (pgn, error) => {
   console.error(`Error parsing ${pgn.pgn} ${error}`)

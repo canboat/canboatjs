@@ -41,7 +41,7 @@ describe('from pgn test data converts', function () {
 
         let format = typeof data.format !== 'undefined' ? data.format : 1
 
-        var fromPgn = new FromPgn({format})
+        var fromPgn = new FromPgn({format, returnNulls: true})
 
         fromPgn.on('error', (pgn, error) => {
           console.error(`Error parsing ${pgn.pgn} ${error}`)
