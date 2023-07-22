@@ -91,7 +91,9 @@ describe('to pgn test data converts', function () {
         if (!testsRemaining) done()
       }
       dataList.forEach(test => {
-        if ( test.disabled || Array.isArray(test.input) ) {
+        if ( test.disabled ||
+             test.skipEncoderTest ||
+             Array.isArray(test.input) ) {
           success()
           return
         }
