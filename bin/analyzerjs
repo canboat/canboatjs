@@ -17,7 +17,7 @@ Options:
 
 const Parser = require('../index').FromPgn
 var parser = new Parser( {
-  returnNulls: argv['n'] !== true,
+  returnNulls: argv['n'] === true,
   checkForInvalidFields: argv['n']
 })
 
