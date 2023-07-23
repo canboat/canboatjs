@@ -59,7 +59,7 @@ describe('Convert Yacht Devices RAW format data', function () {
           "PDOP":1,
           "Geoidal Separation":-24,
           "Reference Stations":0,
-          "list":[{"Reference Station ID":15}]
+          "list":[]
           },
         canId: 0x0DF8057F,
         "description":"GNSS Position Data"
