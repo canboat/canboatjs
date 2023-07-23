@@ -2,4 +2,6 @@ node_modules
 package-lock.json
 .DS_Store
 ios_canboat.js
+.nyc_output
+lib/coverage
 
