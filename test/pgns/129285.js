@@ -7,7 +7,7 @@ module.exports = [
     "expected": {"canId":435750154,"prio":6,"src":10,"dst":255,"pgn":129285,"direction":"R","time":"17:29:52.266","fields":{"Start RPS#":1,"nItems":3,"Database ID":0,"Route ID":0,"Supplementary Route/WP data available":"Off","Reserved1":0,"Route Name":"Route","list":[{"WP ID":1,"WP Name":"Waypoint 717","WP Latitude":39.0641674,"WP Longitude":-76.4878892},{"WP ID":2,"WP Name":"Waypoint 716","WP Latitude":39.0689516,"WP Longitude":-76.4831686},{"WP ID":3,"WP Name":"Waypoint 715","WP Latitude":39.0700745,"WP Longitude":-76.4798802}], "Navigation direction in route":null,"Reserved2":null},"description":"Navigation - Route/WP Information","timestamp":"2023-07-23T17:37:26.091Z"},
     "format": 0,
     "ignoreTimestamp": true,
-    "disabled": true,
+    "disabled": false,
     "input": [
       "17:29:52.256 R 19F9050A 20 59 01 00 03 00 00 00",
       "17:29:52.257 R 19F9050A 21 00 00 07 07 01 52 6F",
