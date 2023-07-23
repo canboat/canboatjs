@@ -63,6 +63,10 @@ describe('from pgn test data converts', function () {
               delete pgn.timestamp
             }
             delete pgn.input
+            if ( data.ignoreTimestamp ) {
+              delete data.expected.timestamp
+              delete pgn.timestamp
+            }
             pgn.should.jsonEqual(data.expected)
             success()
           } catch ( e ) {
