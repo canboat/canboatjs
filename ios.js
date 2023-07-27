@@ -8,7 +8,9 @@ const {
   pgnToiKonvertSerialFormat,
   actisenseToiKonvert,
   pgnToMXPGN,
-  actisenseToMXPGN
+  actisenseToMXPGN,
+  pgnToActisenseN2KAsciiFormat,
+  actisenseToN2KAsciiFormat
 } = require('./lib/toPgn')
 
 const parser = new FromPgn({})
@@ -30,6 +32,8 @@ global.pgnToMXPGN = pgnToMXPGN
 global.actisenseToMXPGN = actisenseToMXPGN
 global.pgnToiKonvertSerialFormat = pgnToiKonvertSerialFormat
 global.actisenseToiKonvert = actisenseToiKonvert
+global.pgnToActisenseN2KAsciiFormat = pgnToActisenseN2KAsciiFormat
+global.actisenseToN2KAsciiFormat = actisenseToN2KAsciiFormat
 
 global.parsePCDIN = (pcdin) => {
   return parser.parseN2KOver0183(pcdin)
@@ -52,6 +56,10 @@ global.parsePDGY = (pdgy) => {
     return
   }
   return parser.parsePDGY(pdgy)
+}
+
+global.parseActisenseN2KASCII = (n2k) => {
+  return parser.parseActisenseN2KASCII(pdgy)
 }
 
 //global.toPgn: require('./lib/toPgn').toPgn,
