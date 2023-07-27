@@ -9,7 +9,7 @@
     "code-coverage": "jest --coverage && nyc mocha --exit",
     "create-release": "github-create-release --owner canboat --repository canboatjs",
     "release": "git tag -d v$npm_package_version && git tag v$npm_package_version && git push --tags && git push && npm run create-release",
-    "build_ios": "webpack ios.js -o ios_canboat.js"
+    "build_ios": "webpack -c ./webpack.config.js --mode development ./ios.js -o ios_canboat.js"
   },
   "bin": {
     "analyzerjs": "./bin/analyzerjs",
@@ -69,6 +69,7 @@
     "@signalk/github-create-release": "^1.0.1",
     "@signalk/server-api": "^1.39.0",
     "baconjs": "^1.0.1",
+    "buffer": "^6.0.3",
     "chai": "^4.1.2",
     "chai-json-equal": "0.0.1",
     "chai-string": "^1.5.0",
@@ -77,8 +78,7 @@
     "mocha": "^5.0.0",
     "moment": "^2.24.0",
     "nyc": "^15.1.0",
-    "webpack": "^4.41.5",
-    "webpack-cli": "^3.3.10"
+    "webpack-cli": "^5.1.4"
   },
   "optionalDependencies": {
     "serialport": "11.x.x",
