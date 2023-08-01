@@ -59,7 +59,7 @@ global.parsePDGY = (pdgy) => {
 }
 
 global.parseActisenseN2KASCII = (n2k) => {
-  return parser.parseActisenseN2KASCII(pdgy)
+  return parser.parseActisenceN2KAscii(n2k)
 }
 
 //global.toPgn: require('./lib/toPgn').toPgn,
