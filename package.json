@@ -79,7 +79,7 @@
     "webpack-cli": "^3.3.10"
   },
   "optionalDependencies": {
-    "serialport": "^9.0.7",
+    "serialport": "^11.0.1",
     "socketcan": "^4.0.3"
   },
   "repository": {

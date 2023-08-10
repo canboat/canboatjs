@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { Transform } = require('stream');
-const SerialPort = require('serialport')
+const { SerialPort } = require('serialport')
 
 if ( process.argv.length < 3 ) {
   console.error('Please specify a device')
@@ -13,7 +13,8 @@ let device = process.argv[2]
 
 let baud = process.argv.length > 3 ? Number(process.argv[3]) : 230400
 
-let serial = new SerialPort(device, {
+let serial = new SerialPort({
+  path:device,
   baudRate: baud
 })
 
