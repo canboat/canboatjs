@@ -8,8 +8,7 @@ Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) 
 
 # Contributors
 
-Canboajs js is built on the backs of a few people whithout whom it would not be possible.
-
+- Scott Bender <scott@scottbender.net>
 - Kees Verruijt <kees@verruijt.net>
 - Jouni Hartikainen <jouni.hartikainen@iki.fi>
 - Teppo Kurki <teppo.kurki@iki.fi>
