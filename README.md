@@ -54,7 +54,7 @@ Example: `candump can0 | candumpanalyzerjs`
 
 Read directly from a socketcan device without the need to install can-utils
 
-Example: candumpjs can0
+Example: `candumpjs can0`
 
 ## ydvr-file
 
