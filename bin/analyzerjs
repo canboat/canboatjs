@@ -2,7 +2,8 @@
 
 const argv = require('minimist')(process.argv.slice(2), {
   alias: { h: 'help' },
-  boolean: ['n']
+  boolean: ['n'],
+  boolean: ['r']
 })
 
 if ( argv['help'] ) {
@@ -11,6 +12,7 @@ if ( argv['help'] ) {
 Options:
   -c                  don't check for invalid values
   -n                  output null values
+  -r                  parse $MXPGN as little endian
   -h, --help          output usage information`)
   process.exit(1)
 }
@@ -18,6 +20,7 @@ Options:
 const Parser = require('../index').FromPgn
 var parser = new Parser( {
   returnNulls: argv['n'] === true,
+  littleEndianMXPGN: argv['r'] === true,
   checkForInvalidFields: argv['c'] !== true
 })
 
