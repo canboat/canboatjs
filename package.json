@@ -7,8 +7,6 @@
     "dev-test": "jest --watch",
     "test": "jest && mocha --exit",
     "code-coverage": "jest --coverage && nyc mocha --exit",
-    "create-release": "github-create-release --owner canboat --repository canboatjs",
-    "release": "git tag -d v$npm_package_version && git tag v$npm_package_version && git push --tags && git push && npm run create-release",
     "build_ios": "webpack -c ./webpack.config.js --mode development ./ios.js -o ios_canboat.js",
     "build_prod_ios": "webpack -c ./webpack.config.js --mode production ./ios.js -o ios_canboat.js"
   },
@@ -66,7 +64,6 @@
     "split": "^1.0.1"
   },
   "devDependencies": {
-    "@signalk/github-create-release": "^1.0.1",
     "@signalk/server-api": "^1.39.0",
     "baconjs": "^1.0.1",
     "buffer": "^6.0.3",
