@@ -3,7 +3,9 @@
 const argv = require('minimist')(process.argv.slice(2), {
   alias: { h: 'help' },
   boolean: ['n'],
-  boolean: ['r']
+  boolean: ['r'],
+  boolean: ['camel'],
+  boolean: ['camel-compat']
 })
 
 if ( argv['help'] ) {
@@ -13,6 +15,8 @@ Options:
   -c                  don't check for invalid values
   -n                  output null values
   -r                  parse $MXPGN as little endian
+  --camel             output field names in camelCase
+  --camel-compat      output field names in camelCase and regular
   -h, --help          output usage information`)
   process.exit(1)
 }
@@ -21,7 +25,9 @@ const Parser = require('../index').FromPgn
 var parser = new Parser( {
   returnNulls: argv['n'] === true,
   littleEndianMXPGN: argv['r'] === true,
-  checkForInvalidFields: argv['c'] !== true
+  checkForInvalidFields: argv['c'] !== true,
+  useCamel: argv['camel'],
+  useCamelCompat: argv['camel-compat']
 })
 
 parser.on('error', (pgn, error) => {
