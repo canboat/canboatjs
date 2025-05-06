@@ -11,6 +11,13 @@ jobs:
       with:
         node-version: '18.x'
         registry-url: 'https://registry.npmjs.org'
-    - run: npm publish --access public
+      run: |
+          npm ci && npm cache clean --force
+          if [[ "$tag" == *beta* ]];
+            then
+              npm publish --tag beta
+            else
+              npm publish
+          fi    
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
