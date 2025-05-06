@@ -1,6 +1,6 @@
 {
   "name": "@canboat/canboatjs",
-  "version": "2.10.1",
+  "version": "3.0.0-beta.1",
   "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
@@ -53,7 +53,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@canboat/pgns": "5.2.x",
+    "@canboat/pgns": "6.0.0-beta.1",
     "bit-buffer": "0.2.3",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",
