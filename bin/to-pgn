@@ -4,14 +4,14 @@ const argv = require('minimist')(process.argv.slice(2), {
   string: ['format'],
   alias: { h: 'help' }
 })
-const { pgnToActisenseSerialFormat, pgnToActisenseN2KAsciiFormat, pgnToiKonvertSerialFormat, pgnToYdgwRawFormat, pgnToPCDIN, pgnToMXPGN } = require('../index')
+const { pgnToActisenseSerialFormat, pgnToActisenseN2KAsciiFormat, pgnToiKonvertSerialFormat, pgnToYdgwRawFormat, pgnToYdgwFullRawFormat, pgnToPCDIN, pgnToMXPGN } = require('../index')
 const { toActisenseSerialFormat } = require('../lib/stringMsg')
 
 if ( argv['help'] ) {
   console.error(`Usage: ${process.argv[0]} [options]
 
 Options:
-  --format <format>   actisense, actisensen2kascii, ikconvert, ydgw, pcdin, mxpgn
+  --format <format>   actisense, actisensen2kascii, ikconvert, ydgw, yd-full, pcdin, mxpgn
   -h, --help          output usage information`)
   process.exit(1)
 }
@@ -23,7 +23,8 @@ const formatters = {
   ikconvert: pgnToiKonvertSerialFormat,
   ydgw: pgnToYdgwRawFormat,
   'pcdin': pgnToPCDIN,
-  'mxpgn': pgnToMXPGN
+  'mxpgn': pgnToMXPGN,
+  'yd-full': pgnToYdgwFullRawFormat
 }
 
 const format = argv['format'] || 'actisense'
