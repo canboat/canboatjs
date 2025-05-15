@@ -28,6 +28,7 @@ module.exports = {
   pgnToActisenseN2KAsciiFormat: require('./lib/toPgn').pgnToActisenseN2KAsciiFormat,
   pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
   pgnToYdgwRawFormat: require('./lib/toPgn').pgnToYdgwRawFormat,
+  pgnToYdgwFullRawFormat: require('./lib/toPgn').pgnToYdgwFullRawFormat,
   pgnToPCDIN: require('./lib/toPgn').pgnToPCDIN,
   pgnToMXPGN: require('./lib/toPgn').pgnToMXPGN,
   canbus: require('./lib/canbus'),
@@ -39,6 +40,7 @@ module.exports = {
   VenusMQTT: require('./lib/venus-mqtt'),
   discover: require('./lib/discovery'),
   SimpleCan: require('./lib/simpleCan'),
+  YdDevice: require('./lib/yddevice'),
   addCustomPgns: pgns.addCustomPgns,
   lookupEnumerationValue: pgns.lookupEnumerationValue,
   lookupEnumerationName: pgns.lookupEnumerationName
@@ -48,3 +50,4 @@ try {
   module.exports.serial = require('./lib/serial')
 } catch ( ex ) {
 }
+
