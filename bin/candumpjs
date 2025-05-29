@@ -16,7 +16,8 @@ if ( argv['help'] ) {
   console.error(`Usage: ${process.argv[0]} [options] candevice
 
 Options:
-  -h, --help       output usage information`)
+  --format <format>    json, actisense
+  -h, --help           output usage information`)
   process.exit(1)
 }
 
@@ -24,6 +25,8 @@ if ( argv['_'].length === 0 ) {
   console.error('Please specify a device')
   process.exit(1)
 }
+
+const format = argv['format'] || 'json'
 
 /*
 
@@ -69,8 +72,12 @@ channel.addListener('onMessage', (msg) => {
   pgn.timestamp = new Date().toISOString()
 
   let sourceString = binToActisense(pgn, msg.data, msg.data.length)
-  
-  parser.parse({ pgn, length: msg.data.length, data: msg.data, sourceString })
+
+  if ( format === 'json' ) {
+    parser.parse({ pgn, length: msg.data.length, data: msg.data, sourceString })
+  } else {
+    console.log(sourceString)
+  }
 })
 
 channel.start()
