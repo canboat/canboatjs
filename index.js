@@ -39,7 +39,7 @@ module.exports = {
   Venus: require('./lib/venus'),
   VenusMQTT: require('./lib/venus-mqtt'),
   discover: require('./lib/discovery'),
-  SimpleCan: require('./lib/simpleCan'),
+  N2K_Client: require('./lib/n2k_client'),
   YdDevice: require('./lib/yddevice'),
   addCustomPgns: pgns.addCustomPgns,
   lookupEnumerationValue: pgns.lookupEnumerationValue,
@@ -50,4 +50,3 @@ try {
   module.exports.serial = require('./lib/serial')
 } catch ( ex ) {
 }
-

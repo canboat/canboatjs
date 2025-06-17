@@ -53,7 +53,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@canboat/pgns": "5.1.x",
+    "@canboat/pgns": "git+https://github.com/TamaGO89/cmc-canboat.git",
     "bit-buffer": "0.2.3",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",
