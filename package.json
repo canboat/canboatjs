@@ -1,5 +1,5 @@
 {
-  "name": "@canboat/canboatjs",
+  "name": "@tamago89/canboatjs",
   "version": "2.12.1",
   "description": "Native javascript version of canboat",
   "main": "index.js",
@@ -53,7 +53,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@canboat/pgns": "git+https://github.com/TamaGO89/cmc-canboat.git",
+    "@tamago89/pgns": "git+https://github.com/TamaGO89/cmc-canboat.git",
     "bit-buffer": "0.2.3",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",
@@ -83,6 +83,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/canboat/canboatjs.git"
+    "url": "https://github.com/TamaGO89/cmc-canboatjs.git"
   }
 }
