@@ -1,6 +1,6 @@
 {
-  "name": "@tamago89/canboatjs",
-  "version": "2.12.1",
+  "name": "@canboat/canboatjs",
+  "version": "2.12.1-beta.0",
   "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
@@ -49,11 +49,15 @@
     {
       "name": "Jouni Hartikainen",
       "email": "jouni.hartikainen@iki.fi"
+    },
+    {
+      "name": "Andrea Tamantini",
+      "email": "ing.tamantini@gmail.com"
     }
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@tamago89/pgns": "git+https://github.com/TamaGO89/cmc-canboat.git",
+    "@canboat/pgns": "5.1.x",
     "bit-buffer": "0.2.3",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",
@@ -72,9 +76,10 @@
     "chai-json-equal": "0.0.1",
     "chai-string": "^1.5.0",
     "chai-things": "^0.2.0",
-    "jest": "^24.7.1",
+    "jest": "^24.9.0",
     "mocha": "^5.0.0",
     "nyc": "^15.1.0",
+    "test": "^3.3.0",
     "webpack-cli": "^5.1.4"
   },
   "optionalDependencies": {
@@ -83,6 +88,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/TamaGO89/cmc-canboatjs.git"
+    "url": "https://github.com/canboat/canboatjs.git"
   }
 }
