@@ -2,10 +2,7 @@
 
 const argv = require('minimist')(process.argv.slice(2), {
   alias: { h: 'help' },
-  boolean: ['n'],
-  boolean: ['r'],
-  boolean: ['camel'],
-  boolean: ['camel-compat']
+  boolean: ['n', 'r', 'camel', 'camel-compat']
 })
 
 if ( argv['help'] ) {

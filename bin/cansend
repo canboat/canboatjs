@@ -4,25 +4,25 @@ const canboatjs = require('../index')
 const Parser = require('../index').FromPgn
 const { parseCanId } = require('../lib/canId')
 const { parseActisense } = require('../lib/stringMsg')
-const socketcan = require('socketcan')
 
 const { toPgn } = require('../lib/toPgn')
 const { getPlainPGNs, binToActisense } = require('../lib/utilities')
 const { encodeCanId } = require('../lib/canId')
 
 const argv = require('minimist')(process.argv.slice(2), {
-  alias: { h: 'help' },
-  boolean: ['log-output'],
+  boolean: ['test', 'log-output'],
   string: ['src'],
+  alias: { h: 'help' }
 })
 
 if ( argv['help'] ) {
   console.error(`Usage: ${process.argv[0]} [options] candevice
 
 Options:
-  --src <src>  use src for all messages
-  --log-output log messages sent
-  -h, --help   output usage information`)
+  --src <src>    use src for all messages
+  --log-output   log messages sent
+  --test         don't connect or send any data
+  -h, --help     output usage information`)
   process.exit(1)
 }
 
@@ -34,14 +34,18 @@ if ( argv['_'].length === 0 ) {
 const canDevice = argv['_'][0]
 const srcArg = argv.src
 const logOut = argv['log-output']
+const test = argv.test
 
-const channel = socketcan.createRawChannel(canDevice);
-
-channel.addListener('onStopped', (msg) => {
-  console.error('socketcan stopped')
-})
-
-channel.start()
+if ( !test ) {
+  const socketcan = require('socketcan')
+  const channel = socketcan.createRawChannel(canDevice);
+  
+  channel.addListener('onStopped', (msg) => {
+    console.error('socketcan stopped')
+  })
+  
+  channel.start()
+}
 
 var readline = require('readline')
 var rl = readline.createInterface({
@@ -53,6 +57,10 @@ var rl = readline.createInterface({
 var input = []
 
 rl.on('line', function (line) {
+  if ( line.length === 0 ) {
+    return
+  }
+  
   let msg =  line[0] === '{'  ? JSON.parse(line) : line
 
   if ( typeof msg === 'string' ) {
@@ -80,9 +88,19 @@ rl.on('line', function (line) {
   if ( typeof msg === 'object' ) {
     canid = encodeCanId(msg)
     buffer = toPgn(msg)
+    if ( buffer === undefined ) {
+      console.error('invalid input: %s', line)
+      return
+    }
     pgn = msg
   } else {
     pgn = parseActisense(msg)
+
+    if ( isNaN(pgn.prio) || isNaN(pgn.pgn) || isNaN(pgn.dst) || isNaN(pgn.src) ) {
+      console.error('invalid input: ' + line)
+      return
+    }
+    
     canid = encodeCanId(pgn)
     buffer = pgn.data
   }
@@ -92,13 +110,17 @@ rl.on('line', function (line) {
   if ( buffer.length > 8 || pgn.pgn == 126720 ) {
     var pgns = getPlainPGNs(buffer)
     pgns.forEach(pbuffer => {
-      channel.send({id: canid, ext:true, data: pbuffer})
+      if ( !test ) {
+        channel.send({id: canid, ext:true, data: pbuffer})
+      }
       if ( logOut ) {
         console.log(binToActisense(pgn, pbuffer, pbuffer.length))
       }
     })                    
   } else {
-    channel.send({id: canid, ext:true, data: buffer})
+    if ( !test ) {
+      channel.send({id: canid, ext:true, data: buffer})
+    }
     if ( logOut ) {
       console.log(binToActisense(pgn, buffer, buffer.length))
     }
