@@ -36,9 +36,11 @@ const srcArg = argv.src
 const logOut = argv['log-output']
 const test = argv.test
 
+let channel
+
 if ( !test ) {
   const socketcan = require('socketcan')
-  const channel = socketcan.createRawChannel(canDevice);
+  channel = socketcan.createRawChannel(canDevice);
   
   channel.addListener('onStopped', (msg) => {
     console.error('socketcan stopped')
