@@ -1,10 +1,6 @@
 {
   "name": "@canboat/canboatjs",
-<<<<<<< HEAD
-  "version": "3.0.0-beta.5",
-=======
-  "version": "3.0.0-beta.1",
->>>>>>> d5dc289 (chore: point to pgns beta)
+  "version": "3.0.0-beta.6",
   "description": "Native javascript version of canboat",
   "main": "index.js",
   "scripts": {
