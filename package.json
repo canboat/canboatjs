@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev-test": "jest --watch",
-    "test": "jest && mocha --exit",
+    "test": "jest && mocha --require ts-node/register --exit 'test/*.[jt]s'",
     "code-coverage": "jest --coverage && nyc mocha --exit",
     "build_ios": "webpack -c ./webpack.config.js --mode development ./ios.js -o ios_canboat.js",
     "build_prod_ios": "webpack -c ./webpack.config.js --mode production ./ios.js -o ios_canboat.js",
@@ -71,6 +71,7 @@
   "devDependencies": {
     "@signalk/server-api": "^1.39.0",
     "@tsconfig/node20": "^20.1.6",
+    "@types/chai": "^5.2.2",
     "@types/debug": "^4.1.12",
     "@types/jest": "^30.0.0",
     "@types/lodash": "^4.17.19",
@@ -87,6 +88,7 @@
     "nyc": "^15.1.0",
     "prettier": "^3.6.2",
     "ts-jest": "^29.4.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.35.0",
     "webpack-cli": "^5.1.4"

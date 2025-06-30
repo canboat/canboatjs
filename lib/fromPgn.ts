@@ -95,6 +95,12 @@ export class Parser extends EventEmitter {
   }
 
   _parse(pgn:PGN, bs: BitStream, len: number, coalesced:boolean, cb:FromPgnCallback, sourceString:string|undefined = undefined)  {
+
+
+    if ( pgn.src === undefined ) {
+      throw new Error('invalid pgn, missing src')
+    }
+    
     const customPgns = getCustomPgn(pgn.pgn)
     let pgnList = getPgn(pgn.pgn)
 
@@ -284,13 +290,17 @@ export class Parser extends EventEmitter {
         }
       }
       if ( RepeatingFields > 0 ) {
-        const repeating = fields.slice(fields.length-RepeatingFields)
-        pgn.fields.list = []
+        const repeating : Field[] = (fields as any).slice(fields.length-RepeatingFields)
+
+        const fany = (pgn.fields as any)
+        fany.list = []
 
         let count
 
         if ( pgnData.RepeatingFieldSet1CountField !== undefined ) {
-          count = pgn.fields[pgnData.Fields[pgnData.RepeatingFieldSet1CountField-1][this.options.useCamel ? 'Id' :  'Name']]
+          const rfield = pgnData.Fields[pgnData.RepeatingFieldSet1CountField-1]
+          const dataKey = this.options.useCamel ? rfield.Id :  rfield.Name
+          count = (pgn.fields as any)[dataKey]
         } else {
           count = 2048
         }
@@ -306,7 +316,7 @@ export class Parser extends EventEmitter {
             }
           })
           if ( _.keys(group).length > 0 ) {
-            pgn.fields.list.push(group)
+            (pgn.fields as any).list.push(group)
           }
         }
       }
@@ -411,6 +421,7 @@ export class Parser extends EventEmitter {
         src: pgn_data.src,
         dst: pgn_data.dst,
         prio: pgn_data.prio,
+        fields: {}
       }
       const bs = new BitStream(Buffer.from(pgn_data.data, 'base64'))
       delete pgn_data.data
@@ -833,7 +844,7 @@ function readVariableLengthField(options:any, pgn:PGN, field:Field, bs:BitStream
    */
 
   try {
-    const refField = getField(pgn.fields.PGN, bs.view.buffer[bs.byteIndex-1]-1, pgn)
+    const refField = getField((pgn.fields as any).PGN, bs.view.buffer[bs.byteIndex-1]-1, pgn)
     
     if ( refField ) {
       const res =  readField(options, false, pgn, refField, bs)
