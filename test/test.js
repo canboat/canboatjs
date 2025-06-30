@@ -6,7 +6,7 @@ chai.use(require('chai-json-equal'));
 const fs = require('fs')
 const _ = require("lodash")
 const { FromPgn, toPgn } = require('../index')
-const { encodeActisense } = require('../lib/stringMsg')
+const { encodeActisense } = require('../dist/stringMsg')
 
 let testData = {}
 

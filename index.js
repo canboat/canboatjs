@@ -16,38 +16,38 @@
  * limitations under the License.
  */
 
-const pgns = require('./lib/pgns')
+const pgns = require('./dist/pgns')
 
 module.exports = {
-  FromPgn: require('./lib/fromPgn').Parser,
-  parseN2kString: require('./lib/stringMsg').parseN2kString,
-  isN2KString: require('./lib/stringMsg').isN2KString,
-  toPgn: require('./lib/toPgn').toPgn,
-  toActisenseSerialFormat: require('./lib/stringMsg').toActisenseSerialFormat,
-  pgnToActisenseSerialFormat: require('./lib/toPgn').pgnToActisenseSerialFormat,
-  pgnToActisenseN2KAsciiFormat: require('./lib/toPgn').pgnToActisenseN2KAsciiFormat,
-  pgnToiKonvertSerialFormat: require('./lib/toPgn').pgnToiKonvertSerialFormat,
-  pgnToYdgwRawFormat: require('./lib/toPgn').pgnToYdgwRawFormat,
-  pgnToYdgwFullRawFormat: require('./lib/toPgn').pgnToYdgwFullRawFormat,
-  pgnToPCDIN: require('./lib/toPgn').pgnToPCDIN,
-  pgnToMXPGN: require('./lib/toPgn').pgnToMXPGN,
-  canbus: require('./lib/canbus'),
-  iKonvert: require('./lib/ikonvert'),
-  Ydwg02: require('./lib/ydgw02'),
-  Ydgw02: require('./lib/ydgw02'),
-  W2k01: require('./lib/w2k01'),
-  Venus: require('./lib/venus'),
-  VenusMQTT: require('./lib/venus-mqtt'),
-  discover: require('./lib/discovery'),
-  SimpleCan: require('./lib/simpleCan'),
-  YdDevice: require('./lib/yddevice'),
+  FromPgn: require('./dist/fromPgn').Parser,
+  parseN2kString: require('./dist/stringMsg').parseN2kString,
+  isN2KString: require('./dist/stringMsg').isN2KString,
+  toPgn: require('./dist/toPgn').toPgn,
+  toActisenseSerialFormat: require('./dist/stringMsg').toActisenseSerialFormat,
+  pgnToActisenseSerialFormat: require('./dist/toPgn').pgnToActisenseSerialFormat,
+  pgnToActisenseN2KAsciiFormat: require('./dist/toPgn').pgnToActisenseN2KAsciiFormat,
+  pgnToiKonvertSerialFormat: require('./dist/toPgn').pgnToiKonvertSerialFormat,
+  pgnToYdgwRawFormat: require('./dist/toPgn').pgnToYdgwRawFormat,
+  pgnToYdgwFullRawFormat: require('./dist/toPgn').pgnToYdgwFullRawFormat,
+  pgnToPCDIN: require('./dist/toPgn').pgnToPCDIN,
+  pgnToMXPGN: require('./dist/toPgn').pgnToMXPGN,
+  canbus: require('./dist/canbus'),
+  iKonvert: require('./dist/ikonvert'),
+  Ydwg02: require('./dist/ydgw02'),
+  Ydgw02: require('./dist/ydgw02'),
+  W2k01: require('./dist/w2k01'),
+  Venus: require('./dist/venus'),
+  VenusMQTT: require('./dist/venus-mqtt'),
+  discover: require('./dist/discovery'),
+  SimpleCan: require('./dist/simpleCan'),
+  YdDevice: require('./dist/yddevice'),
   addCustomPgns: pgns.addCustomPgns,
   lookupEnumerationValue: pgns.lookupEnumerationValue,
   lookupEnumerationName: pgns.lookupEnumerationName
 }
 
 try {
-  module.exports.serial = require('./lib/serial')
+  module.exports.serial = require('./dist/serial')
 } catch ( ex ) {
 }
 

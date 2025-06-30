@@ -6,7 +6,7 @@ chai.use(require("chai-json-equal"));
 chai.use(require("chai-string"));
 const fs = require("fs");
 const path = require("path");
-const YdvrStream = require('../lib/ydvr.js');
+const YdvrStream = require('../dist/ydvr.js');
 
 describe("Read Yacht Devices Voyage Recorder files", function () {
   it("Reads 00090013.DAT", function (done) {

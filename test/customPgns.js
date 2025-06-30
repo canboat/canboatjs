@@ -12,10 +12,10 @@ const definitions = {
       "Name":"MY_YES_NO",
       "MaxValue":11,
       "EnumValues":[
-        {"Name":"No","Value":"0"},
-        {"Name":"Yes","Value":"1"},
-        {"Name":"Error","Value":"10"},
-        {"Name":"Unavailable","Value":"11"}
+        {"Name":"No","Value":0},
+        {"Name":"Yes","Value":1},
+        {"Name":"Error","Value":10},
+        {"Name":"Unavailable","Value":11}
       ],
     },
   ],

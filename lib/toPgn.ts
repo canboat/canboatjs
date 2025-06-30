@@ -14,32 +14,37 @@
  * limitations under the License.
  */
 
-const { getField } = require('./fromPgn')
-const { getPgn, getCustomPgn, lookupEnumerationValue, lookupFieldTypeEnumerationValue, lookupBitEnumerationName, lookupFieldTypeEnumerationBits } = require('./pgns')
-const _ = require('lodash')
-const BitStream = require('bit-buffer').BitStream
-const Int64LE = require('int64-buffer').Int64LE
-const Uint64LE = require('int64-buffer').Uint64LE
-const { getPlainPGNs } = require('./utilities')
-const { encodeActisense, encodeActisenseN2KACSII, encodeYDRAW, encodeYDRAWFull, parseActisense, encodePCDIN, encodeMXPGN, encodePDGY } = require('./stringMsg')
-const { encodeN2KActisense } = require('./n2k-actisense')
-const { encodeCanId } = require('./canId')
-const { getIndustryCode, getManufacturerCode } = require('./codes')
-const debug = require('debug')('canboatjs:toPgn')
+import { Definition, Field, PGN, FieldType } from '@canboat/pgns'
+import { getField } from './fromPgn'
+import { getPgn, getCustomPgn, lookupEnumerationValue, lookupFieldTypeEnumerationValue, lookupBitEnumerationName, lookupFieldTypeEnumerationBits } from './pgns'
+import _  from 'lodash'
+import { BitStream } from 'bit-buffer'
+import { Int64LE, Uint64LE } from 'int64-buffer'
+import { encodeActisense, encodeActisenseN2KACSII, encodeYDRAW, encodeYDRAWFull, parseActisense, encodePCDIN, encodeMXPGN, encodePDGY } from './stringMsg'
+import { encodeN2KActisense } from './n2k-actisense'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:toPgn')
 
 const RES_STRINGLAU = 'STRING_LAU' //'ASCII or UNICODE string starting with length and control byte'
 const RES_STRINGLZ = 'STRING_LZ' //'ASCII string starting with length byte'
 
+type FieldTypeWriter = (pgn:number, field:Field, value:any, bs:BitStream) => void
+type FieldTypeMapper = (field:Field, value:any) => any
 
-var fieldTypeWriters = {}
-var fieldTypeMappers = {}
 
-var lengthsOff = { 129029: 45, 127257:8, 127258:8, 127251:8 }
+const fieldTypeWriters: {
+  [key:string]: FieldTypeWriter
+} = {}
+const fieldTypeMappers: {
+  [key:string]: FieldTypeMapper
+} = {}
+
+//const lengthsOff: {[key: number]: number} = { 129029: 45, 127257:8, 127258:8, 127251:8 }
 
 const a126208_oldKey = '# of Parameters'
 const a126208_newKey = 'Number of Parameters'
 
-function toPgn(data) {
+function toPgn(data:any) {
   const customPgns = getCustomPgn(data.pgn)
   let pgnList = getPgn(data.pgn)
   if (!pgnList && !customPgns ) {
@@ -50,11 +55,16 @@ function toPgn(data) {
   if ( customPgns ) {
     pgnList = [ ...customPgns.definitions, ...(pgnList || []) ]
   }
+
+  if ( !pgnList || pgnList.length === 0 ) {
+    debug("no pgn found: " + data.pgn)
+    return undefined
+  }
   
   const pgn_number = data.pgn
-  var pgnData = pgnList[0]
+  let pgnData = pgnList[0]
 
-  var bs = new BitStream(Buffer.alloc(500))
+  const bs = new BitStream(Buffer.alloc(500))
 
   if ( data.fields ) {
     data = data.fields
@@ -67,14 +77,11 @@ function toPgn(data) {
     data[a126208_newKey] = data[a126208_oldKey]
   }
 
-  var fields = pgnData.Fields
-  if ( !_.isArray(fields) ) {
-    fields = [ fields.Field ]
-  }
+  let fields = pgnData.Fields
   let RepeatingFields = pgnData.RepeatingFieldSet1Size ? pgnData.RepeatingFieldSet1Size : 0
-  for ( var index = 0; index < fields.length - RepeatingFields; index++ ) {
-    var field = fields[index]
-    var value = data[field.Name] !== undefined ? data[field.Name] : data[field.Id]
+  for ( let index = 0; index < fields.length - RepeatingFields; index++ ) {
+    const field = fields[index]
+    let value = data[field.Name] !== undefined ? data[field.Name] : data[field.Id]
 
     if ( !_.isUndefined(field.Match) ) {
       //console.log(`matching ${field.Name} ${field.Match} ${value} ${_.isString(value)}`)
@@ -95,36 +102,37 @@ function toPgn(data) {
   }
 
   if ( data.list ) {
-    data.list.forEach(repeat => {
-      for (var index = 0; index < RepeatingFields; index++ ) {
-        var field = fields[pgnData.Fields.length-RepeatingFields+index]
-        var value = repeat[field.Name] !== undefined ? repeat[field.Name] : repeat[field.Id]
+    data.list.forEach((repeat:any) => {
+      for (let index = 0; index < RepeatingFields; index++ ) {
+        const field = fields[pgnData.Fields.length-RepeatingFields+index]
+        const value = repeat[field.Name] !== undefined ? repeat[field.Name] : repeat[field.Id]
 
         writeField(bs, pgn_number, field, data, value, fields)
       }
     })
   }
 
-  var bitsLeft = (bs.byteIndex * 8) - bs.index
+  const bitsLeft = (bs.byteIndex * 8) - bs.index
   if ( bitsLeft > 0 ) {
     //finish off the last byte
     bs.writeBits(0xffff, bitsLeft)
     //console.log(`bits left ${bitsLeft}`)
   }
 
-  if ( pgnData.Length != 0xff
-       && fields[fields.length-1].FieldType != RES_STRINGLAU
-       && fields[fields.length-1].FieldType != RES_STRINGLZ
-       && !RepeatingFields ) {
+  if (pgnData.Length !== undefined
+      && pgnData.Length !== 0xff
+      && fields[fields.length-1].FieldType !== RES_STRINGLAU
+      && fields[fields.length-1].FieldType !== RES_STRINGLZ
+      && !RepeatingFields ) {
 
-    var len = lengthsOff[pgnData.PGN] || pgnData.Length
+    //const len = lengthsOff[pgnData.PGN] || pgnData.Length
     //console.log(`Length ${len}`)
 
-    if ( bs.byteIndex < len ) {
+    //if ( bs.byteIndex < pgnData.Length ) {
       //console.log(`bytes left ${pgnData.Length-bs.byteIndex}`)
-    }
+  //}
 
-    for ( var i = bs.byteIndex; i < len; i++ ) {
+    for ( let i = bs.byteIndex; i < pgnData.Length; i++ ) {
       bs.writeUint8(0xff)
     }
   }
@@ -132,56 +140,54 @@ function toPgn(data) {
   return bs.view.buffer.slice(0, bs.byteIndex)
 }
 
+
+/*
 function dumpWritten(bs, field, startPos, value) {
   //console.log(`${startPos} ${bs.byteIndex}`)
   if ( startPos == bs.byteIndex )
     startPos--
-  var string = `${field.Name} (${field.BitLength}): [`
-  for ( var i = startPos; i < bs.byteIndex; i++ ) {
+  let string = `${field.Name} (${field.BitLength}): [`
+  for ( let i = startPos; i < bs.byteIndex; i++ ) {
     string = string + bs.view.buffer[i].toString(16) + ', '
   }
   console.log(string + `] ${value}`)
 }
+*/
 
-function writeField(bs, pgn_number, field, data, value, fields, bitLength) {
-  var startPos = bs.byteIndex
+function writeField(bs:BitStream, pgn_number:number, field:Field, data:any, value:any, fields:Field[], bitLength:number|undefined = undefined) {
+  //const startPos = bs.byteIndex
 
-  if ( _.isUndefined(bitLength) ) {
+  if ( bitLength === undefined ) {
     if ( field.BitLengthVariable && field.FieldType === "DYNAMIC_FIELD_VALUE" ) {
       bitLength = lookupKeyBitLength(data, fields)
     } else {
       bitLength = field.BitLength
     }
   }
-
+  
   // console.log(`${field.Name}:${value}(${bitLength}-${field.Resolution})`)
-  if ( _.isUndefined(value) || value === null) {
+  if ( value === undefined || value === null) {
     if ( field.FieldType && fieldTypeWriters[field.FieldType] ) {
       fieldTypeWriters[field.FieldType](pgn_number, field, value, bs)
-    } else if ( bitLength % 8  == 0 ) {
-      var bytes = bitLength/8
-      var lastByte = field.Signed ? 0x7f : 0xff
-      var byte = field.Name.startsWith('Reserved') ? 0x00 : 0xff
-      for ( var i = 0; i < bytes-1; i++ ) {
+    } else if ( bitLength !== undefined && bitLength % 8  == 0 ) {
+      const bytes = bitLength/8
+      //const byte = field.Name.startsWith('Reserved') ? 0x00 : 0xff
+      for ( let i = 0; i < bytes-1; i++ ) {
         bs.writeUint8(0xff)
       }
       bs.writeUint8(field.Signed ? 0x7f : 0xff)
-    } else {
+    } else if ( bitLength !== undefined ) {
       bs.writeBits(0xffffffff, bitLength)
+    } else {
+      //FIXME: error! should not happen
     }
   } else {
-    let type = field.FieldType
-    if ( field.Id === 'industryCode' ) {
-      if ( _.isString(value) ) {
-        value = Number(getIndustryCode(value))
-      }
-    } else if ( type && fieldTypeMappers[type] ) {
+    const type = field.FieldType
+    if ( type && fieldTypeMappers[type] ) {
       value = fieldTypeMappers[type](field, value)
     } else if ((field.FieldType === 'LOOKUP' ||
                 field.FieldType === 'DYNAMIC_FIELD_KEY') && _.isString(value)) {
-      if (!(field.Id === "timeStamp" && value < 60)) {
-        value = lookup(field, value)
-      }
+      value = lookup(field, value)
     }
 
     if ( field.FieldType == "NUMBER" && _.isString(value) ) {
@@ -215,69 +221,75 @@ function writeField(bs, pgn_number, field, data, value, fields, bitLength) {
       } else if ( _.isBuffer(value) ) {
         value.copy(bs.view.buffer, bs.byteIndex)
         bs.byteIndex += value.length
-      } else if (bitLength === 8) {
-        if (field.Signed) {
-          bs.writeInt8(value)
-        } else {
-          bs.writeUint8(value)
-        }
-      } else if (bitLength === 16) {
-        if (field.Signed) {
-          bs.writeInt16(value)
-        } else {
-          bs.writeUint16(value)
-        }
-      } else if (bitLength === 32) {
-        if (field.Signed) {
-          bs.writeInt32(value)
-        } else {
-          bs.writeUint32(value) 
-        }
-      } else if (bitLength === 48 || bitLength == 24) {
-        var count = bitLength/8;
-        var val = value;
-        if ( value < 0 ) {
-          val++
-        }
-        while (count-- > 0 ) {
-          if ( value > 0 ) {
-            bs.writeUint8(val & 255);
-            val /= 256;
+      } else if ( bitLength !== undefined ) {
+        if (bitLength === 8) {
+          if (field.Signed) {
+            bs.writeInt8(value)
           } else {
-            bs.writeUint8(((-val) & 255) ^ 255);
-            val /= 256;
+            bs.writeUint8(value)
           }
-        }
-      } else if (bitLength === 64) {
-        var num
-        if (field.Signed) {
-          num = new Int64LE(value)
+        } else if (bitLength === 16) {
+          if (field.Signed) {
+            bs.writeInt16(value)
+          } else {
+            bs.writeUint16(value)
+          }
+        } else if (bitLength === 32) {
+          if (field.Signed) {
+            bs.writeInt32(value)
+          } else {
+            bs.writeUint32(value) 
+          }
+        } else if (bitLength === 48 || bitLength == 24) {
+          let count = bitLength/8;
+          let val = value;
+          if ( value < 0 ) {
+            val++
+          }
+          while (count-- > 0 ) {
+            if ( value > 0 ) {
+              bs.writeUint8(val & 255);
+              val /= 256;
+            } else {
+              bs.writeUint8(((-val) & 255) ^ 255);
+              val /= 256;
+            }
+          }
+        } else if (bitLength === 64) {
+          let num
+          if (field.Signed) {
+            num = new Int64LE(value)
+          } else {
+            num = new Uint64LE(value)
+          }
+          const buf = num.toBuffer()
+          buf.copy(bs.view.buffer, bs.byteIndex)
+          bs.byteIndex += buf.length
         } else {
-          num = new Int64LE(value)
+          bs.writeBits(value, bitLength)
         }
-        var buf = num.toBuffer()
-        buf.copy(bs.view.buffer, bs.byteIndex)
-        bs.byteIndex += buf.length
-      } else {
-        bs.writeBits(value, bitLength)
       }
     }
   }
   //dumpWritten(bs, field, startPos, value)
 }
 
-  function writeVariableLengthField(bs, pgn_number, pgn, field, value, fields) {
-  var refField = getField(pgn.PGN, bs.view.buffer[bs.byteIndex-1]-1, pgn)
+function writeVariableLengthField(bs:BitStream, pgn_number:number, pgn:any, field:Field, value:any, fields:Field[]) {
+  const refField = getField(pgn.PGN, bs.view.buffer[bs.byteIndex-1]-1, pgn)
 
   if ( refField ) {
-    var bits = (refField.BitLength + 7) & ~7; // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
+    let bits
+
+    if ( refField.BitLength !== undefined ) {
+      bits = (refField.BitLength + 7) & ~7; // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
+    }
 
     return writeField(bs, pgn_number, refField, pgn, value, fields, bits)
   }
 }
 
-function lookup(field, stringValue) {
-  var res
+function lookup(field:Field, stringValue:string) {
+  let res
   if ( field.LookupEnumeration ) {
     res = lookupEnumerationValue(field.LookupEnumeration, stringValue)
   } else {
@@ -286,62 +298,68 @@ function lookup(field, stringValue) {
   return _.isUndefined(res) ? stringValue : res
 }
 
-function lookupKeyBitLength(data, fields)
+function lookupKeyBitLength(data:any, fields:Field[])
 {
-  let field = fields.find(field => (field.Name === 'Key'))
-
-  let val = data['Key'] || data['key']
-  if ( typeof val === 'string' ) {
-    val = lookupFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
+  const field = fields.find(field => (field.Name === 'Key'))
+  
+  if ( field ) {
+    let val = data['Key'] || data['key']
+    if ( typeof val === 'string' ) {
+      val = lookupFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
+    }
+    return lookupFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
   }
-  return lookupFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
 }
 
-function isDefined(value) {
-  return typeof value !== 'undefined' && value != null
-}
-
-function parseHex(s) {
+function parseHex(s:string): number {
   return parseInt(s, 16)
 };
 
-function canboat2Buffer(canboatData) {
-  return Buffer.alloc(canboatData.split(',').slice(6).map(parseHex), 'hex')
+/*
+function canboat2Buffer(canboatData:string) {
+  return Buffer.alloc(canboatData
+                     .split(',')
+                     .slice(6)
+                     .map(parseHex), 'hex')
+                     }
+*/
+
+function pgnToActisenseSerialFormat(pgn:PGN) {
+  return encodeActisense({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio, timestamp: undefined})
 }
 
-function pgnToActisenseSerialFormat(pgn) {
-  return encodeActisense({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio})
+function pgnToActisenseN2KAsciiFormat(pgn:any) {
+  return encodeActisenseN2KACSII({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio, timestamp:undefined })
 }
 
-function pgnToActisenseN2KAsciiFormat(pgn) {
-  return encodeActisenseN2KACSII({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio})
+function pgnToN2KActisenseFormat(pgn:any) {
+  return encodeN2KActisense({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio, timestamp:undefined})
 }
 
-function pgnToN2KActisenseFormat(pgn) {
-  return encodeN2KActisense({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio})
-}
-
-function toiKonvertSerialFormat(pgn, data, dst=255) {
+function toiKonvertSerialFormat(pgn:number, data:Buffer, dst=255) {
   return `!PDGY,${pgn},${dst},${data.toString('base64')}`
 }
 
-function pgnToiKonvertSerialFormat(pgn) {
-  return toiKonvertSerialFormat(pgn.pgn, toPgn(pgn), pgn.dst)
+function pgnToiKonvertSerialFormat(pgn:any) {
+  const data = toPgn(pgn)
+  if ( data ) {
+    return toiKonvertSerialFormat(pgn.pgn, data, pgn.dst)
+  }
 }
 
-function pgnToYdgwRawFormat(info) {
+function pgnToYdgwRawFormat(info:any) {
   return encodeYDRAW({ ...info, data: toPgn(info) })
 }
 
-function pgnToYdgwFullRawFormat(info) {
+function pgnToYdgwFullRawFormat(info:any) {
   return encodeYDRAWFull({ ...info, data: toPgn(info) })
 }
 
-function pgnToPCDIN(info) {
+function pgnToPCDIN(info:any) {
   return encodePCDIN({ ...info, data: toPgn(info) })
 }
 
-function pgnToMXPGN(info) {
+function pgnToMXPGN(info:any) {
   return encodeMXPGN({ ...info, data: toPgn(info) })
 }
 
@@ -353,52 +371,57 @@ const actisenseToiKonvert = _.flow(parseActisense, encodePDGY)
 const actisenseToN2KAsciiFormat = _.flow(parseActisense, encodeActisenseN2KACSII)
 const actisenseToN2KActisenseFormat = _.flow(parseActisense, encodeN2KActisense)
 
-function bitIsSet(field, index, value) {
-  return value.indexOf(lookupBitEnumerationName(field.LookupBitEnumeration, index)) != -1
+function bitIsSet(field:Field, index:number, value:string) {
+  const enumName = lookupBitEnumerationName(field.LookupBitEnumeration as string, index)
+  
+  return enumName ? value.indexOf(enumName) != -1 : false
 }
 
 fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
-  if ( _.isUndefined(value) || value.length === 0 ) {
-    if ( field.BitLength % 8  == 0 ) {
-      var bytes = field.BitLength/8
-      var lastByte = field.Signed ? 0x7f : 0xff
-      for ( var i = 0; i < bytes-1; i++ ) {
+  if ( field.BitLength !== undefined ) {
+    if ( value === undefined || value.length === 0 ) {
+      if ( field.BitLength % 8  == 0 ) {
+        const bytes = field.BitLength/8
+        //const lastByte = field.Signed ? 0x7f : 0xff
+        for ( let i = 0; i < bytes-1; i++ ) {
+          bs.writeUint8(0x0)
+        }
         bs.writeUint8(0x0)
+      } else {
+        bs.writeBits(0xffffffff, field.BitLength)
       }
-      bs.writeUint8(0x0)
     } else {
-      bs.writeBits(0xffffffff, field.BitLength)
-    }
-  } else {
-    for ( var i = 0; i < field.BitLength; i++ ) {
-      bs.writeBits(bitIsSet(field, i, value) ? 1 : 0, 1)
+      for ( let i = 0; i < field.BitLength; i++ ) {
+        bs.writeBits(bitIsSet(field, i, value) ? 1 : 0, 1)
+      }
     }
   }
 }
 
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
-
-  let fill = 0xff
-  if ( (pgn === 129810 && (field.Name === "Vendor ID" || field.Name === "Callsign")) || (pgn === 129809 && field.Name === 'Name') ) {
-    if ( _.isUndefined(value) || value.length == 0 ) {
-      {
-        fill = 0x40
-        value = ""
+  if ( field.BitLength !== undefined ) {
+    let fill = 0xff
+    if ( (pgn === 129810 && (field.Name === "Vendor ID" || field.Name === "Callsign")) || (pgn === 129809 && field.Name === 'Name') ) {
+      if ( _.isUndefined(value) || value.length == 0 ) {
+        {
+          fill = 0x40
+          value = ""
+        }
       }
     }
-  }
-
-  if ( _.isUndefined(value) ) {
-    value = ""
-  }
-  var fieldLen = field.BitLength / 8
-
-  for ( var i = 0; i < value.length; i++ ) {
-    bs.writeUint8(value.charCodeAt(i))
-  }
-
-  for ( var i = 0; i < fieldLen - value.length; i++ ) {
-    bs.writeUint8(fill)
+    
+    if ( value === undefined ) {
+      value = ""
+    }
+    const fieldLen = field.BitLength / 8
+    
+    for ( let i = 0; i < value.length; i++ ) {
+      bs.writeUint8(value.charCodeAt(i))
+    }
+    
+    for ( let i = 0; i < fieldLen - value.length; i++ ) {
+      bs.writeUint8(fill)
+    }
   }
 }
 
@@ -407,7 +430,7 @@ fieldTypeWriters[RES_STRINGLZ] = (pgn, field, value, bs) => {
     value = ""
   }
   bs.writeUint8(value.length)
-  for ( var i = 0; i < value.length; i++ ) {
+  for ( let i = 0; i < value.length; i++ ) {
     bs.writeUint8(value.charCodeAt(i))
   }  
   bs.writeUint8(0)
@@ -418,7 +441,7 @@ fieldTypeWriters["String with start/stop byte"] = (pgn, field, value, bs) => {
     value = ""
   }
   bs.writeUint8(0x02)
-  for ( var i = 0; i < value.length; i++ ) {
+  for ( let i = 0; i < value.length; i++ ) {
     bs.writeUint8(value.charCodeAt(i))
   }
   bs.writeUint8(0x01)
@@ -437,7 +460,7 @@ fieldTypeWriters[RES_STRINGLAU] = (pgn, field, value, bs) => {
   bs.writeUint8(1)
   
   if ( value ) {
-    for ( var idx = 0; idx < value.length; idx++ ) {
+    for ( let idx = 0; idx < value.length; idx++ ) {
       bs.writeUint8(value.charCodeAt(idx))
     }
   }
@@ -446,7 +469,7 @@ fieldTypeWriters[RES_STRINGLAU] = (pgn, field, value, bs) => {
 fieldTypeMappers['DATE'] = (field, value) => {
   //console.log(`Date: ${value}`)
   if ( _.isString(value) ) {
-    var date = new Date(value)
+    const date = new Date(value)
     return date.getTime() / 86400 / 1000
   }
 
@@ -455,11 +478,11 @@ fieldTypeMappers['DATE'] = (field, value) => {
 
 fieldTypeMappers['TIME'] = (field, value) => {
   if ( _.isString(value) ) {
-    var split = value.split(':')
+    const split = value.split(':')
 
-    var hours = Number(split[0])
-    var minutes = Number(split[1])
-    var seconds = Number(split[2])
+    const hours = Number(split[0])
+    const minutes = Number(split[1])
+    const seconds = Number(split[2])
 
     value = (hours * 60 * 60) + (minutes * 60) + seconds
   }
@@ -467,15 +490,6 @@ fieldTypeMappers['TIME'] = (field, value) => {
 }
 
 fieldTypeMappers['DURATION'] = fieldTypeMappers['TIME']
-
-/*
-fieldTypeMappers['Manufacturer code'] = (field, value) => {
-  if ( _.isString(value) ) {
-    value = getManufacturerCode(value)
-  }
-  return Number(value)
-  }
-*/
 
 fieldTypeMappers['Pressure'] = (field, value) => {
   if (field.Unit)
@@ -498,7 +512,7 @@ fieldTypeMappers['Pressure'] = (field, value) => {
 }
 
 
-module.exports.canboat2Buffer = canboat2Buffer
+//module.exports.canboat2Buffer = canboat2Buffer
 module.exports.toPgn = toPgn
 module.exports.toiKonvertSerialFormat = toiKonvertSerialFormat
 module.exports.pgnToiKonvertSerialFormat = pgnToiKonvertSerialFormat

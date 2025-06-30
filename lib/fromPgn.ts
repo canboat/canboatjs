@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Copyright 2018 Scott Bender (scott@scottbender.net)
  *
@@ -14,28 +15,30 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:fromPgn')
-const trace = require('debug')('canboatjs:fromPgn:trace')
-const EventEmitter = require('events')
-const pkg = require('../package.json')
-const _ = require('lodash')
-const { getPgn, getCustomPgn, addCustomPgns, lookupEnumerationName, lookupFieldTypeEnumerationName, lookupBitEnumerationName, lookupFieldTypeEnumerationBits, lookupFieldTypeEnumerationValue } = require('./pgns')
-const BitStream = require('bit-buffer').BitStream
-const BitView = require('bit-buffer').BitView
-const Int64LE = require('int64-buffer').Int64LE
-const Uint64LE = require('int64-buffer').Uint64LE
+import { Definition, Field, PGN, FieldType } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:fromPgn')
+const trace = _debug('canboatjs:fromPgn:trace')
+import { EventEmitter } from 'node:events'
+import pkg from '../package.json'
+import _  from 'lodash'
+import { getPgn, getCustomPgn, addCustomPgns, lookupEnumerationName, lookupFieldTypeEnumerationName, lookupBitEnumerationName, lookupFieldTypeEnumerationBits, lookupFieldTypeEnumerationValue } from './pgns'
+import { BitStream, BitView } from 'bit-buffer'
+import { Int64LE, Uint64LE } from 'int64-buffer'
 
-const { getPGNFromCanId } = require('./utilities')
-const { getIndustryName, getManufacturerName } = require('./codes')
-const { parseCanId } = require('./canId')
-const { parseN2kString, parseYDRAW, isN2KOver0183, parseN2KOver0183, parsePDGY, parseActisenseN2KASCII } = require('./stringMsg')
+import { parseN2kString, parseYDRAW, isN2KOver0183, parsePDGY, parseActisenseN2KASCII } from './stringMsg'
 
-var fieldTypeReaders = {}
-var fieldTypePostProcessors = {}
+export type FromPgnCallback = (msg: any, pgn:any|undefined) => void
+export type PostProcessor = (field: Field, value:any) => any
+type FieldTypeReader = (pgn:PGN, field:Field, bs:BitStream) => any
 
-const timeUnitsPerSecond = 10000
-const maxUint64 = new Int64LE(0xffffffff, 0xffffffff)
-const maxInt64 = new Int64LE(0x7fffffff, 0xffffffff)
+const fieldTypeReaders:{
+  [key: string]: FieldTypeReader
+} = {}
+
+const fieldTypePostProcessors: {
+  [key: string]: PostProcessor
+} = {}
 
 const FORMAT_PLAIN = 0
 const FORMAT_COALESCED  = 1
@@ -48,16 +51,20 @@ const FASTPACKET_BUCKET_N_SIZE = 7
 const FASTPACKET_BUCKET_0_OFFSET = 2
 const FASTPACKET_BUCKET_N_OFFSET = 1
 const FASTPACKET_MAX_INDEX = 0x1f
-const FASTPACKET_MAX_SIZE = (FASTPACKET_BUCKET_0_SIZE + FASTPACKET_BUCKET_N_SIZE * (FASTPACKET_MAX_INDEX - 1))
 
-
-//we can't handle these, so ignore them
-const ignoredPgns = []//130820, 126720 ]
-
-class Parser extends EventEmitter {
-  constructor (opts) {
+export class Parser extends EventEmitter {
+  options: any
+  name: string
+  version: string
+  author: string
+  license: string
+  format: number
+  devices: {  [key: number]: { [key: number]: any} }
+  mixedFormat: boolean
+  
+  constructor (opts:any) {
     super()
-    this.options = _.isUndefined(opts) ? {} : opts
+    this.options = opts === undefined ? {} : opts
 
     if ( this.options.returnNulls === undefined ) {
       this.options.returnNulls = false
@@ -75,12 +82,12 @@ class Parser extends EventEmitter {
     this.version = pkg.version
     this.author = pkg.author
     this.license = pkg.license
-    this.format = _.isUndefined(this.options.format) ? -1 : this.options.format
+    this.format = this.options.format === undefined ? -1 : this.options.format
     this.devices = {}
     this.mixedFormat = this.options.mixedFormat || false
 
     if ( this.options.onPropertyValues ) {
-      this.options.onPropertyValues('canboat-custom-pgns', values => {
+      this.options.onPropertyValues('canboat-custom-pgns', (values: any[]) => {
         values.filter(v => v != null).forEach(pv => {
           addCustomPgns(pv.value, pv.setter)
         })
@@ -88,40 +95,50 @@ class Parser extends EventEmitter {
     }
   }
 
-  _parse(pgn, bs, len, coalesced, cb, sourceString) {
-    if ( ignoredPgns.indexOf(pgn.pgn) != -1 ) {
-      this.emit('warning', pgn, 'ignoring pgn')
-      return  undefined
-    }
-
+  _parse(pgn:PGN, bs: BitStream, len: number, coalesced:boolean, cb:FromPgnCallback, sourceString:string|undefined = undefined)  {
     const customPgns = getCustomPgn(pgn.pgn)
     let pgnList = getPgn(pgn.pgn)
 
     if (!pgnList && !customPgns ) {
       this.emit('warning', pgn, `no conversion found for pgn ${JSON.stringify(pgn)}`)
       return undefined
-    }
+    } 
 
     if ( customPgns ) {
       pgnList = [ ...customPgns.definitions, ...(pgnList||[]) ]
     }
 
-    let pgnData
-    let origPGNList = pgnList
+    if ( !pgnList || pgnList.length === 0 ) {
+      this.emit('warning', pgn, `no conversion found for pgn ${JSON.stringify(pgn)}`)
+      return undefined
+    }
+
+    if ( pgnList === undefined ) {
+      return
+    }
+
+    let pgnData : Definition|undefined
+    const origPGNList = pgnList
 
     if ( pgnList.length > 1 ) {
       pgnData = this.findMatchPgn(pgnList)
+
+      if ( pgnData === null ) {
+        pgnData = pgnList[0]
+      }
+    } else {
+      pgnData = pgnList[0]
     }
 
-    if ( !pgnData ) {
-      pgnData = pgnList[0]
+    if ( pgnData === undefined ) {
+      return
     }
     
     let couldBeMulti = false;
 
     if ( pgnList.length > 0 && len == 8 ) {
       pgnList.forEach(pgnD => {
-        if ( pgnD.Length > 8 ) {
+        if ( pgnD.Length && pgnD.Length > 8 ) {
           couldBeMulti = true
         }
       })
@@ -138,10 +155,10 @@ class Parser extends EventEmitter {
       //partial packet
       this.format = FORMAT_PLAIN
 
-      if (  _.isUndefined(this.devices[pgn.src]) ) {
+      if (  this.devices[pgn.src] === undefined ) {
         this.devices[pgn.src] = {}
       }
-      var packet = this.devices[pgn.src][pgn.pgn]
+      let packet = this.devices[pgn.src][pgn.pgn]
 
       if ( !packet ) {
         packet = { bufferSize:0, lastPacket: 0, src: [] }
@@ -151,17 +168,17 @@ class Parser extends EventEmitter {
         packet.src.push(sourceString)
       }
       
-      var start = bs.byteIndex
-      var packetIndex = bs.view.buffer.readUInt8(FASTPACKET_INDEX)
-      var bucket = packetIndex & FASTPACKET_MAX_INDEX;
+      const start = bs.byteIndex
+      const packetIndex = bs.view.buffer.readUInt8(FASTPACKET_INDEX)
+      const bucket = packetIndex & FASTPACKET_MAX_INDEX;
 
       trace(`${pgn.pgn} partial ${packetIndex} ${bucket} ${packet.size}`)
 
       if ( bucket == 0 ) {
         packet.size = bs.view.buffer.readUInt8(FASTPACKET_SIZE)
-        var newSize = packet.size  + FASTPACKET_BUCKET_N_SIZE;
+        const newSize = packet.size  + FASTPACKET_BUCKET_N_SIZE;
         if ( newSize > packet.bufferSize ) {
-          var newBuf = Buffer.alloc(newSize)
+          const newBuf = Buffer.alloc(newSize)
           packet.bufferSize = newSize
           if ( packet.buffer ) {
             packet.buffer.copy(newBuf)
@@ -173,14 +190,14 @@ class Parser extends EventEmitter {
       } else if ( !packet.buffer ) {
         //we got a non-zero bucket, but we never got the zero bucket
         debug(`PGN ${pgn.pgn} malformed packet for ${pgn.src} received; got a non-zero bucket first`)
-        cb && cb(`Could not parse ${JSON.stringify(pgn)}`)
+        cb && cb(`Could not parse ${JSON.stringify(pgn)}`, undefined)
         bs.byteIndex = start
         delete this.devices[pgn.src][pgn.pgn]
         return
       } else {
         if (packet.lastPacket + 1 != packetIndex) {
           debug(`PGN ${pgn.pgn} malformed packet for ${pgn.src} received; expected ${packet.lastPacket+1} but got ${packetIndex}`)
-          cb && cb(`Could not parse ${JSON.stringify(pgn)}`)
+          cb && cb(`Could not parse ${JSON.stringify(pgn)}`, undefined)
           bs.byteIndex = start
           delete this.devices[pgn.src][pgn.pgn] 
           return
@@ -200,7 +217,7 @@ class Parser extends EventEmitter {
         trace(`${pgn.pgn} not complete`)
         return;
       }
-      var view = new BitView(packet.buffer)
+      const view = new BitView(packet.buffer)
       bs = new BitStream(view)
       trace(`${pgn.pgn} done`)
       pgn.input = packet.src
@@ -214,13 +231,13 @@ class Parser extends EventEmitter {
     pgn.fields = {}
     
     try {
-      var fields = pgnData.Fields
+      let fields = pgnData.Fields
 
-      for ( var i = 0; i < fields.length-RepeatingFields; i++ ) {
-        var field = fields[i]
-        var hasMatch = !_.isUndefined(field.Match)
+      for ( let i = 0; i < fields.length-RepeatingFields; i++ ) {
+        const field = fields[i]
+        const hasMatch = field.Match !== undefined
 
-        var value = readField(this.options, !hasMatch, pgn, field, bs, fields)
+        let value = readField(this.options, !hasMatch, pgn, field, bs, fields)
 
         if ( hasMatch ) {
           //console.log(`looking for ${field.Name} == ${value}`)
@@ -230,19 +247,19 @@ class Parser extends EventEmitter {
             //this.emit('warning', pgn, `no conversion found for pgn`)
             trace('warning no conversion found for pgn %j', pgn)
 
-            let nonMatch = this.findNonMatchPgn(origPGNList)
+            const nonMatch = this.findNonMatchPgn(origPGNList)
             if ( nonMatch ) {
               pgnList = [ nonMatch ]
               pgnData = pgnList[0]
               fields = pgnData.Fields
-              var postProcessor = fieldTypePostProcessors[field.FieldType]
+              const postProcessor = fieldTypePostProcessors[field.FieldType]
               if ( postProcessor ) {
                 value = postProcessor(pgnData.Fields[i], value)
               }
             } else {
               const ts = _.get(pgn, 'timestamp', new Date())
               pgn.timestamp = _.isDate(ts) ? ts.toISOString() : ts
-              if ( !_.isUndefined(value) && (value != null  ||
+              if ( value === undefined && (value != null  ||
                                              this.options.returnNulls) ) {
                 this.setField(pgn.fields, field, value)
               }
@@ -262,13 +279,13 @@ class Parser extends EventEmitter {
           }
         }
 
-        if ( !_.isUndefined(value) && (value != null  ||
-                                       this.options.returnNulls) ) {
+        if ( value !== undefined && (value != null  ||
+                                     this.options.returnNulls) ) {
           this.setField(pgn.fields, field, value)
         }
       }
       if ( RepeatingFields > 0 ) {
-        var repeating = fields.slice(fields.length-RepeatingFields)
+        const repeating = fields.slice(fields.length-RepeatingFields)
         pgn.fields.list = []
 
         let count
@@ -280,11 +297,11 @@ class Parser extends EventEmitter {
         }
 
         while ( bs.bitsLeft > 0  && --count >= 0 ) {
-          var group = {}
+          const group = {}
           repeating.forEach(field => {
             if ( bs.bitsLeft > 0 ) {
-              var value = readField(this.options, true, pgn, field, bs, fields)
-              if ( !_.isUndefined(value) && value != null ) {
+              const value = readField(this.options, true, pgn, field, bs, fields)
+              if ( value !== undefined && value != null ) {
                 this.setField(group, field, value)
               }
             }
@@ -304,18 +321,21 @@ class Parser extends EventEmitter {
       pgn.timestamp = _.isDate(ts) ? ts.toISOString() : ts
       this.emit('pgn', pgn)
       cb && cb(undefined, pgn)
+
+      /*
       if ( pgnData.callback ) {
         pgnData.callback(pgn)
-      }
+        }
+      */
       return pgn
     } catch ( error ) {
       this.emit('error', pgn, error)
-      cb && cb(error)
+      cb && cb(error, undefined)
       return
     }
   }
 
-  setField(res, field, value) {
+  setField(res:any, field:Field, value:any) {
     if ( this.options.useCamelCompat ) {
       res[field.Id] = value
       res[field.Name] = value
@@ -326,19 +346,19 @@ class Parser extends EventEmitter {
     }
   }
 
-  findNonMatchPgn(pgnList) {
+  findNonMatchPgn(pgnList: Definition[]) : Definition|undefined {
     return pgnList.find(f => {
-      return !f.Fields.find(f => !_.isUndefined(f.Match))
+      return !f.Fields.find(f => f.Match !== undefined)
     })
   }
 
-  findMatchPgn(pgnList) {
+  findMatchPgn(pgnList: Definition[]) : Definition|undefined {
     return pgnList.find(f => {
-      return f.Fields.find(f => !_.isUndefined(f.Match))
+      return f.Fields.find(f => f.Match !== undefined)
     })
   }
 
-  parse(data, cb) {
+  parse(data:any, cb:FromPgnCallback) {
     if (_.isString(data) ) {
       return this.parseString(data, cb)
     } else if ( _.isBuffer(data) ) {
@@ -348,63 +368,66 @@ class Parser extends EventEmitter {
     }
   }
 
-  parsePgnData(pgn, length, data, coalesced, cb, sourceString) {
+  parsePgnData(pgn:PGN, length:number, data:string[]|Buffer, coalesced:boolean, cb:FromPgnCallback, sourceString:string) {
     try
     {
-      var buffer = data
+      let buffer = data
       if ( !_.isBuffer(data) )  {
-        var array = new Int16Array(length)
-        data.forEach((num, index) => {
+        const array = new Int16Array(length)
+        const strings = data as string[]
+        strings.forEach((num, index) => {
           array[index] = parseInt(num, 16)
         })
         buffer = Buffer.from(array)
       }
 
-      var bv = new BitView(buffer);
-      var bs = new BitStream(bv)
+      const bv = new BitView(buffer as Buffer);
+      const bs = new BitStream(bv)
       const res = this._parse(pgn, bs, length, coalesced, cb, sourceString);
       if ( res ) {
         debug('parsed pgn %j', pgn)
       }
       return res
     } catch ( error ) {
-      cb && cb(error)
+      cb && cb(error, undefined)
       this.emit('error', pgn, error)
     }
   }
 
-  isN2KOver0183(sentence) {
+  isN2KOver0183(sentence:string) {
     return isN2KOver0183(sentence)
   }
 
-  parseN2KOver0183(sentence, cb) {
+  parseN2KOver0183(sentence:string, cb:FromPgnCallback) {
     return this.parseString(sentence, cb)
   }
 
   // Venus MQTT-N2K
-  parseVenusMQTT(pgn_data, cb) {
+  parseVenusMQTT(pgn_data:any, cb:FromPgnCallback) {
     try
     {
       const pgn = {
         pgn: pgn_data.pgn,
         timestamp: new Date().toISOString(),
         src: pgn_data.src,
-        dst: pgn_data.dst
+        dst: pgn_data.dst,
+        prio: pgn_data.prio,
       }
       const bs = new BitStream(Buffer.from(pgn_data.data, 'base64'))
+      delete pgn_data.data
       const res = this._parse(pgn, bs, 8, false, cb)
       if ( res ) {
         debug('parsed pgn %j', pgn)
       }
       return res
     } catch ( error ) {
-      cb && cb(error)
-      this.emit('error', pgn, error)
+      cb && cb(error, undefined)
+      this.emit('error', pgn_data, error)
     }
   }
 
   //Yacht Devices NMEA2000 Wifi gateway
-  parseYDGW02(pgn_data, cb) {
+  parseYDGW02(pgn_data:any, cb:FromPgnCallback) {
     try {
       const { data, direction, error, ...pgn } = parseYDRAW(pgn_data)
       if (!error && direction === 'R') {
@@ -416,18 +439,18 @@ class Parser extends EventEmitter {
           return res
         }
       } else if ( error ) {
-        cb && cb(error)
+        cb && cb(error, undefined)
         this.emit('error', pgn_data, error)
       }
     } catch ( error ) {
-      cb && cb(error)
+      cb && cb(error, undefined)
       this.emit('error', pgn_data, error)
     }
     return undefined
   }
 
   //Actisense W2k-1
-  parseActisenceN2KAscii(pgn_data, cb) {
+  parseActisenceN2KAscii(pgn_data:any, cb:FromPgnCallback) {
     try {
       const { data, error, ...pgn } = parseActisenseN2KASCII(pgn_data)
       if (!error ) {
@@ -439,24 +462,24 @@ class Parser extends EventEmitter {
           return res
         }
       } else if ( error ) {
-        cb && cb(error)
+        cb && cb(error, undefined)
         this.emit('error', pgn_data, error)
       }
     } catch ( error ) {
-      cb && cb(error)
+      cb && cb(error, undefined)
       this.emit('error', pgn_data, error)
     }
     return undefined
   }
 
-  parsePDGY(pgn_data, cb) {
+  parsePDGY(pgn_data:any, cb:FromPgnCallback) {
     if ( pgn_data[0] != '!') {
       return
     }
     try {
       const { coalesced, data, error, len, ...pgn } = parsePDGY(pgn_data)
       if (error) {
-        cb && cb(error)
+        cb && cb(error, undefined)
         this.emit('error', pgn, error)
         return
       }
@@ -471,16 +494,16 @@ class Parser extends EventEmitter {
       }
       return res
     } catch ( error ) {
-      cb && cb(error)
+      cb && cb(error, undefined)
       this.emit('error', pgn_data, error)
     }
   }
 
-  parseString (pgn_data, cb) {
+  parseString (pgn_data:string, cb:FromPgnCallback) {
     try {
       const { coalesced, data, error, len, ...pgn } = parseN2kString(pgn_data, this.options)
       if (error) {
-        cb && cb(error)
+        cb && cb(error, undefined)
         this.emit('error', pgn, error)
         return
       }
@@ -495,18 +518,17 @@ class Parser extends EventEmitter {
       }
       return res
     } catch ( error ) {
-      cb && cb(error)
+      cb && cb(error, undefined)
       this.emit('error', pgn_data, error)
     }
   }
 
-  // What uses this? What created the buffer?
-  parseBuffer (pgn_data, cb) {
+  parseBuffer (pgn_data:any, cb:FromPgnCallback) {
     try {
-      var bv = new BitView(pgn_data);
-      var bs = new BitStream(bv)
+      const bv = new BitView(pgn_data);
+      const bs = new BitStream(bv)
 
-      var pgn = {}
+      const pgn: any = {}
 
       // This might be good to move to canId.js ?
       pgn.prio = bs.readUint8()
@@ -515,8 +537,9 @@ class Parser extends EventEmitter {
       pgn.src = bs.readUint8()
       pgn.timestamp = new Date().toISOString()
 
-      var timestamp = bs.readUint32()
-      var len = bs.readUint8()
+      //const timestamp  =  FIXME?? use timestamp?
+      bs.readUint32()
+      const len = bs.readUint8()
       const res = this._parse(pgn, bs, len, true, cb)
       if ( res ) {
         debug('parsed pgn %j', pgn)
@@ -524,7 +547,7 @@ class Parser extends EventEmitter {
       return res
     } catch ( error ) {
       const err = new Error(`error reading pgn ${JSON.stringify(pgn_data)} ${error}`)
-      cb && cb(err)
+      cb && cb(err, undefined)
       this.emit('error', pgn_data, error)
       console.error(err)
       return
@@ -533,20 +556,20 @@ class Parser extends EventEmitter {
 
 }
 
-function getField(pgn, index, data) {
-  var pgnList = getPgn(pgn)
+export function getField(pgn_number:number, index:number, data:any) {
+  let pgnList = getPgn(pgn_number)
   if ( pgnList ) {
-    var pgn = pgnList[0]
-    let dataList = data.list ? data.list : data.fields.list
+    let pgn = pgnList[0]
+    const dataList = data.list ? data.list : data.fields.list
 
     if ( pgnList.length > 1 ) {
       let idx = 0
       while ( idx < pgn.Fields.length )
       {
-        field = pgn.Fields[idx]
-        var hasMatch = !_.isUndefined(field.Match)
+        const field = pgn.Fields[idx]
+        const hasMatch = !_.isUndefined(field.Match)
         if ( hasMatch && dataList.length > 0 ) {
-          let param = dataList.find(f => f.Parameter === idx+1)
+          const param = dataList.find((f:any) => f.Parameter === idx+1)
           
           if ( param ) {
             pgnList = pgnList.filter(f => f.Fields[idx].Match == param.Value)
@@ -568,7 +591,7 @@ function getField(pgn, index, data) {
 
     const RepeatingFields = pgn.RepeatingFieldSet1Size ? pgn.RepeatingFieldSet1Size : 0    
     if ( RepeatingFields ) {
-      var startOfRepeatingFields = pgn.Fields.length - RepeatingFields
+      const startOfRepeatingFields = pgn.Fields.length - RepeatingFields
       index = startOfRepeatingFields + ((index - startOfRepeatingFields) % RepeatingFields);
       return pgn.Fields[index]
     }
@@ -576,21 +599,13 @@ function getField(pgn, index, data) {
   return null;
 }
 
-function pad2(x) {
-  x = x.toString()
-  return x.length === 1 ? "0" + x : x
+function pad2(x:number) {
+  let s = x.toString()
+  return s.length === 1 ? "0" + x : x
 }
 
-function pad(n, p, c)
-{
-  n = n.toString()
-  var pad_char = typeof c !== 'undefined' ? c : '0';
-  var pad = new Array(1 + p).join(pad_char);
-  return (pad + n).slice(-pad.length);
-}
-
-function lookup(field, value) {
-  var name
+function lookup(field:Field, value:number) {
+  let name
   if ( field.LookupEnumeration ) {
     name = lookupEnumerationName(field.LookupEnumeration, value)
   } else {
@@ -600,14 +615,14 @@ function lookup(field, value) {
   return name ? name : value
 }
 
-function readField(options, runPostProcessor, pgn, field, bs, fields) {
-  var value
+function readField(options:any, runPostProcessor:boolean, pgn:PGN, field:Field, bs:BitStream, fields:Field[]|undefined = undefined): any {
+  let value
 
-  var reader = fieldTypeReaders[field.FieldType]
+  const reader = fieldTypeReaders[field.FieldType]
   if ( reader ) {
     value = reader(pgn, field, bs)
   } else {
-    if ( field.FieldType !== RES_BINARY  && bs.bitsLeft < field.BitLength ) {
+    if ( field.FieldType !== FieldType.Binary && field.BitLength !== undefined && bs.bitsLeft < field.BitLength ) {
       //no more data
       bs.readBits(bs.bitsLeft, false)
       return
@@ -618,8 +633,8 @@ function readField(options, runPostProcessor, pgn, field, bs, fields) {
   //console.log(`${field.Name} ${value} ${field.Resolution}`)
 
   if ( value != null && !_.isUndefined(value) ) {
-    let type = field.FieldType //hack, missing type
-    var postProcessor = fieldTypePostProcessors[type]
+    const type = field.FieldType //hack, missing type
+    const postProcessor = fieldTypePostProcessors[type]
     if ( postProcessor ) {
       if ( runPostProcessor ) {
         value = postProcessor(field, value)
@@ -633,16 +648,16 @@ function readField(options, runPostProcessor, pgn, field, bs, fields) {
            && field.Resolution ) {
         max = field.RangeMax / field.Resolution
       }
-      if ( options.checkForInvalidFields !== false && max !== 'undefined' &&
+      if ( options.checkForInvalidFields !== false && max !== undefined &&
            field.FieldType !== 'LOOKUP' &&
            field.FieldType !== 'DYNAMIC_FIELD_KEY' &&
            field.FieldType !== 'PGN' &&
-           field.BitLength > 1 &&
+           (field.BitLength !== undefined && field.BitLength > 1) &&
            max - value < 0 ) {
         //console.log(`Bad field ${field.Name} ${max - value}`)
         value = null
       } if ( field.Resolution && typeof value === 'number' ) {
-        var resolution = field.Resolution
+        let resolution = field.Resolution
 
         if ( _.isString(resolution) ) {
           resolution = Number.parseFloat(resolution)
@@ -671,12 +686,14 @@ function readField(options, runPostProcessor, pgn, field, bs, fields) {
         }
       }
 
+      /*
       if ( field.Name === 'Industry Code' && _.isNumber(value) && runPostProcessor ) {
-        var name = getIndustryName(value)
+        const name = getIndustryName(value)
         if ( name ) {
           value = name
         }
-      }
+        }
+      */
 
       if ( field.Unit === "kWh" ) {
         value *= 3.6e6; // 1 kWh = 3.6 MJ.
@@ -688,97 +705,109 @@ function readField(options, runPostProcessor, pgn, field, bs, fields) {
   return value
 }
 
-function readValue(options, pgn, field, bs, fields, bitLength) {
-  var value
-  if ( _.isUndefined(bitLength) ) {
-    if ( field.BitLengthVariable && field.FieldType === "DYNAMIC_FIELD_VALUE" ) {
-      bitLength = lookupKeyBitLength(pgn.fields, fields)
-    } else {
-      bitLength = field.BitLength
-    }
-  }
+function readValue(options:any, pgn:PGN, field:Field, bs:BitStream, fields:Field[]|undefined, bitLength:number|undefined = undefined) {
   if ( field.FieldType == 'VARIABLE' ) {
     return readVariableLengthField(options, pgn, field, bs)
-  } else if (bitLength === 8) {
-    if ( field.Signed ) {
-      value = bs.readInt8()
-      value = value === 0x7f ? null : value
-    } else {
-      value = bs.readUint8()
-      value = value === 0xff ? null : value
-    }
-  } else if ( bitLength == 16 ) {
-    if ( field.Signed ) {
-      value = bs.readInt16()
-      value = value === 0x7fff ? null : value
-    } else {
-      value = bs.readUint16()
-      value = value === 0xffff ? null : value
-    }
-  } else if ( bitLength == 24 ) {
-    var b1 = bs.readUint8()
-    var b2 = bs.readUint8()
-    var b3 = bs.readUint8()
-
-    //debug(`24 bit ${b1.toString(16)} ${b2.toString(16)} ${b3.toString(16)}`)
-    value = (b3 << 16)  + (b2 << 8)  + (b1)
-    //debug(`value ${value.toString(16)}`)
-  } else if ( bitLength == 32 ) {
-    if ( field.Signed ) {
-      value = bs.readInt32()
-      value = value === 0x7fffffff ? null : value
-    } else {
-      value = bs.readUint32()
-      value = value === 0xffffffff ? null : value
-    }
-  } else if ( bitLength == 48 ) {
-    var a = bs.readUint32()
-    var b = bs.readUint16()
-
-    if ( field.Signed ) {
-      value =  a == 0xffffffff && b == 0x7fff ? null : new Int64LE(b, a)
-    } else {
-      value =  a == 0xffffffff && b == 0xffff ? null : new Int64LE(b, a)
-    }
-  } else if ( bitLength == 64 ) {
-    var x = bs.readUint32()
-    var y = bs.readUint32()
-
-    if ( field.Signed ) {
-      value = (x === 0xffffffff || x === 0xfffffffe) && y == 0x7fffffff  ? null : new Int64LE(y,x)
-    } else {
-      value = (x === 0xffffffff || x === 0xfffffffe) && y == 0xffffffff ? null : new Uint64LE(y,x)
-    }
-  } else if ( bitLength <= 64 ) {
-    value = bs.readBits(bitLength, field.Signed)
-    if ( bitLength > 1 && isMax(bitLength, value, field.Signed) ) {
-      value = null
-    }
   } else {
-    if ( bs.bitsLeft < field.BitLength ) {
-      bitLength = bs.bitsLeft
+    let value
+    if ( bitLength === undefined ) {
+      if ( field.BitLengthVariable && field.FieldType === "DYNAMIC_FIELD_VALUE" ) {
+        bitLength = lookupKeyBitLength(pgn.fields, fields as Field[])
+      } else {
+        bitLength = field.BitLength
+      }
+
+      if ( bitLength === undefined ) {
+        //FIXME?? error? mesg? should never happen
+        return
+      }
     }
     
-    value = bs.readArrayBuffer(bitLength/8, field.Signed)
-    value = new Uint32Array(value)
-      .reduce(function(acc, i) {
-        acc.push(i.toString(16));
-        return acc;
-      }, [])
-      .map(x => (x.length === 1 ? "0" + x : x))
-      .join(" ")
+    if (bitLength === 8) {
+      if ( field.Signed ) {
+        value = bs.readInt8()
+        value = value === 0x7f ? null : value
+      } else {
+        value = bs.readUint8()
+        value = value === 0xff ? null : value
+      }
+    } else if ( bitLength == 16 ) {
+      if ( field.Signed ) {
+        value = bs.readInt16()
+        value = value === 0x7fff ? null : value
+      } else {
+        value = bs.readUint16()
+        value = value === 0xffff ? null : value
+      }
+    } else if ( bitLength == 24 ) {
+      const b1 = bs.readUint8()
+      const b2 = bs.readUint8()
+      const b3 = bs.readUint8()
 
+      //debug(`24 bit ${b1.toString(16)} ${b2.toString(16)} ${b3.toString(16)}`)
+      value = (b3 << 16)  + (b2 << 8)  + (b1)
+      //debug(`value ${value.toString(16)}`)
+    } else if ( bitLength == 32 ) {
+      if ( field.Signed ) {
+        value = bs.readInt32()
+        value = value === 0x7fffffff ? null : value
+      } else {
+        value = bs.readUint32()
+        value = value === 0xffffffff ? null : value
+      }
+    } else if ( bitLength == 48 ) {
+      const a = bs.readUint32()
+      const b = bs.readUint16()
+
+      if ( field.Signed ) {
+        value =  a == 0xffffffff && b == 0x7fff ? null : new Int64LE(b, a)
+      } else {
+        value =  a == 0xffffffff && b == 0xffff ? null : new Int64LE(b, a)
+      }
+    } else if ( bitLength == 64 ) {
+      const x = bs.readUint32()
+      const y = bs.readUint32()
+
+      if ( field.Signed ) {
+        value = (x === 0xffffffff || x === 0xfffffffe) && y == 0x7fffffff  ? null : new Int64LE(y,x)
+      } else {
+        value = (x === 0xffffffff || x === 0xfffffffe) && y == 0xffffffff ? null : new Uint64LE(y,x)
+      }
+    } else if ( bitLength <= 64 ) {
+      value = bs.readBits(bitLength, field.Signed)
+      if ( bitLength > 1 && isMax(bitLength, value, field.Signed as boolean) ) {
+        value = null
+      }
+    } else {
+      if ( bs.bitsLeft < bitLength ) {
+        bitLength = bs.bitsLeft
+        if ( bitLength === undefined ) {
+          return null
+        }
+      }
+      
+      value = bs.readArrayBuffer(bitLength/8)//, field.Signed)
+      const arr: string[]  = []
+      value = new Uint32Array(value)
+        .reduce(function(acc, i) {
+          acc.push(i.toString(16));
+          return acc;
+        }, arr)
+        .map(x => (x.length === 1 ? "0" + x : x))
+        .join(" ")
+
+      return value
+    }
+    
+    if ( value != null && typeof value !== 'undefined' && typeof value !== 'number' ) {
+      value = Number(value)
+    }
+    
     return value
   }
-  
-  if ( value != null && typeof value !== 'undefined' && typeof value !== 'number' ) {
-    value = Number(value)
-  }
-  
-  return value
 }
 
-function isMax(numBits, value, signed)
+function isMax(numBits:number, value:number, signed:boolean)
 {
   if ( signed ) {
     numBits--
@@ -793,7 +822,7 @@ function isMax(numBits, value, signed)
   return signed ? (value & 1) == 0 : true
 }
 
-function readVariableLengthField(options, pgn, field, bs) {
+function readVariableLengthField(options:any, pgn:PGN, field:Field, bs:BitStream) {
   /* PGN 126208 contains variable field length.
    * The field length can be derived from the PGN mentioned earlier in the message,
    * plus the field number.
@@ -805,14 +834,16 @@ function readVariableLengthField(options, pgn, field, bs) {
    */
 
   try {
-    var refField = getField(pgn.fields.PGN, bs.view.buffer[bs.byteIndex-1]-1, pgn)
+    const refField = getField(pgn.fields.PGN, bs.view.buffer[bs.byteIndex-1]-1, pgn)
     
     if ( refField ) {
-      var bits = (refField.BitLength + 7) & ~7; // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
-      let res =  readField(options, false, pgn, refField, bs)
-      
-      if ( bits > refField.BitLength ) {
-        bs.readBits(bits - refField.BitLength, false)
+      const res =  readField(options, false, pgn, refField, bs)
+
+      if ( refField.BitLength !== undefined ) {
+        const bits = (refField.BitLength + 7) & ~7; // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
+        if ( bits > refField.BitLength ) {
+          bs.readBits(bits - refField.BitLength, false)
+        }
       }
       
       return res
@@ -838,10 +869,10 @@ fieldTypeReaders[
       return null
     }
 
-    var buf = Buffer.alloc(len)
-    var idx = 0
+    const buf = Buffer.alloc(len)
+    let idx = 0
     for ( ; idx < len && bs.bitsLeft >= 8; idx++ ) {
-      var c = bs.readUint8()
+      const c = bs.readUint8()
       buf.writeUInt8(c, idx)
     }
 
@@ -859,12 +890,12 @@ fieldTypeReaders[
   'STRING_LZ'
   //'ASCII string starting with length byte'
 ] = (pgn, field, bs) => {
-  var len = bs.readUint8()
+  const len = bs.readUint8()
 
-  var buf = Buffer.alloc(len)
-  var idx = 0
+  const buf = Buffer.alloc(len)
+  let idx = 0
   for ( ; idx < len && bs.bitsLeft >= 8; idx++ ) {
-    var c = bs.readUint8()
+    const c = bs.readUint8()
     buf.writeUInt8(c, idx)
   }
 
@@ -872,23 +903,22 @@ fieldTypeReaders[
 }
 
 fieldTypeReaders["String with start/stop byte"] = (pgn, field, bs) => {
-  var len
-  var first = bs.readUint8()
+  const first = bs.readUint8()
   if ( first == 0xff ) { // no name, stop reading
     return ''
   } else if ( first == 0x02 ) {
-    var buf = Buffer.alloc(255)
-    var c
-    var idx = 0
+    const buf = Buffer.alloc(255)
+    let c
+    let idx = 0
     while ( (c = bs.readUint8()) != 0x01 ) {
       buf.writeUInt8(c, idx++)
     }
     return buf.toString('ascii', 0, idx)
   } else if ( first > 0x02 ) {
-    var len = first
-    var second = bs.readUint8()
-    var buf = Buffer.alloc(len)
-    var idx = 0
+    let len = first
+    const second = bs.readUint8()
+    const buf = Buffer.alloc(len)
+    let idx = 0
     if ( second == 0x01 ) {
       len -= 2
     } else {
@@ -896,7 +926,7 @@ fieldTypeReaders["String with start/stop byte"] = (pgn, field, bs) => {
       idx = 1
     }
     for ( ; idx < len; idx++ ) {
-      var c = bs.readUint8()
+      const c = bs.readUint8()
       buf.writeUInt8(c, idx)
     }
     return buf.toString('ascii', 0, idx)
@@ -904,14 +934,14 @@ fieldTypeReaders["String with start/stop byte"] = (pgn, field, bs) => {
 }
 
 fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
-  var len = field.BitLength / 8
-  var buf = Buffer.alloc(len)
+  let len = field.BitLength as number / 8
+  const buf = Buffer.alloc(len)
 
-  for ( var i = 0; i < len && bs.bitsLeft >= 8; i++ ) {
+  for ( let i = 0; i < len && bs.bitsLeft >= 8; i++ ) {
     buf.writeUInt8(bs.readUint8(), i)
   }
 
-  var lastbyte = buf[len-1]
+  let lastbyte = buf[len-1]
   while (len > 0 && (lastbyte == 0xff ||
                      lastbyte == 32 ||
                      lastbyte == 0 ||
@@ -931,39 +961,40 @@ fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
     zero++
   }
   len = zero
-  let res = len > 0 ? buf.toString('ascii', 0, len) : undefined
-  return res
+  return len > 0 ? buf.toString('ascii', 0, len) : undefined
 }
 
 fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
-  var value = []
-  for ( var i = 0; i < field.BitLength; i++ ) {
-    if ( bs.readBits(1, 0) ) {
+  const value:any[] = []
+  for ( let i = 0; i < (field.BitLength as number); i++ ) {
+    if ( bs.readBits(1, false) ) {
       value.push(
-        lookupBitEnumerationName(field.LookupBitEnumeration, i)
+        lookupBitEnumerationName(field.LookupBitEnumeration as string, i)
       )
     }
   }
   return value
 }
 
-function lookupKeyBitLength(data, fields)
+function lookupKeyBitLength(data:any, fields:Field[]) : number|undefined
 {
-  let field = fields.find(field => (field.Name === 'Key'))
+  const field = fields.find(field => (field.Name === 'Key'))
 
-  let val = data['Key'] || data['key']
-  if ( typeof val === 'string' ) {
-    val = lookupFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
+  if ( field ) {
+    let val = data['Key'] || data['key']
+    if ( typeof val === 'string' ) {
+      val = lookupFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
+    }
+    return lookupFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
   }
-  return lookupFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
 }
 
 fieldTypePostProcessors['DATE'] = (field, value) => {
   if ( value >= 0xfffd ) {
     value = undefined
   } else {
-    var date = new Date((value) * 86400 * 1000)
-    //var date = moment.unix(0).add(value+1, 'days').utc().toDate()
+    const date = new Date((value) * 86400 * 1000)
+    //const date = moment.unix(0).add(value+1, 'days').utc().toDate()
     value = `${date.getUTCFullYear()}.${pad2(date.getUTCMonth()+1)}.${pad2(date.getUTCDate())}`
   }
   return value
@@ -973,11 +1004,11 @@ fieldTypePostProcessors['TIME'] = (field, value) => {
   if (value >= 0xfffffffd) {
     value = undefined
   } else {
-    var seconds = (value * field.Resolution)
-    var minutes = (seconds / 60);
-    var seconds = seconds % 60;
-    var hours = Math.floor(minutes / 60);
-    var minutes = Math.floor(minutes % 60);
+    let seconds = (value * (field.Resolution as number))
+    let minutes = (seconds / 60);
+    seconds = seconds % 60;
+    const hours = Math.floor(minutes / 60);
+    minutes = Math.floor(minutes % 60);
 
     value = `${pad2(hours)}:${pad2(minutes)}:${pad2(Math.floor(seconds))}`
 
@@ -1012,16 +1043,4 @@ fieldTypePostProcessors['Pressure'] = (field, value) => {
 
 fieldTypePostProcessors[RES_BINARY] = (field, value) => {
   return value.toString()
-}
-
-/*
-fieldTypePostProcessors['Manufacturer code'] = (field, value) => {
-  var manufacturer = getManufacturerName(value)
-  return manufacturer ? manufacturer : value
-  }
-  */
-
-module.exports = {
-  Parser: Parser,
-  getField: getField,
 }

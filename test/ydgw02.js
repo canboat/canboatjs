@@ -6,7 +6,7 @@ chai.use(require('chai-json-equal'));
 chai.use(require('chai-string'));
 
 const { FromPgn } = require('../index')
-const { pgnToYdgwRawFormat } = require('../lib/toPgn')
+const { pgnToYdgwRawFormat } = require('../dist/toPgn')
 
 const positionInfo = {
   "src":127,

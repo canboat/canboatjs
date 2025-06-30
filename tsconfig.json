@@ -1,0 +1,19 @@
+{
+  "extends": "@tsconfig/node20/tsconfig.json",
+  "compilerOptions": {
+    "outDir": "${configDir}/dist",
+    "rootDir": "${configDir}/lib",
+    "allowJs": true,
+    "typeRoots": ["./node_modules/@types"],
+    "resolveJsonModule": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false
+  },
+  "ts-node": {
+    "files": true
+  },
+  "include": ["./lib/**/*"],
+}
