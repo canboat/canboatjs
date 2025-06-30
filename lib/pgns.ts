@@ -1,5 +1,5 @@
 import { getPGN, EnumBase, Enumeration, BitEnumeration, FieldTypeEnumeration } from '@canboat/pgns'
-import canboat from '@canboat/pgns'
+import { getEnumerations, getFieldTypeEnumerations, getBitEnumerations} from '@canboat/pgns'
 import _ from 'lodash'
 import { debug as _debug } from 'debug'
 const debug = _debug('canboatjs:pgns')
@@ -129,9 +129,9 @@ function organizeEnumerations(enums:EnumBase[]) : {[key:string]: EnumBase} {
   return map
 }
 
-export const lookupEnumerations = organizeEnumerations(canboat.getEnumerations())
-export const lookupFieldTypeEnumerations = organizeEnumerations(canboat.getFieldTypeEnumerations())
-export const lookupBitEnumerations = organizeEnumerations(canboat.getBitEnumerations())
+export const lookupEnumerations = organizeEnumerations(getEnumerations())
+export const lookupFieldTypeEnumerations = organizeEnumerations(getFieldTypeEnumerations())
+export const lookupBitEnumerations = organizeEnumerations(getBitEnumerations())
 export const getPgn = getPGN
 export const customPgns:any = {}
 

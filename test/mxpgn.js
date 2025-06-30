@@ -13,7 +13,7 @@ describe('from mxpgn data converts', function () {
       "pgn":129025,
       "src":1,
       "dst":255,
-      "prio":0,
+      "prio":2,
       "fields":{
         "Latitude": -99.7576511,
         "Longitude": 113.8973964,
@@ -54,7 +54,7 @@ describe('from mxpgn data converts', function () {
       "pgn":129025,
       "src":1,
       "dst":255,
-      "prio":0,
+      "prio":2,
       "fields":{
         "Latitude": -99.7576511,
         "Longitude": 113.8973964,
@@ -95,7 +95,7 @@ describe('from mxpgn data converts', function () {
       "pgn":129025,
       "src":1,
       "dst":255,
-      "prio":0,
+      "prio":2,
       "fields":{
         "Latitude": -99.7576511,
         "Longitude": 113.8973964,
