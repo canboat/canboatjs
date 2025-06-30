@@ -1,9 +1,8 @@
-import { Definition, getPGN, EnumBase, Enumeration, BitEnumeration, FieldTypeEnumeration } from '@canboat/pgns'
-const { flow, first, isArray, isEmpty, propertyOf } = require('lodash/fp')
-const canboat = require('@canboat/pgns')
-const pgns = canboat.pgns
-const _ = require('lodash')
-const debug = require('debug')('canboatjs:pgns')
+import { getPGN, EnumBase, Enumeration, BitEnumeration, FieldTypeEnumeration } from '@canboat/pgns'
+import canboat from '@canboat/pgns'
+import _ from 'lodash'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:pgns')
 
 //const enumValues : {[key:string]: {[key:number]: string}} = {}
 //const enumNames : {[key:string]: {[key:string]: number}} = {}
@@ -22,7 +21,7 @@ function getEnumeration(name:string) {
         vmap[enumPair.Value] = enumPair.Name
       })
 
-      let nmap:any = {}
+      const nmap:any = {}
       enumNames[name] = nmap
       enumeration.EnumValues.forEach((enumPair) => {
         nmap[enumPair.Name] = enumPair.Value
@@ -47,13 +46,13 @@ function getFieldTypeEnumeration(name:string) {
         vmap[enumPair.value] = enumPair.name
       })
 
-      let nmap: any = {}
+      const nmap: any = {}
       ftEnumNames[name] = nmap
       enumeration.EnumFieldTypeValues.forEach((enumPair) => {
         nmap[enumPair.name] = enumPair.value
       })
 
-      let bmap:any = {}
+      const bmap:any = {}
       ftEnumBits[name] = bmap
       enumeration.EnumFieldTypeValues.forEach((enumPair) => {
         bmap[enumPair.value] = Number(enumPair.Bits)
@@ -77,7 +76,7 @@ function getBitEnumeration(name:string) {
         nmap[enumPair.Bit] = enumPair.Name
       })
 
-      let vmap:any = {}
+      const vmap:any = {}
       bEnumValues[name] = vmap
       enumeration.EnumBitValues.forEach((enumPair) => {
         vmap[enumPair.Name] = Number(enumPair.Bit)
@@ -123,7 +122,7 @@ export function lookupBitEnumerationValue(enumName:string, name:number) {
 }
 
 function organizeEnumerations(enums:EnumBase[]) : {[key:string]: EnumBase} {
-  let map:any = {}
+  const map:any = {}
   enums.forEach(e => {
     map[e.Name] = e
   })

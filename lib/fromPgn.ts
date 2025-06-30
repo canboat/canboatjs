@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Copyright 2018 Scott Bender (scott@scottbender.net)
  *
@@ -600,7 +599,7 @@ export function getField(pgn_number:number, index:number, data:any) {
 }
 
 function pad2(x:number) {
-  let s = x.toString()
+  const s = x.toString()
   return s.length === 1 ? "0" + x : x
 }
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Definition, Field, PGN, FieldType } from '@canboat/pgns'
+import { Field, PGN } from '@canboat/pgns'
 import { getField } from './fromPgn'
 import { getPgn, getCustomPgn, lookupEnumerationValue, lookupFieldTypeEnumerationValue, lookupBitEnumerationName, lookupFieldTypeEnumerationBits } from './pgns'
 import _  from 'lodash'
@@ -311,11 +311,12 @@ function lookupKeyBitLength(data:any, fields:Field[])
   }
 }
 
+/*
+
 function parseHex(s:string): number {
   return parseInt(s, 16)
 };
 
-/*
 function canboat2Buffer(canboatData:string) {
   return Buffer.alloc(canboatData
                      .split(',')

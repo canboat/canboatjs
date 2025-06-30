@@ -5,7 +5,7 @@ const tseslint = require('typescript-eslint')
 const prettier = require('eslint-config-prettier/flat')
 
 module.exports = defineConfig([
-  globalIgnores(['**/public', '**/dist', 'examples']),
+  globalIgnores(['**/public', '**/dist', 'examples', 'ios_canboat.js', 'ios.js', '**/lib/*.test.*', '**/test'] ),
 
   // TypeScript options
   {
@@ -16,7 +16,8 @@ module.exports = defineConfig([
       globals: globals.node
     },
     rules: {
-      '@typescript-eslint/no-empty-object-type': 'off'
+      '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/no-explicit-any': 'off'
     }
   },
 

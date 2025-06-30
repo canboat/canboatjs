@@ -48,6 +48,7 @@ module.exports = {
 
 try {
   module.exports.serial = require('./dist/serial')
-} catch ( ex ) {
+// eslint-disable-next-line no-empty
+} catch ( _ex ) {
 }
 

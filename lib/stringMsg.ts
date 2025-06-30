@@ -1,12 +1,12 @@
 import {
-  compact, cond, constant, curry, flow, isEmpty,
+  compact, cond, isEmpty,
   isString, negate, overSome, startsWith, stubTrue, toNumber, zipObject
 } from 'lodash/fp'
 import {
   arrBuff, byteString, getPlainPGNs, rmChecksum, trimWrap, compute0183Checksum, hexByte
 } from './utilities'
 import {
-  buildCanId, encodeCanIdString, parseCanId, parseCanIdStr,
+  buildCanId, encodeCanIdString, parseCanIdStr,
 } from './canId'
 import moment from 'moment'
 
@@ -199,7 +199,7 @@ export const parseMXPGN = (input:string, options:any|undefined = undefined) => {
     const addr = (parseInt(attr_word.substr(2,2), 16));
     const send = parseInt(send_prio_len.substr(0,1), 2);
     const prio = parseInt(send_prio_len.substr(1,3), 2);
-    const len = parseInt(send_prio_len.substr(4,4), 2);
+    //const len = parseInt(send_prio_len.substr(4,4), 2);
     let src = 0, dst = 255;
     
     send ? dst = addr: src = addr;
@@ -212,7 +212,7 @@ export const parseMXPGN = (input:string, options:any|undefined = undefined) => {
       reversed = data
     
     return buildMsg(
-      buildCanId(0, parseInt(pgn, 16), dst, src),
+      buildCanId(prio, parseInt(pgn, 16), dst, src),
       'MXPGN',
       Buffer.from(reversed, 'hex'),
       { coalesced: true, prefix },
@@ -227,9 +227,9 @@ export const encodeMXPGN = ({ prefix = '$MXPGN', pgn, prio, src, data }:any) => 
   const dataLength = hexByte(128 + (prio * 16) + (byteString(data, '').toUpperCase().length / 2)).toUpperCase()
   const attribWord = dataLength + hexByte(src).toUpperCase()
   
-  var buff = Buffer.from(byteString(data, '') , 'hex');
-  for (var i = 0, j = buff.length - 1; i < j; ++i, --j) {
-    var t = buff[j]
+  const buff = Buffer.from(byteString(data, '') , 'hex');
+  for (let i = 0, j = buff.length - 1; i < j; ++i, --j) {
+    const t = buff[j]
     
     buff[j] = buff[i]
     buff[i] = t
@@ -251,6 +251,7 @@ export const parsePDGY = (input:string) => {
       { timer: Number(timer), prefix, coalesced: true },
     )
   } else if ( parts.length === 4 ) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [ prefix, pgn, dst, data ] = parts
     return buildMsg(
       buildCanId(0, pgn, dst, 0), 'PDGY', Buffer.from(data, 'base64'),
