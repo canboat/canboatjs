@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:discovery')
+import { createDebug } from './utilities'
 import { isYDRAW } from './stringMsg'
 import dgram from 'dgram'
+
+const debug = createDebug('canboatjs:discovery')
 
 export function discover(app: any) {
   if (app.config.settings.pipedProviders) {

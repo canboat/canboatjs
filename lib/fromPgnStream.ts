@@ -15,12 +15,12 @@
  */
 
 import { PGN } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
+import { createDebug } from './utilities'
 import { Transform } from 'stream'
 import { Parser as FromPgn } from './fromPgn'
 import util from 'util'
 
-const debug = _debug('canboatjs:FromPgnStream')
+const debug = createDebug('canboatjs:FromPgnStream')
 
 export function fromPgnStream(this: any, options: any = {}) {
   Transform.call(this, {

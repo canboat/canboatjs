@@ -15,13 +15,13 @@
  */
 
 import { PGN } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
+import { createDebug } from './utilities'
 import { parseCanId, encodeCanId } from './canId'
 import { BitStream } from 'bit-buffer'
 import { binToActisense } from './utilities'
 
-const debug = _debug('canboatjs:w2k01')
-const debugData = _debug('canboatjs:w2k01-data')
+const debug = createDebug('canboatjs:w2k01')
+const debugData = createDebug('canboatjs:w2k01-data')
 
 export const readN2KActisense = (
   data: Buffer,

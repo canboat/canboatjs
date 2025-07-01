@@ -15,7 +15,7 @@
  */
 
 import { PGN } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
+import { createDebug } from './utilities'
 import { Transform } from 'stream'
 import { toPgn, pgnToiKonvertSerialFormat } from './toPgn'
 import { Parser } from './fromPgn'
@@ -23,7 +23,7 @@ import _ from 'lodash'
 import { defaultTransmitPGNs } from './codes'
 import util from 'util'
 
-const debug = _debug('canboatjs:ikonvert')
+const debug = createDebug('canboatjs:ikonvert')
 
 //const pgnsSent = {}
 

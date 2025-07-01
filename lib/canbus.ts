@@ -15,8 +15,7 @@
  */
 
 import { PGN } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:canbus')
+import { createDebug } from './utilities'
 import { Transform } from 'stream'
 import { toPgn } from './toPgn'
 import _ from 'lodash'
@@ -25,6 +24,8 @@ import { getPlainPGNs, binToActisense } from './utilities'
 import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
 import util from 'util'
+
+const debug = createDebug('canboatjs:canbus')
 
 export function CanbusStream(this: any, options: any) {
   /*

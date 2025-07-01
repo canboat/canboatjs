@@ -17,9 +17,7 @@
 // FIXME: MMSI sould be a string
 
 import { Definition, Field, PGN, FieldType } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:fromPgn')
-const trace = _debug('canboatjs:fromPgn:trace')
+import { createDebug } from './utilities'
 import { EventEmitter } from 'node:events'
 import pkg from '../package.json'
 import _ from 'lodash'
@@ -43,6 +41,9 @@ import {
   parsePDGY,
   parseActisenseN2KASCII
 } from './stringMsg'
+
+const debug = createDebug('canboatjs:fromPgn')
+const trace = createDebug('canboatjs:fromPgn:trace')
 
 export type FromPgnCallback = (msg: any, pgn: any | undefined) => void
 export type PostProcessor = (field: Field, value: any) => any

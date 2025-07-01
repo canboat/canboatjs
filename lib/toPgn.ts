@@ -38,8 +38,9 @@ import {
   encodePDGY
 } from './stringMsg'
 import { encodeN2KActisense } from './n2k-actisense'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:toPgn')
+import { createDebug } from './utilities'
+
+const debug = createDebug('canboatjs:toPgn')
 
 const RES_STRINGLAU = 'STRING_LAU' //'ASCII or UNICODE string starting with length and control byte'
 const RES_STRINGLZ = 'STRING_LZ' //'ASCII string starting with length byte'

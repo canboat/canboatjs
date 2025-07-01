@@ -16,9 +16,10 @@
 
 import { PGN } from '@canboat/pgns'
 import { N2kDevice } from './n2kDevice'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:candevice')
+import { createDebug } from './utilities'
 import _ from 'lodash'
+
+const debug = createDebug('canboatjs:candevice')
 
 export class CanDevice extends N2kDevice {
   canbus: any

@@ -17,8 +17,9 @@
 import { PGN } from '@canboat/pgns'
 import { N2kDevice } from './n2kDevice'
 import { actisenseToYdgwFullRawFormat } from './toPgn'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:n2kdevice')
+import { createDebug } from './utilities'
+
+const debug = createDebug('canboatjs:n2kdevice')
 
 export class YdDevice extends N2kDevice {
   app: any

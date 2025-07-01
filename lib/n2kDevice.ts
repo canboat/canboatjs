@@ -32,14 +32,15 @@ import {
   ControllerState,
   IsoControl
 } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:n2kdevice')
+import { createDebug } from './utilities'
 import { EventEmitter } from 'node:events'
 import _ from 'lodash'
 import { Uint64LE } from 'int64-buffer'
 import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
 import packageJson from '../package.json'
+
+const debug = createDebug('canboatjs:n2kdevice')
 
 const deviceTransmitPGNs = [60928, 59904, 126996, 126464]
 

@@ -15,9 +15,7 @@
  */
 
 import { PGN } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:w2k01')
-const debugData = _debug('canboatjs:w2k01-data')
+import { createDebug } from './utilities'
 import { Transform } from 'stream'
 import {
   pgnToActisenseN2KAsciiFormat,
@@ -27,6 +25,9 @@ import {
 } from './toPgn'
 import { readN2KActisense } from './n2k-actisense'
 import util from 'util'
+
+const debug = createDebug('canboatjs:w2k01')
+const debugData = createDebug('canboatjs:w2k01-data')
 
 //const pgnsSent = {}
 

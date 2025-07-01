@@ -11,8 +11,9 @@ import {
   getBitEnumerations
 } from '@canboat/pgns'
 import _ from 'lodash'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:pgns')
+import { createDebug } from './utilities'
+
+const debug = createDebug('canboatjs:pgns')
 
 //const enumValues : {[key:string]: {[key:number]: string}} = {}
 //const enumNames : {[key:string]: {[key:string]: number}} = {}

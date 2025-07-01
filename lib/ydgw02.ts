@@ -15,8 +15,7 @@
  */
 
 import { PGN } from '@canboat/pgns'
-import { debug as _debug } from 'debug'
-const debug = _debug('canboatjs:ydgw02')
+import { createDebug } from './utilities'
 import { Transform } from 'stream'
 import { Parser as FromPgn } from './fromPgn'
 import { YdDevice } from './yddevice'
@@ -27,6 +26,8 @@ import {
   actisenseToYdgwFullRawFormat
 } from './toPgn'
 import util from 'util'
+
+const debug = createDebug('canboatjs:ydgw02')
 
 //const pgnsSent = {}
 
