@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Field, PGN } from '@canboat/pgns'
+import { Field, PGN } from '@canboat/ts-pgns'
 import { getField } from './fromPgn'
 import {
   getPgn,

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { PGN } from '@canboat/pgns'
+import { PGN } from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
 import { parseCanId, encodeCanId } from './canId'
 import { BitStream } from 'bit-buffer'
@@ -129,7 +129,12 @@ export const encodeN2KActisense = (pgn: PGN, data: Buffer) => {
   bs.writeUint16(13 + data.length) //len
   bs.writeUint8(pgn.dst)
   bs.writeUint32(
-    encodeCanId({ pgn: pgn.pgn, src: 0, prio: pgn.prio || 2, dst: pgn.dst })
+    encodeCanId({
+      pgn: pgn.pgn,
+      src: pgn.src || 0,
+      prio: pgn.prio || 2,
+      dst: pgn.dst
+    })
   )
   bs.writeUint32(0) //timestamp
   bs.writeUint8(0) //mhs

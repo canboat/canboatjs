@@ -69,7 +69,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@canboat/pgns": "6.0.x",
+    "@canboat/ts-pgns": "1.0.0-beta.1",
     "bit-buffer": "0.2.3",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",

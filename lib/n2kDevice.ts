@@ -31,7 +31,7 @@ import {
   TransmissionInterval,
   ControllerState,
   IsoControl
-} from '@canboat/pgns'
+} from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
 import { EventEmitter } from 'node:events'
 import _ from 'lodash'

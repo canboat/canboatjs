@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { PGN } from '@canboat/pgns'
+import { PGN } from '@canboat/ts-pgns'
 import { Parser } from '../fromPgn'
 import minimist from 'minimist'
 import readline from 'readline'

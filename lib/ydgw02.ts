@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { PGN } from '@canboat/pgns'
+import { PGN } from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
 import { Transform } from 'stream'
 import { Parser as FromPgn } from './fromPgn'

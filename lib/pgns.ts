@@ -3,13 +3,11 @@ import {
   EnumBase,
   Enumeration,
   BitEnumeration,
-  FieldTypeEnumeration
-} from '@canboat/pgns'
-import {
+  FieldTypeEnumeration,
   getEnumerations,
   getFieldTypeEnumerations,
   getBitEnumerations
-} from '@canboat/pgns'
+} from '@canboat/ts-pgns'
 import _ from 'lodash'
 import { createDebug } from './utilities'
 

@@ -4,7 +4,7 @@ chai.should()
 chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'))
 
-import { PGN_127257 } from '@canboat/pgns'
+import { PGN_127257 } from '@canboat/ts-pgns'
 
 const { FromPgn } = require('../dist/index')
 const opts = { useCamel: true }

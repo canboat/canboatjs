@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { PGN } from '@canboat/pgns'
+import { PGN } from '@canboat/ts-pgns'
 import { N2kDevice } from './n2kDevice'
 import { actisenseToYdgwFullRawFormat } from './toPgn'
 import { createDebug } from './utilities'

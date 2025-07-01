@@ -16,7 +16,7 @@
 
 // FIXME: MMSI sould be a string
 
-import { Definition, Field, PGN, FieldType } from '@canboat/pgns'
+import { Definition, Field, PGN, FieldType } from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
 import { EventEmitter } from 'node:events'
 import pkg from '../package.json'
