@@ -46,9 +46,8 @@ jobs:
 
     - name: build ts-pgns
       run: |
-        ls
         ls ../canboat
-        cp ../canboat/docs/canboat.json .
+        cp ../canboat.json .
         npm install
         npm run build
         npm run generate
