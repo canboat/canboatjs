@@ -21,6 +21,7 @@ const debugData = _debug('canboatjs:w2k01-data')
 import {Transform} from 'stream'
 import { pgnToActisenseN2KAsciiFormat, actisenseToN2KAsciiFormat, pgnToN2KActisenseFormat, actisenseToN2KActisenseFormat } from './toPgn'
 import { readN2KActisense } from './n2k-actisense'
+import util from 'util'
 
 //const pgnsSent = {}
 
@@ -71,13 +72,13 @@ W2K01Stream.prototype.send = function (msg:string|Buffer) {
 }
 
 W2K01Stream.prototype.sendPGN = function (pgn:PGN) {
-  let now = Date.now()
+  //const now = Date.now()
   //let lastSent = pgnsSent[pgn.pgn]
   if ( this.format === N2K_ASCII ) {
-    let ascii = pgnToActisenseN2KAsciiFormat(pgn)
+    const ascii = pgnToActisenseN2KAsciiFormat(pgn)
     this.send(ascii + '\r\n')
   } else {
-    let buf = pgnToN2KActisenseFormat(pgn)
+    const buf = pgnToN2KActisenseFormat(pgn)
     this.send(buf)
   }
   //pgnsSent[pgn.pgn] = now
@@ -85,15 +86,15 @@ W2K01Stream.prototype.sendPGN = function (pgn:PGN) {
 
 W2K01Stream.prototype.sendW2KPGN = function (msg:string) {
   if ( this.format === N2K_ASCII ) {
-    let ascii = actisenseToN2KAsciiFormat(msg)
+    const ascii = actisenseToN2KAsciiFormat(msg)
     this.send(ascii + '\r\n')
   } else {
-    let buf = actisenseToN2KActisenseFormat
+    const buf = actisenseToN2KActisenseFormat
     this.send(buf)
   }
 }
 
-require('util').inherits(W2K01Stream, Transform)
+util.inherits(W2K01Stream, Transform)
 
 W2K01Stream.prototype._transform = function (chunk:any, encoding:string, done:any) {
   if ( !this.sentAvailable && this.format === N2K_ASCII ) {

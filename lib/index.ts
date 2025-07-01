@@ -33,12 +33,10 @@ export { Ydgw02Stream as Ydwg02 } from './ydgw02'
 export { Ydgw02Stream as Ydgw02 } from './ydgw02'
 export { W2K01Stream as W2k01 } from './w2k01'
 export { iKonvertStream as iKonvert } from './ikonvert'
-
-export const Venus = require('./venus')
-export const VenusMQTT = require('./venus-mqtt')
-export const discover = require('./discovery')
-export const SimpleCan = require('./simpleCan')
-export const YdDevice = require('./yddevice')
-
-export const serial = require('./serial')
+export { VenusStream as Venus } from './venus'
+export { VenusMQTT } from './venus-mqtt'
+export { discover } from './discovery'
+export { SimpleCan } from './simpleCan'
+export { YdDevice } from './yddevice'
+export { SerialStream as serial } from './serial'
 

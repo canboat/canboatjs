@@ -12,8 +12,7 @@
     "build": "tsc -b  --pretty false",
     "watch": "tsc --watch",
     "prepublishOnly": "npm run build",
-    "lint-fix": "eslint --fix",
-    "lint": "eslint",
+    "lint": "eslint --fix",
     "format": "npm run prettier && npm run lint"
   },
   "bin": {

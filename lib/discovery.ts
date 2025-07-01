@@ -20,7 +20,7 @@ const debug = _debug('canboatjs:discovery')
 import { isYDRAW } from './stringMsg'
 import dgram from 'dgram'
 
-module.exports = function discover(app:any) {
+export function discover(app:any) {
 
   if ( app.config.settings.pipedProviders ) {
     const exists = app.config.settings.pipedProviders.find((provider:any) => {

@@ -19,7 +19,7 @@ import { map, padCharsStart, trimChars } from 'lodash/fp'
 
 
 export function getPlainPGNs(buffer:Buffer) {
-  let res = []
+  const res = []
   let bucket = 0x40 // 64
 
   const first = Buffer.alloc(8)
@@ -87,7 +87,7 @@ export function compute0183Checksum (sentence:string) {
 }
 
 export function binToActisense(pgn:PGN, data:Buffer, length:number) {
-  let arr: string[] = []
+  const arr: string[] = []
   return (
     pgn.timestamp +
       `,${pgn.prio},${pgn.pgn},${pgn.src},${pgn.dst},${length},` +

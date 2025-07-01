@@ -21,6 +21,7 @@ import {Transform} from 'stream'
 import { Parser as FromPgn } from './fromPgn'
 import { YdDevice } from './yddevice'
 import { pgnToYdgwRawFormat, pgnToYdgwFullRawFormat, actisenseToYdgwRawFormat, actisenseToYdgwFullRawFormat } from './toPgn'
+import util from 'util'
 
 //const pgnsSent = {}
 
@@ -162,10 +163,10 @@ Ydgw02Stream.prototype.sendYdgwPGN = function (msg:string) {
   */
 }
 
-require('util').inherits(Ydgw02Stream, Transform)
+util.inherits(Ydgw02Stream, Transform)
 
 Ydgw02Stream.prototype._transform = function (chunk:any, encoding:any, done:any) {
-  let line = chunk.toString().trim()
+  const line = chunk.toString().trim()
   //line = line.substring(0, line.length) // take off the \r
 
   if ( this.device === undefined && !this.sentAvailable ) {
