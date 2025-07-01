@@ -15,7 +15,19 @@
     "prepublishOnly": "npm run build",
     "prettier": "prettier --write lib test",
     "lint": "eslint --fix",
-    "format": "npm run prettier && npm run lint"
+    "format": "npm run prettier && npm run lint",
+    "prepare": "husky install"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "lib/**/*.{js,ts}": [
+      "prettier --write",
+      "eslint --fix"
+    ]
   },
   "bin": {
     "analyzerjs": "./dist/bin/analyzerjs.js",
@@ -84,7 +96,10 @@
     "chai-things": "^0.2.0",
     "eslint": "^9.30.0",
     "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.1",
+    "husky": "^8.0.0",
     "jest": "^30.0.3",
+    "lint-staged": "^16.1.2",
     "mocha": "^5.0.0",
     "nyc": "^15.1.0",
     "prettier": "^3.6.2",
