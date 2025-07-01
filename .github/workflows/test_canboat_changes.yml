@@ -52,7 +52,7 @@ jobs:
         npm run build
         npm run generate
         npm run build
-        npm run link
+        npm link
       working-directory: ./ts-pgns
 
     - name: test canboatjs
@@ -60,7 +60,7 @@ jobs:
         npm install
         npm link @canboat/ts-pgns
         npm run build
-        npm run link
+        npm link
         npm test
       working-directory: ./canboatjs
    
