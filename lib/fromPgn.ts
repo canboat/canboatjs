@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+
+// FIXME: MMSI sould be a string
+
 import { Definition, Field, PGN, FieldType } from '@canboat/pgns'
 import { debug as _debug } from 'debug'
 const debug = _debug('canboatjs:fromPgn')
@@ -70,7 +73,7 @@ export class Parser extends EventEmitter {
     }
 
     if ( this.options.useCamel === undefined ) {
-      this.options.useCamel = false
+      this.options.useCamelCompat = true
     }
 
     if ( this.options.useCamelCompat === undefined ) {

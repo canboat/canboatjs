@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:ydgw02')
-const Transform = require('stream').Transform
-const FromPgn = require('./fromPgn').Parser
-const YdDevice = require('./yddevice')
-const _ = require('lodash')
-const { pgnToYdgwRawFormat, pgnToYdgwFullRawFormat, actisenseToYdgwRawFormat, actisenseToYdgwFullRawFormat } = require('./toPgn')
+import { PGN } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:ydgw02')
+import {Transform} from 'stream'
+import { Parser as FromPgn } from './fromPgn'
+import { YdDevice } from './yddevice'
+import { pgnToYdgwRawFormat, pgnToYdgwFullRawFormat, actisenseToYdgwRawFormat, actisenseToYdgwFullRawFormat } from './toPgn'
 
 //const pgnsSent = {}
 
-function Ydgw02Stream (options, type) {
+export function Ydgw02Stream (this:any, options:any, type:string) {
+  /*
   if (!(this instanceof Ydgw02Stream)) {
     return new Ydgw02Stream(options)
-  }
+    }
+  */
 
   Transform.call(this, {
     objectMode: true
@@ -39,17 +42,17 @@ function Ydgw02Stream (options, type) {
 
   this.fromPgn = new FromPgn(options)
 
-  this.fromPgn.on('warning', (_pgn, _warning) => {
+  this.fromPgn.on('warning', (_pgn:any, _warning:string) => {
     //debug(`[warning] ${pgn.pgn} ${warning}`)
   })
 
-  this.fromPgn.on('error', (pgn, error) => {
+  this.fromPgn.on('error', (pgn:PGN, error:any) => {
     debug(`[error] ${pgn.pgn} ${error}`)
   })
 
 
   if ( options.app ) {
-    options.app.on(this.options.outEevent || 'nmea2000out', (msg) => {
+    options.app.on(this.options.outEevent || 'nmea2000out', (msg:string) => {
       if ( typeof msg === 'string' ) {
         this.sendYdgwPGN(msg)
       } else {
@@ -58,12 +61,12 @@ function Ydgw02Stream (options, type) {
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
 
-    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg) => {
+    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg:PGN) => {
       this.sendPGN(msg)
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
 
-    options.app.on('ydFullRawOut', (msgs) => {
+    options.app.on('ydFullRawOut', (msgs:string[]) => {
       this.sendYdgwFullPGN(msgs)
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
@@ -85,41 +88,41 @@ function Ydgw02Stream (options, type) {
 
 }
 
-Ydgw02Stream.prototype.cansend = function (_msg) {
+Ydgw02Stream.prototype.cansend = function (_msg:any) {
   return this.device ? this.device.cansend : true
 }
 
-Ydgw02Stream.prototype.sendString = function (msg, forceSend) {
+Ydgw02Stream.prototype.sendString = function (msg:string, forceSend:boolean) {
   if ( this.cansend() || forceSend === true ) {
     debug('sending %s', msg)
     this.options.app.emit(this.outEvent, msg)
   }
 }
 
-Ydgw02Stream.prototype.sendPGN = function (pgn) {
-  if ( this.cansend() || pgn.forceSend === true ) {
+Ydgw02Stream.prototype.sendPGN = function (pgn:PGN) {
+  if ( this.cansend() || (pgn as any).forceSend === true ) {
     //let now = Date.now()
     //let lastSent = pgnsSent[pgn.pgn]
     let msgs
-    if ( pgn.ydFullFormat === true || this.device !== undefined ) {
+    if ( (pgn as any).ydFullFormat === true || this.device !== undefined ) {
       msgs = pgnToYdgwFullRawFormat(pgn)
     } else {
       msgs = pgnToYdgwRawFormat(pgn)
     }
     msgs.forEach(raw => {
-      this.sendString(raw + '\r\n', pgn.forceSend)
+      this.sendString(raw + '\r\n', (pgn as any).forceSend)
     })
     //pgnsSent[pgn.pgn] = now
   }
 }
 
-Ydgw02Stream.prototype.sendYdgwFullPGN = function (msgs) {
+Ydgw02Stream.prototype.sendYdgwFullPGN = function (msgs:string[]) {
   msgs.forEach(raw => {
     this.sendString(raw + '\r\n')
   })
 }
 
-Ydgw02Stream.prototype.sendYdgwPGN = function (msg) {
+Ydgw02Stream.prototype.sendYdgwPGN = function (msg:string) {
 
   let msgs
 
@@ -161,7 +164,7 @@ Ydgw02Stream.prototype.sendYdgwPGN = function (msg) {
 
 require('util').inherits(Ydgw02Stream, Transform)
 
-Ydgw02Stream.prototype._transform = function (chunk, encoding, done) {
+Ydgw02Stream.prototype._transform = function (chunk:any, encoding:any, done:any) {
   let line = chunk.toString().trim()
   //line = line.substring(0, line.length) // take off the \r
 
@@ -172,7 +175,7 @@ Ydgw02Stream.prototype._transform = function (chunk, encoding, done) {
   }
 
   const pgn = this.fromPgn.parseYDGW02(line)
-  if ( !_.isUndefined(pgn) ) {
+  if ( pgn === undefined ) {
     this.push(pgn)
     this.options.app.emit(this.options.analyzerOutEvent || 'N2KAnalyzerOut', pgn)
   }
@@ -183,4 +186,3 @@ Ydgw02Stream.prototype._transform = function (chunk, encoding, done) {
 Ydgw02Stream.prototype.end = function () {
 }
 
-module.exports = Ydgw02Stream

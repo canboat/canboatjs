@@ -3,7 +3,7 @@ chai.Should()
 chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'));
 
-const { lookupEnumerationValue, lookupEnumerationName} = require('../index')
+const { lookupEnumerationValue, lookupEnumerationName} = require('../dist/index')
 
 describe('enumeration lookups work', function () {
   it(`name lookup works`, function (done) {

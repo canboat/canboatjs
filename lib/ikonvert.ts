@@ -14,19 +14,24 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:ikonvert')
-const Transform = require('stream').Transform
-const {toPgn, pgnToiKonvertSerialFormat} = require('./toPgn')
-const Parser = require('./fromPgn').Parser
-const _ = require('lodash')
-const { defaultTransmitPGNs } = require('./codes')
+import { PGN } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+import {Transform} from 'stream'
+import {toPgn, pgnToiKonvertSerialFormat} from './toPgn'
+import { Parser } from './fromPgn'
+import _  from 'lodash'
+import { defaultTransmitPGNs } from './codes'
+import util from 'util'
 
-const pgnsSent = {}
+const debug = _debug('canboatjs:ikonvert')
 
-function iKonvertStream (options) {
+//const pgnsSent = {}
+
+export function iKonvertStream (this:any, options:any) {
+  /*
   if (!(this instanceof iKonvertStream)) {
     return new iKonvertStream(options)
-  }
+  }*/
 
   Transform.call(this, {
     objectMode: true
@@ -45,12 +50,12 @@ function iKonvertStream (options) {
   this.start()
 
   this.setProviderStatus = options.app && options.app.setProviderStatus
-    ? (msg) => {
+    ? (msg:string) => {
       options.app.setProviderStatus(options.providerId, msg)
     }
   : () => {}
   this.setProviderError = options.app && options.app.setProviderError
-    ? (msg) => {
+    ? (msg:string) => {
       options.app.setProviderError(options.providerId, msg)
     }
   : () => {}
@@ -61,10 +66,11 @@ function iKonvertStream (options) {
                                 this.options.transmitPGNs)
   }
 
-  var that = this
+  // eslint-disable-next-line @typescript-eslint/no-this-alias
+  const that = this
 
   if ( this.options.app ) {
-    options.app.on(this.options.outEevent || 'nmea2000out', (msg) => {
+    options.app.on(this.options.outEevent || 'nmea2000out', (msg:string) => {
       if ( typeof msg === 'string' ) {
         that.sendActisensePGN(msg)
       } else {
@@ -72,7 +78,7 @@ function iKonvertStream (options) {
       }
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
-    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg) => {
+    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg:PGN) => {
       that.sendPGN(msg)
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
@@ -87,12 +93,12 @@ function iKonvertStream (options) {
   }
 }
 
-require('util').inherits(iKonvertStream, Transform)
+util.inherits(iKonvertStream, Transform)
 
 iKonvertStream.prototype.start = function () {
 }
 
-iKonvertStream.prototype.sendString = function (msg) {
+iKonvertStream.prototype.sendString = function (msg:string) {
   debug('sending %s', msg)
   if ( this.isTcp ) {
     msg = msg + "\n\r"
@@ -100,33 +106,34 @@ iKonvertStream.prototype.sendString = function (msg) {
   this.options.app.emit(this.outEvent, msg)
 }
 
-iKonvertStream.prototype.sendPGN = function (pgn) {
+iKonvertStream.prototype.sendPGN = function (pgn:PGN) {
   if ( this.cansend ) {
-    let now = Date.now()
+    //let now = Date.now()
     //let lastSent = pgnsSent[pgn.pgn]
-    let msg = pgnToiKonvertSerialFormat(pgn)
+    const msg = pgnToiKonvertSerialFormat(pgn)
     this.sendString(msg)
-    pgnsSent[pgn.pgn] = now
+    //pgnsSent[pgn.pgn] = now
   }
 }
 
-iKonvertStream.prototype.sendActisensePGN = function (msg) {
+iKonvertStream.prototype.sendActisensePGN = function (msg:string) {
   if ( this.cansend ) {
     if ( !this.parser ) {
       this.parser = new Parser(this.options)
-
-      let that = this
-      this.parser.on('error', (pgn, error) => {
+      
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const that = this
+      this.parser.on('error', (pgn:PGN, error:any) => {
         console.error(`Error parsing ${pgn.pgn} ${error}`)
         console.error(error.stack)
       })
 
-      this.parser.on('pgn', (pgn) => {
-        let now = Date.now()
+      this.parser.on('pgn', (pgn:PGN) => {
+        //let now = Date.now()
         //let lastSent = pgnsSent[pgn.pgn]
-        let msg = pgnToiKonvertSerialFormat(pgn)
+        const msg = pgnToiKonvertSerialFormat(pgn)
         that.sendString(msg)
-        pgnsSent[pgn.pgn] = now
+        //pgnsSent[pgn.pgn] = now
       })
     }
     this.parser.parseString(msg)
@@ -135,7 +142,7 @@ iKonvertStream.prototype.sendActisensePGN = function (msg) {
 
 iKonvertStream.prototype.setup = function () {
   let txPgns = '$PDGY,TX_LIST'
-  this.transmitPGNs.forEach(pgn => {
+  this.transmitPGNs.forEach((pgn:number) => {
     txPgns = txPgns + `,${pgn}`
   })
   debug('sending pgn tx list')
@@ -144,7 +151,7 @@ iKonvertStream.prototype.setup = function () {
 
 iKonvertStream.prototype.getSetupCommands = function () {
   let txPgns = '$PDGY,TX_LIST'
-  this.transmitPGNs.forEach(pgn => {
+  this.transmitPGNs.forEach((pgn:number) => {
     txPgns = txPgns + `,${pgn}`
   })
 
@@ -161,15 +168,16 @@ iKonvertStream.prototype.getSetupCommands = function () {
   return setupCommands
 }
 
-iKonvertStream.prototype._transform = function (chunk, encoding, done) {
+iKonvertStream.prototype._transform = function (chunk:any, encoding:string, done:any) {
   let line = chunk.toString().trim()
   line = line.substring(0, line.length) // take off the \r
 
   if ( line.startsWith('$PDGY,TEXT') ) {
     debug(line)
   } else if ( line.startsWith('$PDGY,000000,') ) {
-    let parts = line.split(',')
+    const parts = line.split(',')
 
+    //FIXME, camelCase?
     if ( this.options.sendNetworkStats && parts[2] && parts[2].length > 0 ) {
       const pgn = {
         pgn: 0x40100,
@@ -191,8 +199,8 @@ iKonvertStream.prototype._transform = function (chunk, encoding, done) {
       return
     }
   } else if ( line.startsWith('$PDGY,NAK') ) {
-    let parts = line.split(',')
-    let msg = `NavLink2 error ${parts[2]}: ${parts[3]}`
+    const parts = line.split(',')
+    const msg = `NavLink2 error ${parts[2]}: ${parts[3]}`
     console.error(msg)
     //this.setProviderError(msg)
   }
@@ -237,4 +245,3 @@ iKonvertStream.prototype._transform = function (chunk, encoding, done) {
 iKonvertStream.prototype.end = function () {
 }
 
-module.exports = iKonvertStream

@@ -14,30 +14,32 @@
  * limitations under the License.
  */
 
-const { map, padCharsStart, trimChars } = require('lodash/fp')
+import { PGN } from '@canboat/pgns'
+import { map, padCharsStart, trimChars } from 'lodash/fp'
 
-function getPlainPGNs(buffer) {
-  var res = []
-  var bucket = 0x40 // 64
 
-  var first = Buffer.alloc(8)
+export function getPlainPGNs(buffer:Buffer) {
+  let res = []
+  let bucket = 0x40 // 64
+
+  const first = Buffer.alloc(8)
   first.writeUInt8(bucket++, 0)
   first.writeUInt8(buffer.length, 1)
   buffer.copy(first, 2, 0, 6)
   res.push(first)
 
-  for ( var index = 6; index < buffer.length; index += 7 ) {
-    var next = Buffer.alloc(8)
+  for ( let index = 6; index < buffer.length; index += 7 ) {
+    const next = Buffer.alloc(8)
     next.writeUInt8(bucket++, 0)
-    var end = index+7
-    var fill = 0
+    let end = index+7
+    let fill = 0
     if ( end > buffer.length ) {
       fill = end - buffer.length
       end = buffer.length
     }
     buffer.copy(next, 1, index, end)
     if ( fill > 0 ) {
-      for ( var i = end-index+1; i < 8; i++ ) {
+      for ( let i = end-index+1; i < 8; i++ ) {
         next.writeUInt8(0xff, i)
       }
     }
@@ -45,7 +47,6 @@ function getPlainPGNs(buffer) {
   }
   return res
 }
-exports.getPlainPGNs = getPlainPGNs
 
 
 const m_hex = [
@@ -67,13 +68,13 @@ const m_hex = [
   'F'
 ]
 
-function toHexString (v) {
-  let msn = (v >> 4) & 0x0f
-  let lsn = (v >> 0) & 0x0f
+function toHexString (v:number) {
+  const msn = (v >> 4) & 0x0f
+  const lsn = (v >> 0) & 0x0f
   return m_hex[msn] + m_hex[lsn]
 }
 
-function compute0183Checksum (sentence) {
+export function compute0183Checksum (sentence:string) {
   // skip the $
   let i = 1
   // init to first character
@@ -85,7 +86,8 @@ function compute0183Checksum (sentence) {
   return '*' + toHexString(c1)
 }
 
-function binToActisense(pgn, data, length) {
+export function binToActisense(pgn:PGN, data:Buffer, length:number) {
+  let arr: string[] = []
   return (
     pgn.timestamp +
       `,${pgn.prio},${pgn.pgn},${pgn.src},${pgn.dst},${length},` +
@@ -93,19 +95,17 @@ function binToActisense(pgn, data, length) {
       .reduce(function(acc, i) {
         acc.push(i.toString(16));
         return acc;
-      }, [])
+      }, arr)
       .map(x => (x.length === 1 ? "0" + x : x))
       .join(",")
   );
 }
 
-exports.binToActisense = binToActisense
-exports.compute0183Checksum = compute0183Checksum
-exports.trimWrap = trimChars('()<>[]')
-exports.rmChecksum = str => str.includes('*') ? str.split('*', 1)[0] : str
-exports.arrBuff = (arr, encoding = 'hex') => Buffer.from(arr.join(''), encoding)
-exports.hexByte = x => padCharsStart('0', 2, Number(x).toString(16))
-exports.byteString = (data, separator = ',') => (
+export const trimWrap = trimChars('()<>[]')
+export const rmChecksum = (str:string) => str.includes('*') ? str.split('*', 1)[0] : str
+export const arrBuff = (arr: string[], encoding:BufferEncoding = 'hex') => Buffer.from(arr.join(''), encoding)
+export const hexByte = (x:number) => padCharsStart('0', 2, Number(x).toString(16))
+export const byteString = (data:Buffer, separator = ',') => (
   // Uint32Array map method doesn't work as expect. _.map does.
   map(exports.hexByte, new Uint32Array(data)).join(separator)
 )

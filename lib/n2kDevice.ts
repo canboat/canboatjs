@@ -14,25 +14,52 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:n2kdevice')
-const EventEmitter = require('events')
-const _ = require('lodash')
-const Uint64LE = require('int64-buffer').Uint64LE
-const { defaultTransmitPGNs } = require('./codes')
-const { toPgn } = require('./toPgn')
-let packageJson
-
-try
-{
-  packageJson = require('../' + 'package.json')
-// eslint-disable-next-line no-empty
-} catch (_ex) {
-}
+import { PGN,
+         PGN_60928,
+         PGN_59904,
+         PGN_126208,
+         PGN_126208_Acknowledge,
+         PGN_126208_Command,
+         PGN_126996,
+         PGN_126993,
+         PGN_59392,
+         PGN_126464,
+         PgnListFunction,
+         GroupFunction,
+         PgnErrorCode,
+         TransmissionInterval,
+         ControllerState,
+         IsoControl
+       } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:n2kdevice')
+import { EventEmitter } from 'node:events'
+import _  from 'lodash'
+import { Uint64LE } from 'int64-buffer'
+import { defaultTransmitPGNs } from './codes'
+import { toPgn } from './toPgn'
+import packageJson from '../package.json'
 
 const deviceTransmitPGNs = [ 60928, 59904, 126996, 126464 ]
 
-class N2kDevice extends EventEmitter {
-  constructor (options) {
+export class N2kDevice extends EventEmitter {
+  addressClaim: any
+  productInfo: any
+  configurationInfo: any
+  options: any
+  address: number
+  cansend: boolean
+  foundConflict: boolean
+  heartbeatCounter: number
+  devices: any
+  sentAvailable: boolean
+  addressClaimDetectionTime: number
+  transmitPGNs: number[]
+  addressClaimSentAt?: number
+  addressClaimChecker?: any
+  heartbeatInterval?: any
+  
+  constructor (options:any) {
     super()
 
     if ( options.addressClaim ) {
@@ -59,7 +86,7 @@ class N2kDevice extends EventEmitter {
       this.addressClaim["Unique Number"] = options.uniqueNumber || Math.floor(Math.random() * Math.floor(2097151))
     }
 
-    let version = packageJson ? packageJson.version : "1.0"
+    const version = packageJson ? packageJson.version : "1.0"
 
     if ( options.productInfo ) {
       this.productInfo = options.productInfo
@@ -120,27 +147,26 @@ class N2kDevice extends EventEmitter {
     }, 1000)
   }
 
-  setStatus(msg) {
+  setStatus(msg:string) {
     if ( this.options.app && this.options.app.setPluginStatus ) {
       this.options.app.setProviderStatus(this.options.providerId, msg)
     }
   }
 
-  n2kMessage(pgn) {
+  n2kMessage(pgn:PGN) {
     if ( pgn.dst == 255 || pgn.dst == this.address ) {
       try {
         if ( pgn.pgn == 59904 ) {
           handleISORequest(this, pgn)
         } else if ( pgn.pgn == 126208 ) {
-          handleGroupFunction(this, pgn)
+          handleGroupFunction(this, pgn as PGN_126208)
         } else if ( pgn.pgn == 60928 ) {
-          handleISOAddressClaim(this, pgn)
+          handleISOAddressClaim(this, pgn as PGN_60928)
         } else if ( pgn.pgn == 126996 ) {
           handleProductInformation(this, pgn)
         }
       } catch ( err ) {
         console.error(err)
-        console.error(err.stack)
       }
 
       /*
@@ -155,14 +181,14 @@ class N2kDevice extends EventEmitter {
     }
   }
 
-  sendPGN(_pgn, _src) {
+  sendPGN(_pgn: PGN, _src:number|undefined = undefined) {
   }
 }
 
-function handleISORequest(device, n2kMsg) {
+function handleISORequest(device:N2kDevice, n2kMsg:PGN_59904) {
   debug('handleISORequest %j', n2kMsg)
 
-  const PGN = n2kMsg.fields.PGN || n2kMsg.fields.pgn
+  const PGN = Number(n2kMsg.fields.pgn)
   
   switch (PGN) {
   case 126996:  // Product Information request
@@ -173,22 +199,22 @@ function handleISORequest(device, n2kMsg) {
     break;
   case 60928:   // ISO address claim request
     debug('sending address claim %j', device.addressClaim)
-    device.sendPGN(device.addressClaim)
+    device.sendPGN(device.addressClaim as PGN)
     break;
   case 126464:
-    sendPGNList(device)
+    sendPGNList(device, n2kMsg.src!)
     break;
   default:
     if ( !device.options.disableNAKs ) {
       debug(`Got unsupported ISO request for PGN ${PGN}. Sending NAK.`)
-      sendNAKAcknowledgement(device, n2kMsg.src, PGN)
+      sendNAKAcknowledgement(device, n2kMsg.src!, PGN)
     }
   }
 }
 
-function handleGroupFunction(device, n2kMsg) {
+function handleGroupFunction(device:N2kDevice, n2kMsg:PGN_126208) {
   debug('handleGroupFunction %j', n2kMsg)
-  const functionCode = n2kMsg.fields.functionCode || n2kMsg.fields["Function Code"] 
+  const functionCode = n2kMsg.fields.functionCode 
   if(functionCode === 'Request') {
     handleRequestGroupFunction(device, n2kMsg)
   } else if(functionCode === 'Command') {
@@ -197,54 +223,60 @@ function handleGroupFunction(device, n2kMsg) {
     debug('Got unsupported Group Function PGN: %j', n2kMsg)
   }
 
-  function handleRequestGroupFunction(device, n2kMsg) {
+  function handleRequestGroupFunction(device:N2kDevice, n2kMsg:PGN_126208) {
     if ( !device.options.disableNAKs ) {
       // We really don't support group function requests for any PGNs yet -> always respond with pgnErrorCode 1 = "PGN not supported"
 
-      const PGN = n2kMsg.fields.PGN || n2kMsg.fields.pgn      
+      const PGN = n2kMsg.fields.pgn      
       
       debug("Sending 'PGN Not Supported' Group Function response for requested PGN", PGN)
       
-      const acknowledgement = {
+      const acknowledgement : PGN_126208_Acknowledge = {
         pgn: 126208,
-        dst: n2kMsg.src,
-        "Function Code": 2,
-        "PGN": PGN,
-        "PGN error code": 4,
-        "Transmission interval/Priority error code": 0,
-      "# of Parameters": 0
+        dst: n2kMsg.src!,
+        fields: {
+          functionCode: GroupFunction.Acknowledge,
+          pgn: PGN,
+          pgnErrorCode: PgnErrorCode.NotSupported,
+          transmissionIntervalPriorityErrorCode: TransmissionInterval.Acknowledge,
+          numberOfParameters: 0,
+          list: []
+        }
       }
       device.sendPGN(acknowledgement)
     }
   }
 
-  function handleCommandGroupFunction(device, n2kMsg) {
+  function handleCommandGroupFunction(device:N2kDevice, n2kMsg:PGN_126208_Command) {
     if ( !device.options.disableNAKs ) {
       // We really don't support group function commands for any PGNs yet -> always respond with pgnErrorCode 1 = "PGN not supported"
 
-      const PGN = n2kMsg.fields.PGN || n2kMsg.fields.pgn
+      const PGN = n2kMsg.fields.pgn
       
       debug("Sending 'PGN Not Supported' Group Function response for commanded PGN", PGN)
       
-      const acknowledgement = {
+      const acknowledgement : PGN_126208_Acknowledge = {
         pgn: 126208,
-        dst: n2kMsg.src,
-        "Function Code": 2,
-        "PGN": PGN,
-        "PGN error code": 4,
-      "Transmission interval/Priority error code": 0,
-        "# of Parameters": 0
+        dst: n2kMsg.src!,
+        fields: {
+          functionCode: GroupFunction.Acknowledge,
+          pgn: PGN,
+          pgnErrorCode: PgnErrorCode.NotSupported,
+          transmissionIntervalPriorityErrorCode: TransmissionInterval.Acknowledge,
+          numberOfParameters: 0,
+          list: []
+        }
       }
       device.sendPGN(acknowledgement)
     }
   }
 }
 
-function handleISOAddressClaim(device, n2kMsg) {
+function handleISOAddressClaim(device:N2kDevice, n2kMsg:PGN_60928) {
   if ( n2kMsg.src != device.address ) {
-    if ( !device.devices[n2kMsg.src] ) {
+    if ( !device.devices[n2kMsg.src!] ) {
       debug(`registering device ${n2kMsg.src}`)
-      device.devices[n2kMsg.src] = { addressClaim: n2kMsg }
+      device.devices[n2kMsg.src!] = { addressClaim: n2kMsg }
       if ( device.cansend ) {
         //sendISORequest(device, 126996, undefined, n2kMsg.src)
       }
@@ -261,47 +293,51 @@ function handleISOAddressClaim(device, n2kMsg) {
     debug(`Address conflict detected! Kept our address as ${device.address}.`)
     sendAddressClaim(device)      // We have smaller address claim data -> we can keep our address -> re-claim it
   } else if(uint64ValueFromOurOwnClaim > uint64ValueFromReceivedClaim) {
-    this.foundConflict = true
+    device.foundConflict = true
     increaseOwnAddress(device)    // We have bigger address claim data -> we have to change our address
     debug(`Address conflict detected!  trying address ${device.address}.`)
     sendAddressClaim(device)
   }
 }
 
-function increaseOwnAddress(device) {
-  var start = device.address
+function increaseOwnAddress(device:N2kDevice) {
+  const start = device.address
   do {
     device.address = (device.address + 1) % 253
   } while ( device.address != start && device.devices[device.address] )
 }
 
-function handleProductInformation(device, n2kMsg) {
-  if ( !device.devices[n2kMsg.src] ) {
-    device.devices[n2kMsg.src] = {}
+function handleProductInformation(device:N2kDevice, n2kMsg:PGN_126996) {
+  if ( !device.devices[n2kMsg.src!] ) {
+    device.devices[n2kMsg.src!] = {}
   }
   debug('got product information %j', n2kMsg)
-  device.devices[n2kMsg.src].productInformation = n2kMsg
+  device.devices[n2kMsg.src!].productInformation = n2kMsg
 }
 
-function sendHeartbeat(device)
+function sendHeartbeat(device:N2kDevice)
 {
   device.heartbeatCounter = device.heartbeatCounter + 1
   if ( device.heartbeatCounter > 252 )
   {
     device.heartbeatCounter = 0
   }
-  device.sendPGN({
+
+  const hb : PGN_126993 = {
     pgn: 126993,
     dst: 255,
     prio:7,
-    "Data transmit offset": "00:01:00",
-    "Sequence Counter": device.heartbeatCounter,
-    "Controller 1 State":"Error Active"
-  })
+    fields: {
+      dataTransmitOffset: 60,
+      sequenceCounter: device.heartbeatCounter,
+      controller1State: ControllerState.ErrorActive
+    }
+  }
+  
+  device.sendPGN(hb)
 }
 
-
-function sendAddressClaim(device) {
+function sendAddressClaim(device:N2kDevice) {
   if ( device.devices[device.address] ) {
     //someone already has this address, so find a free one
     increaseOwnAddress(device)
@@ -336,56 +372,61 @@ function sendAddressClaim(device) {
   }, device.addressClaimDetectionTime)
 }
 
-function sendISORequest(device, pgn, src, dst=255) {
+function sendISORequest(device:N2kDevice, pgn:number, src:number|undefined = undefined, dst=255) {
   debug(`Sending iso request for ${pgn} to ${dst}`)
 
-  const isoRequest = {
+  const isoRequest : PGN_59904 = {
     pgn: 59904,
     dst: dst,
-    "PGN": pgn
+    fields: {
+      pgn
+    }
   }
   device.sendPGN(isoRequest, src)
 }
 
 
-function sendProductInformation(device) {
+function sendProductInformation(device:N2kDevice) {
   debug("Sending product info %j", device.productInfo)
 
   device.sendPGN(device.productInfo)
 }
 
-function sendConfigInformation(device) {
+function sendConfigInformation(device:N2kDevice) {
   if ( device.configurationInfo ) {
     debug("Sending config info..")
     device.sendPGN(device.configurationInfo)
   }
 }
 
-function sendNAKAcknowledgement(device, src, requestedPGN) {
-  const acknowledgement = {
+function sendNAKAcknowledgement(device:N2kDevice, src:number, requestedPGN:number) {
+  const acknowledgement : PGN_59392 = {
     pgn: 59392,
     dst: src,
-    Control: 1,
-    "Group Function": 255,
-    PGN: requestedPGN
+    fields: {
+      control: IsoControl.Ack,
+      groupFunction: 255,
+      pgn: requestedPGN
+    }
   }
   device.sendPGN(acknowledgement)
 }
 
-function sendPGNList(device, src) {
+function sendPGNList(device:N2kDevice, dst:number) {
   //FIXME: for now, adding everything that signalk-to-nmea2000 supports
   //need a way for plugins, etc. to register the pgns they provide
-  const pgnList = {
+  const pgnList : PGN_126464 = {
     pgn: 126464,
-    dst: src,
-    "Function Code": 0,
-    list: device.transmitPGNs
+    dst,
+    fields: {
+      functionCode: PgnListFunction.TransmitPgnList,
+      list: device.transmitPGNs
+    }
   }
   device.sendPGN(pgnList)
 }
 
-function getISOAddressClaimAsUint64(pgn) {
-  return new Uint64LE(toPgn(pgn))
+function getISOAddressClaimAsUint64(pgn:any) {
+  return new Uint64LE(toPgn(pgn)!)
 }
 
-module.exports = N2kDevice

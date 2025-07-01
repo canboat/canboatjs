@@ -14,22 +14,25 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:w2k01')
-const debugData = require('debug')('canboatjs:w2k01-data')
-const Transform = require('stream').Transform
-const _ = require('lodash')
-const { pgnToActisenseN2KAsciiFormat, actisenseToN2KAsciiFormat, pgnToN2KActisenseFormat, actisenseToN2KActisenseFormat } = require('./toPgn')
-const { readN2KActisense } = require('./n2k-actisense')
+import { PGN } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:w2k01')
+const debugData = _debug('canboatjs:w2k01-data')
+import {Transform} from 'stream'
+import { pgnToActisenseN2KAsciiFormat, actisenseToN2KAsciiFormat, pgnToN2KActisenseFormat, actisenseToN2KActisenseFormat } from './toPgn'
+import { readN2KActisense } from './n2k-actisense'
 
-const pgnsSent = {}
+//const pgnsSent = {}
 
 const N2K_ASCII = 0
 const N2K_ACTISENSE = 1
 
-function W2K01Stream (options, type, outEvent) {
+export function W2K01Stream (this:any, options:any, type:string, outEvent:string) {
+  /*
   if (!(this instanceof W2K01Stream)) {
     return new W2K01Stream(options)
-  }
+    }
+  */
 
   Transform.call(this, {
     objectMode: true
@@ -43,7 +46,7 @@ function W2K01Stream (options, type, outEvent) {
 
   if ( this.format === N2K_ASCII ) {
     if ( options.app ) {
-      options.app.on(this.options.outEevent || 'nmea2000out', (msg) => {
+      options.app.on(this.options.outEevent || 'nmea2000out', (msg:string) => {
         if ( typeof msg === 'string' ) {
           this.sendW2KPGN(msg)
         } else {
@@ -52,7 +55,7 @@ function W2K01Stream (options, type, outEvent) {
         options.app.emit('connectionwrite', { providerId: options.providerId })
       })
       
-      options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg) => {
+      options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg:PGN) => {
         this.sendPGN(msg)
         options.app.emit('connectionwrite', { providerId: options.providerId })
       })
@@ -62,12 +65,12 @@ function W2K01Stream (options, type, outEvent) {
   debug('started')
 }
 
-W2K01Stream.prototype.send = function (msg) {
+W2K01Stream.prototype.send = function (msg:string|Buffer) {
   debug('sending %s', msg)
   this.options.app.emit(this.outEvent, msg)
 }
 
-W2K01Stream.prototype.sendPGN = function (pgn) {
+W2K01Stream.prototype.sendPGN = function (pgn:PGN) {
   let now = Date.now()
   //let lastSent = pgnsSent[pgn.pgn]
   if ( this.format === N2K_ASCII ) {
@@ -77,10 +80,10 @@ W2K01Stream.prototype.sendPGN = function (pgn) {
     let buf = pgnToN2KActisenseFormat(pgn)
     this.send(buf)
   }
-  pgnsSent[pgn.pgn] = now
+  //pgnsSent[pgn.pgn] = now
 }
 
-W2K01Stream.prototype.sendW2KPGN = function (msg) {
+W2K01Stream.prototype.sendW2KPGN = function (msg:string) {
   if ( this.format === N2K_ASCII ) {
     let ascii = actisenseToN2KAsciiFormat(msg)
     this.send(ascii + '\r\n')
@@ -92,7 +95,7 @@ W2K01Stream.prototype.sendW2KPGN = function (msg) {
 
 require('util').inherits(W2K01Stream, Transform)
 
-W2K01Stream.prototype._transform = function (chunk, encoding, done) {
+W2K01Stream.prototype._transform = function (chunk:any, encoding:string, done:any) {
   if ( !this.sentAvailable && this.format === N2K_ASCII ) {
     debug('emit nmea2000OutAvailable')
     this.options.app.emit('nmea2000OutAvailable')
@@ -105,7 +108,7 @@ W2K01Stream.prototype._transform = function (chunk, encoding, done) {
     }
     this.push(chunk)
   } else {
-    readN2KActisense(chunk, this.plainText, this, (data) => {
+    readN2KActisense(chunk, this.plainText, this, (data:any) => {
       this.push(data)
     })
   }
@@ -113,17 +116,16 @@ W2K01Stream.prototype._transform = function (chunk, encoding, done) {
   done()
 }
 
-W2K01Stream.prototype.pipe = function (pipeTo) {
+W2K01Stream.prototype.pipe = function (pipeTo:any) {
   if ( !pipeTo.fromPgn ) {
     this.plainText = true
   } else {
     this.plainText = false
   }
-  return W2K01Stream.super_.prototype.pipe.call(this, pipeTo)
+  return (W2K01Stream as any).super_.prototype.pipe.call(this, pipeTo)
 }
 
 
 W2K01Stream.prototype.end = function () {
 }
 
-module.exports = W2K01Stream

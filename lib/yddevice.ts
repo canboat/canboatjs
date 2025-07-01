@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
+import { PGN } from '@canboat/pgns'
+import { N2kDevice } from './n2kDevice'
+import { actisenseToYdgwFullRawFormat } from './toPgn'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:n2kdevice')
 
-const debug = require('debug')('canboatjs:n2kdevice')
-const N2kDevice = require('./n2kDevice')
-
-const { actisenseToYdgwFullRawFormat  } = require('./toPgn')
-
-class YdDevice extends N2kDevice {
-  constructor (options) {
+export class YdDevice extends N2kDevice {
+  app: any
+  n2kOutEvent: string
+  
+  constructor (options:any) {
     super(options)
     this.app = options.app
     this.n2kOutEvent = options.jsonOutEvent || 'nmea2000JsonOut'
@@ -31,16 +34,17 @@ class YdDevice extends N2kDevice {
     this.app.on(analyzerOutEvent, this.n2kMessage.bind(this))
   }
 
-  sendPGN(pgn, src) {
+  sendPGN(pgn:PGN, src:number|undefined = undefined) {
     pgn.src = src || this.address
-    pgn.ydFullFormat = true
+
+    const ppgn = pgn as any //FIXME??
+    ppgn.ydFullFormat = true
+    
     debug('Sending PGN %j', pgn)
     this.app.emit(this.n2kOutEvent, pgn)
   }
 
-  sendActisenseFormat(msg) {
+  sendActisenseFormat(msg:string) {
     this.app.emit('ydFullRawOut', actisenseToYdgwFullRawFormat(msg))
   }
 }
-
-module.exports = YdDevice

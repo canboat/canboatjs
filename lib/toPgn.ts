@@ -44,7 +44,7 @@ const fieldTypeMappers: {
 const a126208_oldKey = '# of Parameters'
 const a126208_newKey = 'Number of Parameters'
 
-function toPgn(data:any) {
+export function toPgn(data:any) : Buffer|undefined{
   const customPgns = getCustomPgn(data.pgn)
   let pgnList = getPgn(data.pgn)
   if (!pgnList && !customPgns ) {
@@ -325,52 +325,52 @@ function canboat2Buffer(canboatData:string) {
                      }
 */
 
-function pgnToActisenseSerialFormat(pgn:PGN) {
+export function pgnToActisenseSerialFormat(pgn:PGN) {
   return encodeActisense({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio, timestamp: undefined})
 }
 
-function pgnToActisenseN2KAsciiFormat(pgn:any) {
+export function pgnToActisenseN2KAsciiFormat(pgn:any) {
   return encodeActisenseN2KACSII({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio, timestamp:undefined })
 }
 
-function pgnToN2KActisenseFormat(pgn:any) {
+export function pgnToN2KActisenseFormat(pgn:any) {
   return encodeN2KActisense({ pgn: pgn.pgn, data: toPgn(pgn), dst: pgn.dst, src: pgn.src, prio: pgn.prio, timestamp:undefined})
 }
 
-function toiKonvertSerialFormat(pgn:number, data:Buffer, dst=255) {
+export function toiKonvertSerialFormat(pgn:number, data:Buffer, dst=255) {
   return `!PDGY,${pgn},${dst},${data.toString('base64')}`
 }
 
-function pgnToiKonvertSerialFormat(pgn:any) {
+export function pgnToiKonvertSerialFormat(pgn:any) {
   const data = toPgn(pgn)
   if ( data ) {
     return toiKonvertSerialFormat(pgn.pgn, data, pgn.dst)
   }
 }
 
-function pgnToYdgwRawFormat(info:any) {
+export function pgnToYdgwRawFormat(info:any) {
   return encodeYDRAW({ ...info, data: toPgn(info) })
 }
 
-function pgnToYdgwFullRawFormat(info:any) {
+export function pgnToYdgwFullRawFormat(info:any) {
   return encodeYDRAWFull({ ...info, data: toPgn(info) })
 }
 
-function pgnToPCDIN(info:any) {
+export function pgnToPCDIN(info:any) {
   return encodePCDIN({ ...info, data: toPgn(info) })
 }
 
-function pgnToMXPGN(info:any) {
+export function pgnToMXPGN(info:any) {
   return encodeMXPGN({ ...info, data: toPgn(info) })
 }
 
-const actisenseToYdgwRawFormat = _.flow(parseActisense, encodeYDRAW)
-const actisenseToYdgwFullRawFormat = _.flow(parseActisense, encodeYDRAWFull)
-const actisenseToPCDIN = _.flow(parseActisense, encodePCDIN)
-const actisenseToMXPGN = _.flow(parseActisense, encodeMXPGN)
-const actisenseToiKonvert = _.flow(parseActisense, encodePDGY)
-const actisenseToN2KAsciiFormat = _.flow(parseActisense, encodeActisenseN2KACSII)
-const actisenseToN2KActisenseFormat = _.flow(parseActisense, encodeN2KActisense)
+export const actisenseToYdgwRawFormat = _.flow(parseActisense, encodeYDRAW)
+export const actisenseToYdgwFullRawFormat = _.flow(parseActisense, encodeYDRAWFull)
+export const actisenseToPCDIN = _.flow(parseActisense, encodePCDIN)
+export const actisenseToMXPGN = _.flow(parseActisense, encodeMXPGN)
+export const actisenseToiKonvert = _.flow(parseActisense, encodePDGY)
+export const actisenseToN2KAsciiFormat = _.flow(parseActisense, encodeActisenseN2KACSII)
+export const actisenseToN2KActisenseFormat = _.flow(parseActisense, encodeN2KActisense)
 
 function bitIsSet(field:Field, index:number, value:string) {
   const enumName = lookupBitEnumerationName(field.LookupBitEnumeration as string, index)
@@ -512,22 +512,3 @@ fieldTypeMappers['Pressure'] = (field, value) => {
   return value
 }
 
-
-//module.exports.canboat2Buffer = canboat2Buffer
-module.exports.toPgn = toPgn
-module.exports.toiKonvertSerialFormat = toiKonvertSerialFormat
-module.exports.pgnToiKonvertSerialFormat = pgnToiKonvertSerialFormat
-module.exports.pgnToYdgwRawFormat = pgnToYdgwRawFormat
-module.exports.pgnToYdgwFullRawFormat = pgnToYdgwFullRawFormat
-module.exports.actisenseToYdgwRawFormat = actisenseToYdgwRawFormat
-module.exports.actisenseToYdgwFullRawFormat = actisenseToYdgwFullRawFormat
-module.exports.pgnToActisenseSerialFormat = pgnToActisenseSerialFormat
-module.exports.pgnToActisenseN2KAsciiFormat = pgnToActisenseN2KAsciiFormat
-module.exports.pgnToN2KActisenseFormat = pgnToN2KActisenseFormat
-module.exports.pgnToPCDIN = pgnToPCDIN
-module.exports.actisenseToPCDIN = actisenseToPCDIN
-module.exports.pgnToMXPGN = pgnToMXPGN
-module.exports.actisenseToMXPGN = actisenseToMXPGN
-module.exports.actisenseToiKonvert = actisenseToiKonvert
-module.exports.actisenseToN2KAsciiFormat = actisenseToN2KAsciiFormat
-module.exports.actisenseToN2KActisenseFormat = actisenseToN2KActisenseFormat

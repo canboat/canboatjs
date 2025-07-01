@@ -3,7 +3,7 @@ chai.Should()
 chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'));
 
-const { FromPgn } = require('../index')
+const { FromPgn } = require('../dist/index')
 
 describe('from mxpgn data converts', function () {
 
@@ -21,7 +21,7 @@ describe('from mxpgn data converts', function () {
       "description":"Position, Rapid Update"
     }
 
-    var fromPgn = new FromPgn()
+    var fromPgn = new FromPgn({useCamel:false})
 
     fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
@@ -62,7 +62,7 @@ describe('from mxpgn data converts', function () {
       "description":"Position, Rapid Update"
     }
 
-    var fromPgn = new FromPgn()
+    var fromPgn = new FromPgn({useCamel:false})
 
     fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
@@ -103,7 +103,7 @@ describe('from mxpgn data converts', function () {
       "description":"Position, Rapid Update"
     }
 
-    var fromPgn = new FromPgn({littleEndianMXPGN:true})
+    var fromPgn = new FromPgn({littleEndianMXPGN:true, useCamel:false})
 
     fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)

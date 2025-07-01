@@ -5,7 +5,7 @@ chai.Should()
 chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'));
 
-const { FromPgn, pgnToiKonvertSerialFormat } = require('../index')
+const { FromPgn, pgnToiKonvertSerialFormat } = require('../dist/index')
 
 const pgns = [
   {
@@ -74,7 +74,7 @@ describe('from ikconnect data converts', function () {
   pgns.forEach(info => {
     it(`from ${info.expected.pgn} converts`, function (done) {
 
-      var fromPgn = new FromPgn()
+      var fromPgn = new FromPgn({useCamel:false})
 
       fromPgn.on('error', (pgn, error) => {
         console.error(`Error parsing ${pgn.pgn} ${error}`)

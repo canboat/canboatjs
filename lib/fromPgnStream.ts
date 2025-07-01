@@ -14,34 +14,37 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:FromPgnStream')
-const Transform = require('stream').Transform
-const FromPgn = require('./fromPgn').Parser
-const _ = require('lodash')
+import { PGN } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+import {Transform} from 'stream'
+import { Parser as FromPgn } from './fromPgn'
+import util from 'util'
 
-function fromPgnStream (options) {
+const debug = _debug('canboatjs:FromPgnStream')
+
+function fromPgnStream (this:any, options:any) {
   Transform.call(this, {
     objectMode: true
   })
 
   this.fromPgn = new FromPgn(options)
 
-  this.fromPgn.on('pgn', pgn => {
+  this.fromPgn.on('pgn', (pgn:PGN) => {
     this.push(pgn)
   })
 
-  this.fromPgn.on('warning', (pgn, warning) => {
+  this.fromPgn.on('warning', (pgn:PGN, warning:string) => {
     debug(`[warning] ${pgn.pgn} ${warning}`)
   })
 
-  this.fromPgn.on('error', (pgn, error) => {
+  this.fromPgn.on('error', (pgn:PGN, error:any) => {
     debug(`[error] ${pgn.pgn} ${error}`)
   })
 }
 
-require('util').inherits(fromPgnStream, Transform)
+util.inherits(fromPgnStream, Transform)
 
-fromPgnStream.prototype._transform = function (chunk, encoding, done) {
+fromPgnStream.prototype._transform = function (chunk:any, encoding:string, done:any) {
   this.fromPgn.parse(chunk)
   done()
 }

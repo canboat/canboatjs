@@ -3,7 +3,7 @@ chai.Should()
 chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'));
 
-const { FromPgn, pgnToActisenseSerialFormat } = require('../index')
+const { FromPgn, pgnToActisenseSerialFormat } = require('../dist/index')
 const PropertyValues =  require('@signalk/server-api').PropertyValues
 
 const definitions = {
@@ -222,6 +222,7 @@ describe('custom pgns', function () {
   })
   
   var fromPgn = new FromPgn({
+    useCamel:false,
     onPropertyValues: (name, cb) => {
       propertyValues.onPropertyValues(name, cb)
     }

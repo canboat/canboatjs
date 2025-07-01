@@ -5,7 +5,7 @@ chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'));
 chai.use(require('chai-string'));
 
-const { FromPgn } = require('../index')
+const { FromPgn } = require('../dist/index')
 const { pgnToYdgwRawFormat } = require('../dist/toPgn')
 
 const positionInfo = {
@@ -70,7 +70,7 @@ describe('Convert Yacht Devices RAW format data', function () {
   tests.forEach(test => {
     it(`from ${test.expected.pgn} converts`, function (done) {
 
-      var fromPgn = new FromPgn()
+      var fromPgn = new FromPgn({useCamel:false})
 
       fromPgn.on('error', (pgn, error) => {
         console.error(`Error parsing ${pgn.pgn} ${error}`)

@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:discovery')
-const { isYDRAW } = require('./stringMsg')
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:discovery')
+import { isYDRAW } from './stringMsg'
+import dgram from 'dgram'
 
-module.exports = function discover(app) {
+module.exports = function discover(app:any) {
 
   if ( app.config.settings.pipedProviders ) {
-    const exists = app.config.settings.pipedProviders.find(provider => {
+    const exists = app.config.settings.pipedProviders.find((provider:any) => {
       return provider.pipeElements
         && provider.pipeElements.length === 1
         && provider.pipeElements[0].type == 'providers/simple'
@@ -32,13 +34,11 @@ module.exports = function discover(app) {
     })
 
     if ( !exists ) {
-      const dgram = require('dgram')
-      let socket = dgram.createSocket('udp4')
-      socket.on('message', function (buffer, _remote) {
+      const socket = dgram.createSocket('udp4')
+      socket.on('message', (buffer:Buffer, _remote:any) => {
         const msg = buffer.toString('utf8')
         if ( isYDRAW(msg) ) {
           socket.close()
-          socket = undefined
           app.emit('discovered', {
             id: 'YDGW-02-UDP',
             pipeElements: [
@@ -57,7 +57,7 @@ module.exports = function discover(app) {
           })
         }
       })
-      socket.on('error', error => {
+      socket.on('error', (error:any) => {
         debug(error)
       })
       socket.on('close', () => {

@@ -6,7 +6,7 @@ chai.use(require('chai-json-equal'));
 
 import { PGN_127257 } from '@canboat/pgns'
 
-const { FromPgn } = require('../index')
+const { FromPgn } = require('../dist/index')
 const opts = {useCamel:true}
 
 describe('from pcdin data converts', function () {

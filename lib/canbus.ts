@@ -14,19 +14,25 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:canbus')
-const Transform = require('stream').Transform
-const { toPgn } = require('./toPgn')
-const _ = require('lodash')
-const CanDevice = require('./candevice')
-const { getPlainPGNs, binToActisense } = require('./utilities')
-const { encodeCanId, parseCanId } = require('./canId')
-const { toActisenseSerialFormat, parseActisense } = require('./stringMsg')
+import { PGN } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:canbus')
+import {Transform} from 'stream'
+import { toPgn } from './toPgn'
+import _  from 'lodash'
+import { CanDevice } from './candevice'
+import { getPlainPGNs, binToActisense } from './utilities'
+import { CanID, encodeCanId, parseCanId } from './canId'
+import { toActisenseSerialFormat, parseActisense } from './stringMsg'
+import util from 'util'
 
-function CanbusStream (options) {
+export function CanbusStream (this:any, options:any) {
+
+  /*
   if (!(this instanceof CanbusStream)) {
     return new CanbusStream(options)
-  }
+    }
+    */
 
   Transform.call(this, {
     objectMode: true
@@ -37,12 +43,12 @@ function CanbusStream (options) {
   this.start()
 
   this.setProviderStatus = options.app && options.app.setProviderStatus
-    ? (msg) => {
+    ? (msg:string) => {
       options.app.setProviderStatus(options.providerId, msg)
     }
   : () => {}
   this.setProviderError = options.app && options.app.setProviderError
-    ? (msg) => {
+    ? (msg:string) => {
       options.app.setProviderError(options.providerId, msg)
     }
   : () => {}
@@ -52,20 +58,22 @@ function CanbusStream (options) {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     this.socketcan = require('socketcan')
   } catch ( err ) {
     console.error(err)
-    var msg = 'unable to load native socketcan interface'
+    const msg = 'unable to load native socketcan interface'
     console.error(msg)
   }
 
-  var that = this
+  // eslint-disable-next-line @typescript-eslint/no-this-alias
+  const that = this
 
   if ( options.app ) {
-    options.app.on(options.outEvent || 'nmea2000out', (msg) => {
+    options.app.on(options.outEvent || 'nmea2000out', (msg:string) => {
       that.sendPGN(msg)
     })
-    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg) => {
+    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg:PGN) => {
       that.sendPGN(msg)
     })
   }
@@ -78,11 +86,10 @@ function CanbusStream (options) {
   if ( noDataReceivedTimeout > 0 ) {
     this.noDataInterval = setInterval(() => {
       if ( this.channel && this.lastDataReceived && Date.now() - this.lastDataReceived > noDataReceivedTimeout * 1000 ) {
-        let channel = this.channel
+        const channel = this.channel
         delete this.channel
         try {
           channel.stop()
-        // eslint-disable-next-line no-empty
         } catch ( _error ) {
         }
         this.setProviderError('No data received, retrying...')
@@ -96,14 +103,16 @@ function CanbusStream (options) {
 }
 
 CanbusStream.prototype.connect = function() {
+  const canDevice = this.options.canDevice || 'can0'
+
   try {
     if ( this.socketcan === undefined ) {
       this.setProviderError('unable to load native socketcan interface')
       return false
     }
     
-    var that = this
-    var canDevice = this.options.canDevice || 'can0'
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const that = this
     this.channel = this.socketcan.createRawChannelWithOptions(canDevice, { non_block_send: true} );
     this.channel.addListener('onStopped', () => {
       if ( this.channel ) { // stoped by us?
@@ -118,8 +127,8 @@ CanbusStream.prototype.connect = function() {
         }, 2000)
       }
     })
-    this.channel.addListener('onMessage', (msg) => {
-      var pgn = parseCanId(msg.id)
+    this.channel.addListener('onMessage', (msg:any) => {
+      const pgn : any = parseCanId(msg.id)
 
       if ( this.noDataInterval ) {
         this.lastDataReceived = Date.now()
@@ -142,7 +151,7 @@ CanbusStream.prototype.connect = function() {
     this.candevice = new CanDevice(this, this.options)
     this.candevice.start()
     return true
-  } catch (e) {
+  } catch (e:any) {
     console.error(`unable to open canbus ${canDevice}: ${e}`)
     console.error(e.stack)
     this.setProviderError(e.message)
@@ -150,12 +159,12 @@ CanbusStream.prototype.connect = function() {
   }
 }
 
-require('util').inherits(CanbusStream, Transform)
+util.inherits(CanbusStream, Transform)
 
 CanbusStream.prototype.start = function () {
 }
 
-CanbusStream.prototype.sendPGN = function (msg, force) {
+CanbusStream.prototype.sendPGN = function (msg:any, force:boolean) {
   if ( this.candevice ) {
     //if ( !this.candevice.cansend && (_.isString(msg) || msg.pgn !== 59904) ) {
     if ( !this.candevice.cansend && force !== true ) {
@@ -169,9 +178,9 @@ CanbusStream.prototype.sendPGN = function (msg, force) {
       this.options.app.emit('connectionwrite', { providerId: this.options.providerId })
     }
 
-    let src = msg.pgn === 59904 || msg.forceSrc ? msg.src : this.candevice.address
+    const src = msg.pgn === 59904 || msg.forceSrc ? msg.src : this.candevice.address
     if ( _.isString(msg) ) {
-      var split = msg.split(',')
+      const split = msg.split(',')
       split[3] = src
       msg = split.join(',')
     } else {
@@ -192,12 +201,12 @@ CanbusStream.prototype.sendPGN = function (msg, force) {
         this.socketCanWriter.stdin.write(str + '\n')
       }
     } else if ( this.channel  ) {
-      var canid
-      var buffer
-
-      var pgn
+      let canid : number
+      let buffer: Buffer|undefined
+      let pgn: any
+      
       if ( _.isObject(msg) ) {
-        canid = encodeCanId(msg)
+        canid = encodeCanId(msg as CanID)
         buffer = toPgn(msg)
         pgn = msg
       } else {
@@ -211,9 +220,14 @@ CanbusStream.prototype.sendPGN = function (msg, force) {
         debug(str)
       }
 
+      if ( buffer === undefined ) {
+        debug('can\'t convert %j', msg)
+        return
+      }
+
       //seems as though 126720 should always be encoded this way
       if ( buffer.length > 8 || pgn.pgn == 126720 ) {
-        var pgns = getPlainPGNs(buffer)
+        const pgns = getPlainPGNs(buffer)
         pgns.forEach(pbuffer => {
           this.channel.send({id: canid, ext:true, data: pbuffer})
         })
@@ -225,13 +239,13 @@ CanbusStream.prototype.sendPGN = function (msg, force) {
 }
 
 
-CanbusStream.prototype._transform = function (chunk, encoding, done) {
+CanbusStream.prototype._transform = function (chunk:any, encoding:any, done:any) {
   done()
 }
 
 CanbusStream.prototype.end = function () {
   if ( this.channel ) {
-    let channel = this.channel
+    const channel = this.channel
     delete this.channel
     channel.stop()
   }
@@ -241,7 +255,7 @@ CanbusStream.prototype.end = function () {
 }
 
 
-CanbusStream.prototype.pipe = function (pipeTo) {
+CanbusStream.prototype.pipe = function (pipeTo:any) {
   if ( !pipeTo.fromPgn ) {
     this.plainText = true
   }
@@ -252,8 +266,6 @@ CanbusStream.prototype.pipe = function (pipeTo) {
     }
   })
   */
-  return CanbusStream.super_.prototype.pipe.call(this, pipeTo)
+  return (CanbusStream as any).super_.prototype.pipe.call(this, pipeTo)
 }
 
-
-module.exports = CanbusStream

@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('canboatjs:candevice')
-const _ = require('lodash')
-const N2kDevice = require('./n2kDevice')
+import { PGN } from '@canboat/pgns'
+import { N2kDevice } from './n2kDevice'
+import { debug as _debug } from 'debug'
+const debug = _debug('canboatjs:candevice')
+import _  from 'lodash'
 
-class CanDevice extends N2kDevice {
-  constructor (canbus, options) {
+export class CanDevice extends N2kDevice {
+  canbus: any
+  
+  constructor (canbus:any, options:any) {
     super(options)
     this.canbus = canbus
 
@@ -28,11 +32,10 @@ class CanDevice extends N2kDevice {
     }
   }
 
-  sendPGN(pgn, src) {
+  sendPGN(pgn:PGN, src:number|undefined = undefined) {
     pgn.src = src || this.address
     debug('Sending PGN %j', pgn)
     this.canbus.sendPGN(pgn, true)
   }
 }
 
-module.exports = CanDevice
