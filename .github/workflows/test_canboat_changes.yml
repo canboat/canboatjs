@@ -31,7 +31,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: canboat/ts-pgns
-        path: ./ts-pgsn
+        path: ./ts-pgns
   
     - name: Checkout n2k-signalk
       uses: actions/checkout@v4
