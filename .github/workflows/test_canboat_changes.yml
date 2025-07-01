@@ -45,7 +45,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: build ts-pgns
+    - name: Build ts-pgns
       run: |
         cp ../canboat/docs/canboat.json .
         npm install
@@ -55,7 +55,7 @@ jobs:
         npm link
       working-directory: ./ts-pgns
 
-    - name: test canboatjs
+    - name: Test canboatjs
       run: |
         npm install
         npm link @canboat/ts-pgns
@@ -64,10 +64,10 @@ jobs:
         npm test
       working-directory: ./canboatjs
 
-    - name: test n2k-signalk
+    - name: Test n2k-signalk
       run: |
         npm install
-        npm link @canboat/canboat
+        npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm test
       working-directory: ./n2k-signalk
