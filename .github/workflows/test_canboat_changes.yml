@@ -22,6 +22,7 @@ jobs:
     - name: Checkout canboat.json
       uses: actions/checkout@v4
       with:
+        repository: canboat/canboat
         path: ./canboat
         sparse-checkout: |
           docs/canboat.json
@@ -46,8 +47,7 @@ jobs:
 
     - name: build ts-pgns
       run: |
-        ls ../canboat
-        cp ../canboat.json .
+        cp ../canboat/docs/canboat.json .
         npm install
         npm run build
         npm run generate
