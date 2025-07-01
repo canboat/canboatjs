@@ -110,6 +110,7 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN) {
     //let lastSent = pgnsSent[pgn.pgn]
     let msgs
     if ((pgn as any).ydFullFormat === true || this.device !== undefined) {
+      pgn.src = this.device.address
       msgs = pgnToYdgwFullRawFormat(pgn)
     } else {
       msgs = pgnToYdgwRawFormat(pgn)
@@ -183,7 +184,7 @@ Ydgw02Stream.prototype._transform = function (
   }
 
   const pgn = this.fromPgn.parseYDGW02(line)
-  if (pgn === undefined) {
+  if (pgn !== undefined) {
     this.push(pgn)
     this.options.app.emit(
       this.options.analyzerOutEvent || 'N2KAnalyzerOut',
