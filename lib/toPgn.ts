@@ -387,7 +387,7 @@ export function pgnToActisenseSerialFormat(pgn: PGN) {
   })
 }
 
-export function pgnToActisenseN2KAsciiFormat(pgn: any) {
+export function pgnToActisenseN2KAsciiFormat(pgn: PGN) {
   return encodeActisenseN2KACSII({
     pgn: pgn.pgn,
     data: toPgn(pgn),
@@ -398,15 +398,11 @@ export function pgnToActisenseN2KAsciiFormat(pgn: any) {
   })
 }
 
-export function pgnToN2KActisenseFormat(pgn: any) {
-  return encodeN2KActisense({
-    pgn: pgn.pgn,
-    data: toPgn(pgn),
-    dst: pgn.dst,
-    src: pgn.src,
-    prio: pgn.prio,
-    timestamp: undefined
-  })
+export function pgnToN2KActisenseFormat(pgn: PGN) {
+  const data = toPgn(pgn)
+  if (data) {
+    return encodeN2KActisense(pgn, data)
+  }
 }
 
 export function toiKonvertSerialFormat(pgn: number, data: Buffer, dst = 255) {

@@ -1,10 +1,34 @@
-const debug = require('debug')('canboatjs:w2k01')
-const debugData = require('debug')('canboatjs:w2k01-data')
-const { parseCanId, encodeCanId } = require('./canId')
-const BitStream = require('bit-buffer').BitStream
-const { binToActisense } = require('./utilities')
+/**
+ * Copyright 2025 Scott Bender <scott@scottbender.net>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-exports.readN2KActisense = function (data, plainText, context, cb) {
+import { PGN } from '@canboat/pgns'
+import { debug as _debug } from 'debug'
+import { parseCanId, encodeCanId } from './canId'
+import { BitStream } from 'bit-buffer'
+import { binToActisense } from './utilities'
+
+const debug = _debug('canboatjs:w2k01')
+const debugData = _debug('canboatjs:w2k01-data')
+
+export const readN2KActisense = (
+  data: Buffer,
+  plainText: boolean,
+  context: any,
+  cb: (data: any) => void
+) => {
   const inBuf = Buffer.from(data)
   let inOffset = 0
   let last
@@ -17,7 +41,7 @@ exports.readN2KActisense = function (data, plainText, context, cb) {
 
   try {
     while (true) {
-      let len = inBuf.readUInt16LE(inOffset + 3)
+      const len = inBuf.readUInt16LE(inOffset + 3)
 
       if (inBuf.length < inOffset + 5 + len) {
         /*
@@ -47,31 +71,31 @@ exports.readN2KActisense = function (data, plainText, context, cb) {
         return
       }
 
-      let buf = Buffer.alloc(len)
+      const buf = Buffer.alloc(len)
       inBuf.copy(buf, 0, inOffset + 5, inOffset + len + 5)
 
       //console.log('NextBuf: (' + buf.length + ') ' + buf.toString('hex'))
 
       let offset = 0
-      let _dst = buf.readUInt8(offset)
+      const _dst = buf.readUInt8(offset)
       offset += 1
-      let canid = buf.readUInt32LE(offset)
+      const canid = buf.readUInt32LE(offset)
       offset += 4
-      let _timestamp = buf.readUInt32LE(offset)
+      const _timestamp = buf.readUInt32LE(offset)
       offset += 4
-      let _mhs = buf.readUInt8(offset)
+      const _mhs = buf.readUInt8(offset)
       offset += 1
 
-      let info = parseCanId(canid)
+      const info = parseCanId(canid)
 
       //console.log(`${len} ${mhs} ${dst} (${info.src}, ${info.dst}) ${info.pgn} ${timestamp}`)
 
-      let pgnData = Buffer.alloc(len - offset - 3)
+      const pgnData = Buffer.alloc(len - offset - 3)
       buf.copy(pgnData, 0, offset, len - 3)
-      info.timestamp = new Date().toISOString()
+      const timestamp = new Date().toISOString()
 
       if (plainText) {
-        last = binToActisense(info, pgnData, pgnData.length)
+        last = binToActisense(info, timestamp, pgnData, pgnData.length)
         cb && cb(last)
       } else {
         last = {
@@ -95,15 +119,7 @@ exports.readN2KActisense = function (data, plainText, context, cb) {
   }
 }
 
-exports.encodeN2KActisense = ({
-  // eslint-disable-next-line no-unused-vars
-  pgn,
-  data,
-  timestamp,
-  prio = 2,
-  dst = 255,
-  src = 0
-}) => {
+export const encodeN2KActisense = (pgn: PGN, data: Buffer) => {
   const bs = new BitStream(Buffer.alloc(18 + data.length))
 
   bs.writeUint8(0x10) //BST Message ID
@@ -111,8 +127,10 @@ exports.encodeN2KActisense = ({
   bs.writeUint8(0xd0)
 
   bs.writeUint16(13 + data.length) //len
-  bs.writeUint8(dst)
-  bs.writeUint32(encodeCanId({ dst, pgn, prio, src }))
+  bs.writeUint8(pgn.dst)
+  bs.writeUint32(
+    encodeCanId({ pgn: pgn.pgn, src: 0, prio: pgn.prio || 2, dst: pgn.dst })
+  )
   bs.writeUint32(0) //timestamp
   bs.writeUint8(0) //mhs
   data.copy(bs.view.buffer, bs.byteIndex, 0)

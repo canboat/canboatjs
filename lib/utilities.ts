@@ -14,8 +14,14 @@
  * limitations under the License.
  */
 
-import { PGN } from '@canboat/pgns'
+import { debug } from 'debug'
+
+import { CanID } from './canId'
 import { map, padCharsStart, trimChars } from 'lodash/fp'
+
+export const createDebug = (name: string) => {
+  return debug(name)
+}
 
 export function getPlainPGNs(buffer: Buffer) {
   const res = []
@@ -84,10 +90,15 @@ export function compute0183Checksum(sentence: string) {
   return '*' + toHexString(c1)
 }
 
-export function binToActisense(pgn: PGN, data: Buffer, length: number) {
+export function binToActisense(
+  pgn: CanID,
+  timestamp: string,
+  data: Buffer,
+  length: number
+) {
   const arr: string[] = []
   return (
-    pgn.timestamp +
+    timestamp +
     `,${pgn.prio},${pgn.pgn},${pgn.src},${pgn.dst},${length},` +
     new Uint32Array(data)
       .reduce(function (acc, i) {

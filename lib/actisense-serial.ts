@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
-const debug = require('debug')('signalk:actisense-serial')
-const debugOut = require('debug')('signalk:actisense-out')
-const Transform = require('stream').Transform
-const BitStream = require('bit-buffer').BitStream
-const BitView = require('bit-buffer').BitView
-const { toPgn } = require('./toPgn')
-const { encodeActisense } = require('./stringMsg')
-const { defaultTransmitPGNs } = require('./codes')
-const _ = require('lodash')
-const FromPgn = require('./fromPgn').Parser
+import { PGN } from '@canboat/pgns'
+import { createDebug } from './utilities'
+import util from 'util'
+import { Transform } from 'stream'
+import { BitStream, BitView } from 'bit-buffer'
+import { toPgn } from './toPgn'
+import { encodeActisense } from './stringMsg'
+import { defaultTransmitPGNs } from './codes'
+import _ from 'lodash'
+import { Parser as FromPgn } from './fromPgn'
+
+const debugOut = createDebug('signalk:actisense-out')
+const debug = createDebug('signalk:actisense-serial')
 
 /* ASCII characters used to mark packet start/stop */
 
@@ -54,10 +57,12 @@ const MSG_MESSAGE = 3
 
 const NGT_STARTUP_MSG = new Uint8Array([0x11, 0x02, 0x00])
 
-function SerialStream(options) {
+export function ActisenseStream(this: any, options: any) {
+  /*
   if (!(this instanceof SerialStream)) {
     return new SerialStream(options)
-  }
+    }
+  */
 
   Transform.call(this, {
     objectMode: true
@@ -87,9 +92,9 @@ function SerialStream(options) {
   this.start()
 }
 
-require('util').inherits(SerialStream, Transform)
+util.inherits(ActisenseStream, Transform)
 
-SerialStream.prototype.start = function () {
+ActisenseStream.prototype.start = function (this: any) {
   if (this.serial !== null) {
     this.serial.unpipe(this)
     this.serial.removeAllListeners()
@@ -99,6 +104,20 @@ SerialStream.prototype.start = function () {
   if (this.reconnect === false) {
     return
   }
+
+  const setProviderStatus =
+    this.options.app && this.options.app.setProviderStatus
+      ? (msg: string) => {
+          this.options.app.setProviderStatus(this.options.providerId, msg)
+        }
+      : () => {}
+  const setProviderError =
+    this.options.app && this.options.app.setProviderError
+      ? (msg: string) => {
+          this.options.app.setProviderError(this.options.providerId, msg)
+        }
+      : () => {}
+  this.setProviderStatus = setProviderStatus
 
   this.buffer = Buffer.alloc(500)
   this.bufferOffset = 0
@@ -111,6 +130,7 @@ SerialStream.prototype.start = function () {
 
   if (!this.options.fromFile) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SerialPort } = require('serialport')
       this.serial = new SerialPort({
         path: this.options.device,
@@ -122,69 +142,56 @@ SerialStream.prototype.start = function () {
       return
     }
 
-    const setProviderStatus =
-      this.options.app && this.options.app.setProviderStatus
-        ? (msg) => {
-            this.options.app.setProviderStatus(this.options.providerId, msg)
-          }
-        : () => {}
-    const setProviderError =
-      this.options.app && this.options.app.setProviderError
-        ? (msg) => {
-            this.options.app.setProviderError(this.options.providerId, msg)
-          }
-        : () => {}
-    this.setProviderStatus = setProviderStatus
-
-    var that = this
-
-    this.serial.on('data', (data) => {
+    this.serial.on('data', (data: Buffer) => {
       try {
         readData(this, data)
-      } catch (err) {
+      } catch (err: any) {
         setProviderError(err.message)
         console.error(err)
       }
     })
 
     if (this.options.app) {
-      function writeString(msg) {
+      const writeString = (msg: string) => {
         debugOut(`sending ${msg}`)
-        var buf = parseInput(msg)
+        let buf = parseInput(msg)
         buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
         debugOut(buf)
-        that.serial.write(buf)
-        that.options.app.emit('connectionwrite', {
-          providerId: that.options.providerId
+        this.serial.write(buf)
+        this.options.app.emit('connectionwrite', {
+          providerId: this.options.providerId
         })
       }
 
-      function writeObject(msg) {
-        var data = toPgn(msg)
-        var actisense = encodeActisense({ pgn: msg.pgn, data, dst: msg.dst })
+      const writeObject = (msg: PGN) => {
+        const data = toPgn(msg)
+        const actisense = encodeActisense({ pgn: msg.pgn, data, dst: msg.dst })
         debugOut(`sending ${actisense}`)
-        var buf = parseInput(actisense)
+        let buf = parseInput(actisense)
         buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
         debugOut(buf)
-        that.serial.write(buf)
-        that.options.app.emit('connectionwrite', {
-          providerId: that.options.providerId
+        this.serial.write(buf)
+        this.options.app.emit('connectionwrite', {
+          providerId: this.options.providerId
         })
       }
 
-      this.options.app.on(this.options.outEevent || 'nmea2000out', (msg) => {
-        if (this.outAvailable) {
-          if (typeof msg === 'string') {
-            writeString(msg)
-          } else {
-            writeObject(msg)
+      this.options.app.on(
+        this.options.outEevent || 'nmea2000out',
+        (msg: string) => {
+          if (this.outAvailable) {
+            if (typeof msg === 'string') {
+              writeString(msg)
+            } else {
+              writeObject(msg)
+            }
           }
         }
-      })
+      )
 
       this.options.app.on(
         this.options.jsonOutEvent || 'nmea2000JsonOut',
-        (msg) => {
+        (msg: PGN) => {
           if (this.outAvailable) {
             writeObject(msg)
           }
@@ -194,41 +201,41 @@ SerialStream.prototype.start = function () {
 
     this.outAvailable = false
 
-    this.serial.on('error', function (x) {
-      setProviderError(x.message)
-      console.log(x)
-      that.scheduleReconnect()
+    this.serial.on('error', (err: any) => {
+      setProviderError(err.message)
+      console.log(err)
+      this.scheduleReconnect()
     })
     this.serial.on('close', () => {
       setProviderError('Closed, reconnecting...')
       //this.start.bind(this)
-      that.scheduleReconnect()
+      this.scheduleReconnect()
     })
-    this.serial.on('open', function () {
+    this.serial.on('open', () => {
       try {
         this.reconnectDelay = 1000
-        setProviderStatus(`Connected to ${that.options.device}`)
-        var buf = composeMessage(
+        setProviderStatus(`Connected to ${this.options.device}`)
+        const buf = composeMessage(
           NGT_MSG_SEND,
           Buffer.from(NGT_STARTUP_MSG),
           NGT_STARTUP_MSG.length
         )
         debugOut(buf)
-        that.serial.write(buf)
+        this.serial.write(buf)
         debug('sent startup message')
-        that.gotStartupResponse = false
-        if (that.options.disableSetTransmitPGNs) {
-          enableOutput(that)
+        this.gotStartupResponse = false
+        if (this.options.disableSetTransmitPGNs) {
+          enableOutput(this)
         } else {
           setTimeout(() => {
-            if (that.gotStartupResponse === false) {
+            if (this.gotStartupResponse === false) {
               debug('retry startup message...')
               debugOut(buf)
-              that.serial.write(buf)
+              this.serial.write(buf)
             }
           }, 5000)
         }
-      } catch (err) {
+      } catch (err: any) {
         setProviderError(err.message)
         console.error(err)
         console.error(err.stack)
@@ -237,7 +244,7 @@ SerialStream.prototype.start = function () {
   }
 }
 
-SerialStream.prototype.scheduleReconnect = function () {
+ActisenseStream.prototype.scheduleReconnect = function () {
   this.reconnectDelay *= this.reconnectDelay < 60 * 1000 ? 1.5 : 1
   const msg = `Not connected (retry delay ${(
     this.reconnectDelay / 1000
@@ -247,15 +254,15 @@ SerialStream.prototype.scheduleReconnect = function () {
   setTimeout(this.start.bind(this), this.reconnectDelay)
 }
 
-function readData(that, data) {
-  for (var i = 0; i < data.length; i++) {
+function readData(that: any, data: Buffer) {
+  for (let i = 0; i < data.length; i++) {
     //console.log(data[i])
     read1Byte(that, data[i])
   }
 }
 
-function read1Byte(that, c) {
-  var noEscape = false
+function read1Byte(that: any, c: any) {
+  let noEscape = false
 
   //debug("received byte %02x state=%d offset=%d\n", c, state, head - buf);
 
@@ -303,14 +310,14 @@ function read1Byte(that, c) {
   }
 }
 
-function enableTXPGN(serial, pgn) {
+function enableTXPGN(serial: any, pgn: number) {
   debug('enabling pgn %d', pgn)
   const msg = composeEnablePGN(pgn)
   debugOut(msg)
   serial.write(msg)
 }
 
-function enableOutput(that) {
+function enableOutput(that: any) {
   debug('outputEnabled')
   that.outAvailable = true
   if (that.options.app) {
@@ -318,7 +325,7 @@ function enableOutput(that) {
   }
 }
 
-function requestTransmitPGNList(that) {
+function requestTransmitPGNList(that: any) {
   debug('request tx pgns...')
   const requestMsg = composeRequestTXPGNList()
   debugOut(requestMsg)
@@ -338,10 +345,10 @@ function requestTransmitPGNList(that) {
   }, 10000)
 }
 
-function processNTGMessage(that, buffer, len) {
-  var checksum = 0
+function processNTGMessage(that: any, buffer: Buffer, len: number) {
+  let checksum = 0
 
-  for (var i = 0; i < len; i++) {
+  for (let i = 0; i < len; i++) {
     checksum = addUInt8(checksum, buffer[i])
   }
 
@@ -353,8 +360,8 @@ function processNTGMessage(that, buffer, len) {
   }
 
   if (that.options.sendNetworkStats || debug.enabled) {
-    let newbuf = new Buffer.alloc(len + 7)
-    var bs = new BitStream(newbuf)
+    const newbuf = Buffer.alloc(len + 7)
+    const bs = new BitStream(newbuf)
     const pgn = 0x40000 + buffer[2]
     bs.writeUint8(0) //prio
     bs.writeUint8(pgn)
@@ -367,14 +374,14 @@ function processNTGMessage(that, buffer, len) {
     buffer.copy(bs.view.buffer, bs.byteIndex, 3)
 
     if (that.options.plainText) {
-      that.push(binToActisense(bs.view.buffer, len + 7))
+      that.push(binToActisense(bs.view.buffer)) //, len + 7))
     } else {
       that.push(bs.view.buffer, len + 7)
     }
     if (debug.enabled && command != 0xf2) {
       //don't log system status
       if (!that.parser) {
-        that.parser = new FromPgn()
+        that.parser = new FromPgn({})
       }
       const js = that.parser.parseBuffer(bs.view.buffer)
       if (js) {
@@ -398,15 +405,15 @@ function processNTGMessage(that, buffer, len) {
     } else if (command === 0x49 && buffer[3] === 1) {
       that.gotTXPGNList = true
       const pgnCount = buffer[14]
-      let bv = new BitView(buffer.slice(15, that.bufferOffset))
-      let bs = new BitStream(bv)
-      let pgns = []
+      const bv = new BitView(buffer.slice(15, that.bufferOffset))
+      const bs = new BitStream(bv)
+      const pgns: number[] = []
       for (let i = 0; i < pgnCount; i++) {
         pgns.push(bs.readUint32())
       }
       debug('tx pgns: %j', pgns)
 
-      that.neededTransmitPGNs = that.transmitPGNs.filter((pgn) => {
+      that.neededTransmitPGNs = that.transmitPGNs.filter((pgn: number) => {
         return pgns.indexOf(pgn) == -1
       })
       debug('needed pgns: %j', that.neededTransmitPGNs)
@@ -446,7 +453,7 @@ function processNTGMessage(that, buffer, len) {
   }
 }
 
-function addUInt8(num, add) {
+function addUInt8(num: number, add: number) {
   if (num + add > 255) {
     num = add - (256 - num)
   } else {
@@ -455,10 +462,10 @@ function addUInt8(num, add) {
   return num
 }
 
-function processN2KMessage(that, buffer, len) {
-  var checksum = 0
+function processN2KMessage(that: any, buffer: Buffer, len: number) {
+  let checksum = 0
 
-  for (var i = 0; i < len; i++) {
+  for (let i = 0; i < len; i++) {
     checksum = addUInt8(checksum, buffer[i])
   }
 
@@ -474,18 +481,19 @@ function processN2KMessage(that, buffer, len) {
   }
 }
 
-function binToActisense(buffer) {
-  var bv = new BitView(buffer)
-  var bs = new BitStream(bv)
+function binToActisense(buffer: Buffer) {
+  const bv = new BitView(buffer)
+  const bs = new BitStream(bv)
 
-  var pgn = {}
-
-  pgn.prio = bs.readUint8()
-  pgn.pgn = bs.readUint8() + 256 * (bs.readUint8() + 256 * bs.readUint8())
-  pgn.dst = bs.readUint8()
-  pgn.src = bs.readUint8()
-  pgn.timestamp = bs.readUint32()
-  var len = bs.readUint8()
+  const pgn = {
+    prio: bs.readUint8(),
+    pgn: bs.readUint8() + 256 * (bs.readUint8() + 256 * bs.readUint8()),
+    dst: bs.readUint8(),
+    src: bs.readUint8(),
+    timestamp: bs.readUint32()
+  }
+  const len = bs.readUint8()
+  const arr: string[] = []
   return (
     new Date().toISOString() +
     `,${pgn.prio},${pgn.pgn},${pgn.src},${pgn.dst},${len},` +
@@ -493,26 +501,26 @@ function binToActisense(buffer) {
       .reduce(function (acc, i) {
         acc.push(i.toString(16))
         return acc
-      }, [])
+      }, arr)
       .map((x) => (x.length === 1 ? '0' + x : x))
       .join(',')
   )
 }
 
-function composeMessage(command, buffer, len) {
-  var outBuf = Buffer.alloc(500)
-  var out = new BitStream(outBuf)
+function composeMessage(command: number, buffer: Buffer, len: number) {
+  const outBuf = Buffer.alloc(500)
+  const out = new BitStream(outBuf)
 
   out.writeUint8(DLE)
   out.writeUint8(STX)
   out.writeUint8(command)
 
-  var lenPos = out.byteIndex
+  const lenPos = out.byteIndex
   out.writeUint8(0) //length. will update later
-  var crc = command
+  let crc = command
 
-  for (var i = 0; i < len; i++) {
-    var c = buffer.readUInt8(i)
+  for (let i = 0; i < len; i++) {
+    const c = buffer.readUInt8(i)
     if (c == DLE) {
       out.writeUint8(DLE)
     }
@@ -533,15 +541,15 @@ function composeMessage(command, buffer, len) {
   return out.view.buffer.slice(0, out.byteIndex)
 }
 
-function parseInput(msg) {
-  var split = msg.split(',')
-  var buffer = Buffer.alloc(500)
-  var bs = new BitStream(buffer)
+function parseInput(msg: string) {
+  const split = msg.split(',')
+  const buffer = Buffer.alloc(500)
+  const bs = new BitStream(buffer)
 
-  var prio = Number(split[1])
-  var pgn = Number(split[2])
-  var dst = Number(split[4])
-  var bytes = Number(split[5])
+  const prio = Number(split[1])
+  const pgn = Number(split[2])
+  const dst = Number(split[4])
+  const bytes = Number(split[5])
 
   bs.writeUint8(prio)
   bs.writeUint8(pgn)
@@ -556,7 +564,7 @@ function parseInput(msg) {
 
   bs.writeUint8(bytes)
 
-  for (var i = 6; i < bytes + 6; i++) {
+  for (let i = 6; i < bytes + 6; i++) {
     bs.writeUint8(parseInt('0x' + split[i], 16))
   }
 
@@ -564,23 +572,23 @@ function parseInput(msg) {
 }
 
 function composeCommitTXPGN() {
-  let msg = new Uint32Array([0x01])
+  const msg = new Uint32Array([0x01])
   return composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
 }
 
 function composeActivateTXPGN() {
-  let msg = new Uint32Array([0x4b])
+  const msg = new Uint32Array([0x4b])
   return composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
 }
 
 function composeRequestTXPGNList() {
-  let msg = new Uint32Array([0x49])
+  const msg = new Uint32Array([0x49])
   return composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
 }
 
-function composeEnablePGN(pgn) {
-  var outBuf = Buffer.alloc(14)
-  let out = new BitStream(outBuf)
+function composeEnablePGN(pgn: number) {
+  const outBuf = Buffer.alloc(14)
+  const out = new BitStream(outBuf)
   out.writeUint8(0x47)
   out.writeUint32(pgn)
   out.writeUint8(1) //enabled
@@ -588,7 +596,7 @@ function composeEnablePGN(pgn) {
   out.writeUint32(0xfffffffe)
   out.writeUint32(0xfffffffe)
 
-  let res = composeMessage(
+  const res = composeMessage(
     NGT_MSG_SEND,
     out.view.buffer.slice(0, out.byteIndex),
     out.byteIndex
@@ -621,16 +629,18 @@ function composeDisablePGN(pgn) {
   }
   */
 
-SerialStream.prototype.end = function () {
+ActisenseStream.prototype.end = function () {
   if (this.serial) {
     this.serial.close()
   }
 }
 
-SerialStream.prototype._transform = function (chunk, encoding, done) {
+ActisenseStream.prototype._transform = function (
+  chunk: any,
+  encoding: string,
+  done: any
+) {
   debug(`got data ${typeof chunk}`)
   readData(this, chunk)
   done()
 }
-
-module.exports.SerialStream = SerialStream

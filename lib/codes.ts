@@ -14,10 +14,8 @@
  * limitations under the License.
 */
 
-const defaultTransmitPGNs = [
+export const defaultTransmitPGNs = [
   126992, 128267, 129794, 129038, 129041, 127505, 127506, 127508, 129026,
   129025, 129029, 127250, 130306, 126720, 127489, 127488, 130311, 130312,
   127257, 128259, 127502
 ]
-
-module.exports.defaultTransmitPGNs = defaultTransmitPGNs

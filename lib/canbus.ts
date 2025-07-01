@@ -138,7 +138,7 @@ CanbusStream.prototype.connect = function () {
       }
     })
     this.channel.addListener('onMessage', (msg: any) => {
-      const pgn: any = parseCanId(msg.id)
+      const pgn = parseCanId(msg.id)
 
       if (this.noDataInterval) {
         this.lastDataReceived = Date.now()
@@ -154,9 +154,9 @@ CanbusStream.prototype.connect = function () {
         return
       }
 
-      pgn.timestamp = new Date().toISOString()
+      const timestamp = new Date().toISOString()
       if (that.plainText) {
-        this.push(binToActisense(pgn, msg.data, msg.data.length))
+        this.push(binToActisense(pgn, timestamp, msg.data, msg.data.length))
       } else {
         that.push({ pgn, length: msg.data.length, data: msg.data })
       }

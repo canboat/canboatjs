@@ -1,5 +1,3 @@
-'use strict'
-
 /**
  * Copyright 2019 Scott Bender <scott@scottbender.net>
  *
@@ -47,4 +45,4 @@ export { VenusMQTT } from './venus-mqtt'
 export { discover } from './discovery'
 export { SimpleCan } from './simpleCan'
 export { YdDevice } from './yddevice'
-export { SerialStream as serial } from './serial'
+export { ActisenseStream as serial } from './actisense-serial'
