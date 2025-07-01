@@ -38,13 +38,21 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: SignalK/n2k-signalk
+        ref: typescript
         path: ./n2k-signalk
+
+    - name: Checkout signalk-to-nmea2000
+      uses: actions/checkout@v4
+      with:
+        repository: SignalK/signalk-to-nmea2000
+        ref: typescript
+        path: ./signalk-to-nmea2000
         
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-
+        
     - name: Build ts-pgns
       run: |
         cp ../canboat/docs/canboat.json .
@@ -69,6 +77,15 @@ jobs:
         npm install
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
+        npm run build
         npm test
       working-directory: ./n2k-signalk
-   
+
+    - name: Test signalk-to-nmea2000
+      run: |
+        npm install
+        npm link @canboat/canboatjs
+        npm link @canboat/ts-pgns
+        npm test
+      working-directory: ./signalk-to-nmea2000
+
