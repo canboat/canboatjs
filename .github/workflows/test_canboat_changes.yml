@@ -45,19 +45,21 @@ jobs:
         node-version: ${{ matrix.node-version }}
 
     - name: build ts-pgns
-      run: cp ../canboat/canboat.json .
-      run: npm install
-      run: npm run build
-      run: npm run generate
-      run: npm run build
-      run: npm run link
+      run: |
+        cp ../canboat/canboat.json . 
+        npm install
+        npm run build
+        npm run generate
+        npm run build
+        npm run link
       working-directory: ./ts-pgns
 
     - name: test canboatjs
-      run: npm install
-      run: npm link @canboat/ts-pgns
-      run: npm run build
-      run: npm run link
-      run: npm test
+      run: |
+        npm install
+        npm link @canboat/ts-pgns
+        npm run build
+        npm run link
+        npm test
       working-directory: ./canboatjs
    
