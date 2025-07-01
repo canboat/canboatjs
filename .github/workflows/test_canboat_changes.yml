@@ -22,7 +22,7 @@ jobs:
     - name: Checkout canboat.json
       uses: actions/checkout@v4
       with:
-        path: /canboat
+        path: ./canboat
         sparse-checkout: |
           docs/canboat.json
         sparse-checkout-cone-mode: false
