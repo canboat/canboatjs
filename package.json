@@ -15,6 +15,8 @@
     "prepublishOnly": "npm run build",
     "prettier": "prettier --write lib test",
     "lint": "eslint --fix",
+    "ci-lint": "eslint && prettier --check lib test",
+    "ci-test": "npm run build && npm run test && npm run ci-lint",
     "format": "npm run prettier && npm run lint",
     "prepare": "husky install"
   },
@@ -68,6 +70,9 @@
     }
   ],
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@canboat/ts-pgns": "1.0.0-beta.1",
     "bit-buffer": "0.2.3",

@@ -1,13 +1,5 @@
 {
   "semi": false,
   "singleQuote": true,
-  "trailingComma": "none",
-  "overrides": [
-    {
-      "files": "src/pgns.ts",
-      "options": {
-        "trailingComma": "es5"
-      }
-    }
-  ]
+  "trailingComma": "none"
 }
