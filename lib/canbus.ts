@@ -28,11 +28,9 @@ import util from 'util'
 const debug = createDebug('canboatjs:canbus')
 
 export function CanbusStream(this: any, options: any) {
-  /*
-  if (!(this instanceof CanbusStream)) {
-    return new CanbusStream(options)
-    }
-    */
+  if (this === undefined) {
+    return new (CanbusStream as any)(options)
+  }
 
   Transform.call(this, {
     objectMode: true

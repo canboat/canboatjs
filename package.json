@@ -23,7 +23,7 @@
     "actisense-serialjs": "./dist/bin/actisense-serialjs.js",
     "actisense-file": "./dist/bin/actisense-file.js",
     "actisense-n2k-tcp": "./dist/bin/actisense-n2k-tcp.js",
-    "candumpjs": "./dist/bin/candumpjs.ts",
+    "candumpjs": "./dist/bin/candumpjs.js",
     "ikonvert-serial": "./dist/bin/ikonvert-serial.js",
     "cansend": "./dist/bin/cansend.js"
   },

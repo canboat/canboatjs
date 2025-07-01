@@ -58,11 +58,9 @@ const MSG_MESSAGE = 3
 const NGT_STARTUP_MSG = new Uint8Array([0x11, 0x02, 0x00])
 
 export function ActisenseStream(this: any, options: any) {
-  /*
-  if (!(this instanceof SerialStream)) {
-    return new SerialStream(options)
-    }
-  */
+  if (this === undefined) {
+    return new (ActisenseStream as any)(options)
+  }
 
   Transform.call(this, {
     objectMode: true

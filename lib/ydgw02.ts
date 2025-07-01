@@ -32,11 +32,9 @@ const debug = createDebug('canboatjs:ydgw02')
 //const pgnsSent = {}
 
 export function Ydgw02Stream(this: any, options: any, type: string) {
-  /*
-  if (!(this instanceof Ydgw02Stream)) {
-    return new Ydgw02Stream(options)
-    }
-  */
+  if (this === undefined) {
+    return new (Ydgw02Stream as any)(options, type)
+  }
 
   Transform.call(this, {
     objectMode: true

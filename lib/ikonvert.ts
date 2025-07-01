@@ -28,10 +28,9 @@ const debug = createDebug('canboatjs:ikonvert')
 //const pgnsSent = {}
 
 export function iKonvertStream(this: any, options: any) {
-  /*
-  if (!(this instanceof iKonvertStream)) {
-    return new iKonvertStream(options)
-  }*/
+  if (this == undefined) {
+    return new (iKonvertStream as any)(options)
+  }
 
   Transform.call(this, {
     objectMode: true

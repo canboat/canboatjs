@@ -40,11 +40,9 @@ export function W2K01Stream(
   type: string,
   outEvent: string
 ) {
-  /*
-  if (!(this instanceof W2K01Stream)) {
-    return new W2K01Stream(options)
-    }
-  */
+  if (this === undefined) {
+    return new (W2K01Stream as any)(options, type, outEvent)
+  }
 
   Transform.call(this, {
     objectMode: true
