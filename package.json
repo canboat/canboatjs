@@ -12,7 +12,7 @@
     "build": "tsc -b  --pretty false",
     "watch": "tsc --watch",
     "prepublishOnly": "npm run build",
-    "prettier": "prettier --write lib",
+    "prettier": "prettier --write lib test",
     "lint": "eslint --fix",
     "format": "npm run prettier && npm run lint"
   },

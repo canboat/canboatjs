@@ -10,7 +10,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "noEmit": false
+    "isolatedModules": true
   },
   "ts-node": {
     "files": true
