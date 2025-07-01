@@ -118,7 +118,7 @@ export class Parser extends EventEmitter {
     bs: BitStream,
     len: number,
     coalesced: boolean,
-    cb: FromPgnCallback|undefined,
+    cb: FromPgnCallback | undefined,
     sourceString: string | undefined = undefined
   ) {
     if (pgn.src === undefined) {
@@ -432,7 +432,7 @@ export class Parser extends EventEmitter {
     })
   }
 
-  parse(data: any, cb: FromPgnCallback|undefined = undefined) {
+  parse(data: any, cb: FromPgnCallback | undefined = undefined) {
     if (_.isString(data)) {
       return this.parseString(data, cb)
     } else if (_.isBuffer(data)) {
@@ -454,7 +454,7 @@ export class Parser extends EventEmitter {
     length: number,
     data: string[] | Buffer,
     coalesced: boolean,
-    cb: FromPgnCallback|undefined,
+    cb: FromPgnCallback | undefined,
     sourceString: string
   ) {
     try {
@@ -593,7 +593,7 @@ export class Parser extends EventEmitter {
     }
   }
 
-  parseString(pgn_data: string, cb: FromPgnCallback|undefined = undefined) {
+  parseString(pgn_data: string, cb: FromPgnCallback | undefined = undefined) {
     try {
       const { coalesced, data, error, len, ...pgn } = parseN2kString(
         pgn_data,
@@ -627,7 +627,7 @@ export class Parser extends EventEmitter {
     }
   }
 
-  parseBuffer(pgn_data: any, cb: FromPgnCallback|undefined) {
+  parseBuffer(pgn_data: any, cb: FromPgnCallback | undefined) {
     try {
       const bv = new BitView(pgn_data)
       const bs = new BitStream(bv)

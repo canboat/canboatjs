@@ -2,19 +2,19 @@
 
 import { FromPgn } from '../index'
 import { parseCanId } from '../canId'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const socketcan = require('socketcan')
+import minimist from 'minimist'
 import { binToActisense } from '../utilities'
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const socketcan = require('socketcan')
 
 const parser = new FromPgn()
 
-
-const argv = require('minimist')(process.argv.slice(2), {
+const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' }
 })
 
-if ( argv['help'] ) {
+if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options] candevice
 
 Options:
@@ -23,7 +23,7 @@ Options:
   process.exit(1)
 }
 
-if ( argv['_'].length === 0 ) {
+if (argv['_'].length === 0) {
   console.error('Please specify a device')
   process.exit(1)
 }
@@ -59,23 +59,22 @@ parser.on('pgn', (pgn) => {
   console.log(JSON.stringify(pgn))
 })
 
-
 const canDevice = argv['_'][0]
 
-const channel = socketcan.createRawChannel(canDevice);
+const channel = socketcan.createRawChannel(canDevice)
 
-channel.addListener('onStopped', (msg:any) => {
+channel.addListener('onStopped', (msg: any) => {
   console.error(`socketcan stopped ${msg}`)
 })
 
-channel.addListener('onMessage', (msg:any) => {
-  var pgn = parseCanId(msg.id)
-  
+channel.addListener('onMessage', (msg: any) => {
+  const pgn = parseCanId(msg.id)
+
   const timestamp = new Date().toISOString()
 
-  let sourceString = binToActisense(pgn, timestamp, msg.data, msg.data.length)
+  const sourceString = binToActisense(pgn, timestamp, msg.data, msg.data.length)
 
-  if ( format === 'json' ) {
+  if (format === 'json') {
     parser.parse({ pgn, length: msg.data.length, data: msg.data, sourceString })
   } else {
     console.log(sourceString)

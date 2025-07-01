@@ -11,7 +11,7 @@ const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' }
 })
 
-if ( argv['help'] ) {
+if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options] device_path
 
 Options:
@@ -20,24 +20,30 @@ Options:
   process.exit(1)
 }
 
-if ( argv['_'].length === 0 ) {
+if (argv['_'].length === 0) {
   console.error('Please specify a device')
   process.exit(1)
 }
 
-const app = new EventEmitter();
+const app = new EventEmitter()
 
-const actisense = new (serial as any)({ app:app, device:argv['_'][0], plainText:true, disableSetTransmitPGNs: true, outputOnly: argv['disable-output'] })
+const actisense = new (serial as any)({
+  app: app,
+  device: argv['_'][0],
+  plainText: true,
+  disableSetTransmitPGNs: true,
+  outputOnly: argv['disable-output']
+})
 const toStringTr = new Transform({
   objectMode: true,
 
-  transform(chunk:any, encoding:string, callback:any) {
-    this.push(chunk + "\n");
-    callback();
+  transform(chunk: any, encoding: string, callback: any) {
+    this.push(chunk + '\n')
+    callback()
   }
-});
+})
 
-var rl = readline.createInterface({
+const rl = readline.createInterface({
   input: process.stdin,
   terminal: false
 })
@@ -45,6 +51,5 @@ var rl = readline.createInterface({
 rl.on('line', (line) => {
   app.emit('nmea2000out', line)
 })
-
 
 actisense.pipe(toStringTr).pipe(process.stdout)

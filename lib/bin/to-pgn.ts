@@ -2,15 +2,22 @@
 
 import minimist from 'minimist'
 import readline from 'readline'
-import { pgnToActisenseSerialFormat, pgnToActisenseN2KAsciiFormat, pgnToiKonvertSerialFormat, pgnToYdgwRawFormat, pgnToYdgwFullRawFormat, pgnToPCDIN, pgnToMXPGN, toActisenseSerialFormat } from '../index'
-
+import {
+  pgnToActisenseSerialFormat,
+  pgnToActisenseN2KAsciiFormat,
+  pgnToiKonvertSerialFormat,
+  pgnToYdgwRawFormat,
+  pgnToYdgwFullRawFormat,
+  pgnToPCDIN,
+  pgnToMXPGN
+} from '../index'
 
 const argv = minimist(process.argv.slice(2), {
   string: ['format'],
   alias: { h: 'help' }
 })
 
-if ( argv['help'] ) {
+if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options]
 
 Options:
@@ -19,37 +26,34 @@ Options:
   process.exit(1)
 }
 
-
-const formatters: {[key:string]: any} = {
+const formatters: { [key: string]: any } = {
   actisense: pgnToActisenseSerialFormat,
-  'n2kascii': pgnToActisenseN2KAsciiFormat,
+  n2kascii: pgnToActisenseN2KAsciiFormat,
   ikconvert: pgnToiKonvertSerialFormat,
   ydgw: pgnToYdgwRawFormat,
-  'pcdin': pgnToPCDIN,
-  'mxpgn': pgnToMXPGN,
+  pcdin: pgnToPCDIN,
+  mxpgn: pgnToMXPGN,
   'yd-full': pgnToYdgwFullRawFormat
 }
 
 const format = argv['format'] || 'actisense'
 const formatter = formatters[format]
-if ( !formatter ) {
+if (!formatter) {
   console.error(`unknown format: ${argv['format']}`)
   process.exit(1)
 }
-                             
 
-var rl = readline.createInterface({
+const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
   terminal: false
 })
 
-var input = []
 rl.on('line', function (line) {
-  var msg = JSON.parse(line)
+  const msg = JSON.parse(line)
   const res = formatter(msg)
-  if ( Array.isArray(res) ) {
-    res.forEach(m => {
+  if (Array.isArray(res)) {
+    res.forEach((m) => {
       console.log(m)
     })
   } else {

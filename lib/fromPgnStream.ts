@@ -52,4 +52,3 @@ fromPgnStream.prototype._transform = function (
   this.fromPgn.parse(chunk)
   done()
 }
-
