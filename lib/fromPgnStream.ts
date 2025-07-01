@@ -22,7 +22,7 @@ import util from 'util'
 
 const debug = _debug('canboatjs:FromPgnStream')
 
-function fromPgnStream(this: any, options: any) {
+export function fromPgnStream(this: any, options: any = {}) {
   Transform.call(this, {
     objectMode: true
   })
@@ -53,4 +53,3 @@ fromPgnStream.prototype._transform = function (
   done()
 }
 
-module.exports = fromPgnStream

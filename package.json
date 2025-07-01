@@ -3,6 +3,7 @@
   "version": "3.0.2",
   "description": "Native javascript version of canboat",
   "main": "dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "dev-test": "jest --watch",
     "test": "jest && mocha --require ts-node/register --exit 'test/*.[jt]s'",
@@ -17,15 +18,14 @@
     "format": "npm run prettier && npm run lint"
   },
   "bin": {
-    "analyzerjs": "./bin/analyzerjs",
-    "to-pgn": "./bin/to-pgn",
-    "candumpanalyzerjs": "./bin/candumpanalyzerjs",
-    "actisense-serialjs": "./bin/actisense-serialjs",
-    "actisense-file": "./bin/actisense-file",
-    "actisense-n2k-tcp": "./bin/actisense-n2k-tcp",
-    "candumpjs": "./bin/candumpjs",
-    "ikonvert-serial": "./bin/ikonvert-serial",
-    "cansend": "./bin/cansend"
+    "analyzerjs": "./dist/bin/analyzerjs.js",
+    "to-pgn": "./dist/bin/to-pgn.js",
+    "actisense-serialjs": "./dist/bin/actisense-serialjs.js",
+    "actisense-file": "./dist/bin/actisense-file.js",
+    "actisense-n2k-tcp": "./dist/bin/actisense-n2k-tcp.js",
+    "candumpjs": "./dist/bin/candumpjs.ts",
+    "ikonvert-serial": "./dist/bin/ikonvert-serial.js",
+    "cansend": "./dist/bin/cansend.js"
   },
   "keywords": [
     "boat",
@@ -75,6 +75,7 @@
     "@types/debug": "^4.1.12",
     "@types/jest": "^30.0.0",
     "@types/lodash": "^4.17.19",
+    "@types/minimist": "^1.2.5",
     "baconjs": "^1.0.1",
     "buffer": "^6.0.3",
     "chai": "^4.1.2",

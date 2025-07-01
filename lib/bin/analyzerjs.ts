@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
-const argv = require('minimist')(process.argv.slice(2), {
+import { PGN } from '@canboat/pgns'
+import { Parser } from '../fromPgn'
+import minimist from 'minimist'
+import readline from 'readline'
+
+
+const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
   boolean: ['n', 'r', 'camel', 'camel-compat']
 })
@@ -18,7 +24,6 @@ Options:
   process.exit(1)
 }
 
-const Parser = require('../index').FromPgn
 var parser = new Parser( {
   returnNulls: argv['n'] === true,
   littleEndianMXPGN: argv['r'] === true,
@@ -27,21 +32,20 @@ var parser = new Parser( {
   useCamelCompat: argv['camel-compat']
 })
 
-parser.on('error', (pgn, error) => {
+parser.on('error', (pgn:PGN, error:any) => {
   console.error(`Error parsing ${pgn.pgn} ${error}`)
   console.error(error.stack)
 })
 
-parser.on('warning', (pgn, error) => {
+parser.on('warning', (pgn:PGN, error:any) => {
   //console.error(`Warning parsing ${pgn.pgn} ${error}`)
 })
 
-parser.on('pgn', (pgn) => {
+parser.on('pgn', (pgn:PGN) => {
   console.log(JSON.stringify(pgn))
 })
 
 
-var readline = require('readline')
 var rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -49,7 +53,7 @@ var rl = readline.createInterface({
 })
 
 var input = []
-rl.on('line', function (line) {
+rl.on('line', (line:string) => {
   if ( argv['log-input'] ) {
     console.log(line)
   }

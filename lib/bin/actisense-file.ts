@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
-const { EventEmitter } = require('events');
+import { EventEmitter } from 'node:events'
+import minimist from 'minimist'
+import { serial } from '../index'
+import { Transform } from 'stream'
+import fs from 'fs'
 
 var device
 
-const argv = require('minimist')(process.argv.slice(2), {
+const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' }
 })
 
@@ -23,25 +27,24 @@ if ( argv['_'].length === 0 ) {
 
 const app = new EventEmitter();
 
-const serial = new (require('../lib/serial'))({ app:app, plainText:true, disableSetTransmitPGNs: true,  fromFile: true })
-const { Transform } = require('stream');
+const actisense = new (serial as any)({ app:app, plainText:true, disableSetTransmitPGNs: true,  fromFile: true })
 
 const toStringTr = new Transform({
   objectMode: true,
 
-  transform(chunk, encoding, callback) {
+  transform(chunk:any, encoding:string, callback:any) {
     this.push(chunk + "\n");
     callback();
   }
 });
 
-serial.pipe(toStringTr).pipe(process.stdout)
+actisense.pipe(toStringTr).pipe(process.stdout)
 
-filestream = require('fs').createReadStream(argv['_'][0])
+const filestream = fs.createReadStream(argv['_'][0])
 filestream.on('error', err => {
   console.error(err.message)
 })
 filestream.on('end', () => {
   process.exit(0)
 })
-filestream.pipe(serial)
+filestream.pipe(actisense)

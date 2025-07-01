@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 
-const canboatjs = require('../index')
-const Parser = require('../index').FromPgn
-const { parseCanId } = require('../lib/canId')
-const { parseActisense } = require('../lib/stringMsg')
-
-const { toPgn } = require('../lib/toPgn')
-const { getPlainPGNs, binToActisense } = require('../lib/utilities')
-const { encodeCanId } = require('../lib/canId')
+import { parseActisense } from '../stringMsg'
+import { toPgn } from '../toPgn'
+import { getPlainPGNs, binToActisense } from '../utilities'
+import { encodeCanId } from '../canId'
+import readline from 'readline'
 
 const argv = require('minimist')(process.argv.slice(2), {
   boolean: ['test', 'log-output'],
@@ -36,20 +33,19 @@ const srcArg = argv.src
 const logOut = argv['log-output']
 const test = argv.test
 
-let channel
+let channel: any
 
 if ( !test ) {
   const socketcan = require('socketcan')
   channel = socketcan.createRawChannel(canDevice);
   
-  channel.addListener('onStopped', (msg) => {
-    console.error('socketcan stopped')
+  channel.addListener('onStopped', (msg:any) => {
+    console.error(`socketcan stopped ${msg}`)
   })
   
   channel.start()
 }
 
-var readline = require('readline')
 var rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -86,7 +82,7 @@ rl.on('line', function (line) {
     }
   }
 
-  var pgn, canid, buffer
+  var pgn:any, canid:number, buffer:Buffer|undefined
   if ( typeof msg === 'object' ) {
     canid = encodeCanId(msg)
     buffer = toPgn(msg)
@@ -107,24 +103,29 @@ rl.on('line', function (line) {
     buffer = pgn.data
   }
   
-  pgn.timestamp = new Date().toISOString()
-  
-  if ( buffer.length > 8 || pgn.pgn == 126720 ) {
-    var pgns = getPlainPGNs(buffer)
-    pgns.forEach(pbuffer => {
+  const timestamp = new Date().toISOString()
+
+  if ( buffer == undefined ) {
+    console.error('unable to encode: %s', line)
+    return
+  } else {
+    if ( buffer.length > 8 || pgn.pgn == 126720 ) {
+      var pgns = getPlainPGNs(buffer)
+      pgns.forEach(pbuffer => {
+        if ( !test ) {
+          channel.send({id: canid, ext:true, data: pbuffer})
+        }
+        if ( logOut ) {
+          console.log(binToActisense(pgn, timestamp, pbuffer, pbuffer.length))
+        }
+      })                    
+    } else {
       if ( !test ) {
-        channel.send({id: canid, ext:true, data: pbuffer})
+        channel.send({id: canid, ext:true, data: buffer})
       }
       if ( logOut ) {
-        console.log(binToActisense(pgn, pbuffer, pbuffer.length))
+        console.log(binToActisense(pgn, timestamp, buffer, buffer.length))
       }
-    })                    
-  } else {
-    if ( !test ) {
-      channel.send({id: canid, ext:true, data: buffer})
     }
-    if ( logOut ) {
-      console.log(binToActisense(pgn, buffer, buffer.length))
-    }
-  }
+  } 
 })

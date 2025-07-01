@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
-const canboatjs = require('../index')
-const Parser = require('../index').FromPgn
-const { parseCanId } = require('../lib/canId')
+import { FromPgn } from '../index'
+import { parseCanId } from '../canId'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const socketcan = require('socketcan')
-const { binToActisense } = require('../lib/utilities')
-var parser = new canboatjs.FromPgn()
+import { binToActisense } from '../utilities'
+
+
+const parser = new FromPgn()
 
 
 const argv = require('minimist')(process.argv.slice(2), {
@@ -62,16 +64,16 @@ const canDevice = argv['_'][0]
 
 const channel = socketcan.createRawChannel(canDevice);
 
-channel.addListener('onStopped', (msg) => {
-  console.error('socketcan stopped')
+channel.addListener('onStopped', (msg:any) => {
+  console.error(`socketcan stopped ${msg}`)
 })
 
-channel.addListener('onMessage', (msg) => {
+channel.addListener('onMessage', (msg:any) => {
   var pgn = parseCanId(msg.id)
   
-  pgn.timestamp = new Date().toISOString()
+  const timestamp = new Date().toISOString()
 
-  let sourceString = binToActisense(pgn, msg.data, msg.data.length)
+  let sourceString = binToActisense(pgn, timestamp, msg.data, msg.data.length)
 
   if ( format === 'json' ) {
     parser.parse({ pgn, length: msg.data.length, data: msg.data, sourceString })
@@ -81,5 +83,3 @@ channel.addListener('onMessage', (msg) => {
 })
 
 channel.start()
-
-

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-const { Transform } = require('stream');
+import { Transform } from 'stream'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { SerialPort } = require('serialport')
 
 if ( process.argv.length < 3 ) {
@@ -44,7 +45,7 @@ serial.on(
 
 serial.on(
   'error',
-  function (x) {
+  (x:any) => {
     console.log(x)
   }
 )

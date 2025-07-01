@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-const { EventEmitter } = require('events');
+import { EventEmitter } from 'node:events'
+import minimist from 'minimist'
+import readline from 'readline'
+import { serial } from '../index'
+import { Transform } from 'stream'
 
-var device
-
-const argv = require('minimist')(process.argv.slice(2), {
+const argv = minimist(process.argv.slice(2), {
   boolean: ['disable-output'],
   alias: { h: 'help' }
 })
@@ -25,28 +27,24 @@ if ( argv['_'].length === 0 ) {
 
 const app = new EventEmitter();
 
-const serial = new (require('../lib/serial'))({ app:app, device:argv['_'][0], plainText:true, disableSetTransmitPGNs: true, outputOnly: argv['disable-output'] })
-const { Transform } = require('stream');
-
+const actisense = new (serial as any)({ app:app, device:argv['_'][0], plainText:true, disableSetTransmitPGNs: true, outputOnly: argv['disable-output'] })
 const toStringTr = new Transform({
   objectMode: true,
 
-  transform(chunk, encoding, callback) {
+  transform(chunk:any, encoding:string, callback:any) {
     this.push(chunk + "\n");
     callback();
   }
 });
 
-var readline = require('readline')
 var rl = readline.createInterface({
   input: process.stdin,
   terminal: false
 })
 
-var input = []
-rl.on('line', function (line) {
+rl.on('line', (line) => {
   app.emit('nmea2000out', line)
 })
 
 
-serial.pipe(toStringTr).pipe(process.stdout)
+actisense.pipe(toStringTr).pipe(process.stdout)

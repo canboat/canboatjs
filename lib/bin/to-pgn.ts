@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
-const argv = require('minimist')(process.argv.slice(2), {
+import minimist from 'minimist'
+import readline from 'readline'
+import { pgnToActisenseSerialFormat, pgnToActisenseN2KAsciiFormat, pgnToiKonvertSerialFormat, pgnToYdgwRawFormat, pgnToYdgwFullRawFormat, pgnToPCDIN, pgnToMXPGN, toActisenseSerialFormat } from '../index'
+
+
+const argv = minimist(process.argv.slice(2), {
   string: ['format'],
   alias: { h: 'help' }
 })
-const { pgnToActisenseSerialFormat, pgnToActisenseN2KAsciiFormat, pgnToiKonvertSerialFormat, pgnToYdgwRawFormat, pgnToYdgwFullRawFormat, pgnToPCDIN, pgnToMXPGN } = require('../index')
-const { toActisenseSerialFormat } = require('../lib/stringMsg')
 
 if ( argv['help'] ) {
   console.error(`Usage: ${process.argv[0]} [options]
@@ -17,7 +20,7 @@ Options:
 }
 
 
-const formatters = {
+const formatters: {[key:string]: any} = {
   actisense: pgnToActisenseSerialFormat,
   'n2kascii': pgnToActisenseN2KAsciiFormat,
   ikconvert: pgnToiKonvertSerialFormat,
@@ -35,7 +38,6 @@ if ( !formatter ) {
 }
                              
 
-var readline = require('readline')
 var rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,

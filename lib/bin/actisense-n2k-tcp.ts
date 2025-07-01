@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 
-const debug = require('debug')('canboatjs:w2k01')
-const net = require('net');
-const { readN2KActisense } = require('../lib/n2k-actisense')
+import { createDebug } from '../utilities'
+import net from 'net'
+import { readN2KActisense } from '../n2k-actisense'
+import minimist from 'minimist'
 
-const argv = require('minimist')(process.argv.slice(2), {
+const debug = createDebug('canboatjs:w2k01')
+
+const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' }
 })
 
-if ( argv['help'] ) {
+function help() {
   console.error(`Usage: ${process.argv[0]} [options] host port
 
 Options:
@@ -16,14 +19,18 @@ Options:
   process.exit(1)
 }
 
+if ( argv['help'] ) {
+  help()
+}
+
 if ( argv['_'].length < 2 ) {
   console.error('Please specify a host and port')
-  process.exit(1)
+  help()
 }
 
 
 var client = new net.Socket();
-client.connect(argv['_'][1], argv['_'][0], function() {
+client.connect(Number(argv['_'][1]), argv['_'][0], function() {
   debug('Connected');
 });
 
