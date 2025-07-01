@@ -1,0 +1,62 @@
+name: Test Canboat json Changes
+
+on:
+  repository_dispatch:
+    types: [trigger-workflow]
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+        
+    steps:
+    - name: Checkout canboatjs
+      uses: actions/checkout@v4
+      with:
+        path: ./canboatjs
+  
+    - name: Checkout canboat.json
+      uses: actions/checkout@v4
+      with:
+        path: ./canboat
+        sparse-checkout: |
+          docs/canboat.json
+        sparse-checkout-cone-mode: false
+  
+    - name: Checkout ts-pgns
+      uses: actions/checkout@v4
+      with:
+        repository: canboat/ts-pgns
+        path: ./ts-pgsn
+  
+    - name: Checkout n2k-signalk
+      uses: actions/checkout@v4
+      with:
+        repository: SignalK/n2k-signalk
+        path: ./n2k-signalk
+        
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: build ts-pgns
+      run: cp ../canboat/canboat.json .
+      run: npm install
+      run: npm run build
+      run: npm run generate
+      run: npm run build
+      run: npm run link
+      working-directory: ./ts-pgns
+
+    - name: test canboatjs
+      run: npm install
+      run: npm link @canboat/ts-pgns
+      run: npm run build
+      run: npm run link
+      run: npm test
+      working-directory: ./canboatjs
+   
