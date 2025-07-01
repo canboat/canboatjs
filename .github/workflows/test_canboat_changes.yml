@@ -63,4 +63,12 @@ jobs:
         npm link
         npm test
       working-directory: ./canboatjs
+
+    - name: test n2k-signalk
+      run: |
+        npm install
+        npm link @canboat/canboat
+        npm link @canboat/ts-pgns
+        npm test
+      working-directory: ./n2k-signalk
    
