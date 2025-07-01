@@ -16,10 +16,10 @@
 
 import { PGN } from '@canboat/pgns'
 import { debug as _debug } from 'debug'
-import {Transform} from 'stream'
-import {toPgn, pgnToiKonvertSerialFormat} from './toPgn'
+import { Transform } from 'stream'
+import { toPgn, pgnToiKonvertSerialFormat } from './toPgn'
 import { Parser } from './fromPgn'
-import _  from 'lodash'
+import _ from 'lodash'
 import { defaultTransmitPGNs } from './codes'
 import util from 'util'
 
@@ -27,7 +27,7 @@ const debug = _debug('canboatjs:ikonvert')
 
 //const pgnsSent = {}
 
-export function iKonvertStream (this:any, options:any) {
+export function iKonvertStream(this: any, options: any) {
   /*
   if (!(this instanceof iKonvertStream)) {
     return new iKonvertStream(options)
@@ -39,8 +39,8 @@ export function iKonvertStream (this:any, options:any) {
 
   this.isTcp = options.tcp === true
 
-  this.outEvent = this.isTcp? 'navlink2-out' : 'ikonvertOut'
-  
+  this.outEvent = this.isTcp ? 'navlink2-out' : 'ikonvertOut'
+
   this.plainText = false
   this.reconnect = options.reconnect || true
   this.options = options
@@ -49,36 +49,37 @@ export function iKonvertStream (this:any, options:any) {
   this.bufferOffset = 0
   this.start()
 
-  this.setProviderStatus = options.app && options.app.setProviderStatus
-    ? (msg:string) => {
-      options.app.setProviderStatus(options.providerId, msg)
-    }
-  : () => {}
-  this.setProviderError = options.app && options.app.setProviderError
-    ? (msg:string) => {
-      options.app.setProviderError(options.providerId, msg)
-    }
-  : () => {}
+  this.setProviderStatus =
+    options.app && options.app.setProviderStatus
+      ? (msg: string) => {
+          options.app.setProviderStatus(options.providerId, msg)
+        }
+      : () => {}
+  this.setProviderError =
+    options.app && options.app.setProviderError
+      ? (msg: string) => {
+          options.app.setProviderError(options.providerId, msg)
+        }
+      : () => {}
 
   this.transmitPGNs = defaultTransmitPGNs
-  if ( this.options.transmitPGNs ) {
-    this.transmitPGNs = _.union(this.transmitPGNs,
-                                this.options.transmitPGNs)
+  if (this.options.transmitPGNs) {
+    this.transmitPGNs = _.union(this.transmitPGNs, this.options.transmitPGNs)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-this-alias
   const that = this
 
-  if ( this.options.app ) {
-    options.app.on(this.options.outEevent || 'nmea2000out', (msg:string) => {
-      if ( typeof msg === 'string' ) {
+  if (this.options.app) {
+    options.app.on(this.options.outEevent || 'nmea2000out', (msg: string) => {
+      if (typeof msg === 'string') {
         that.sendActisensePGN(msg)
       } else {
         that.sendPGN(msg)
       }
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
-    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg:PGN) => {
+    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg: PGN) => {
       that.sendPGN(msg)
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
@@ -95,19 +96,18 @@ export function iKonvertStream (this:any, options:any) {
 
 util.inherits(iKonvertStream, Transform)
 
-iKonvertStream.prototype.start = function () {
-}
+iKonvertStream.prototype.start = function () {}
 
-iKonvertStream.prototype.sendString = function (msg:string) {
+iKonvertStream.prototype.sendString = function (msg: string) {
   debug('sending %s', msg)
-  if ( this.isTcp ) {
-    msg = msg + "\n\r"
+  if (this.isTcp) {
+    msg = msg + '\n\r'
   }
   this.options.app.emit(this.outEvent, msg)
 }
 
-iKonvertStream.prototype.sendPGN = function (pgn:PGN) {
-  if ( this.cansend ) {
+iKonvertStream.prototype.sendPGN = function (pgn: PGN) {
+  if (this.cansend) {
     //let now = Date.now()
     //let lastSent = pgnsSent[pgn.pgn]
     const msg = pgnToiKonvertSerialFormat(pgn)
@@ -116,19 +116,19 @@ iKonvertStream.prototype.sendPGN = function (pgn:PGN) {
   }
 }
 
-iKonvertStream.prototype.sendActisensePGN = function (msg:string) {
-  if ( this.cansend ) {
-    if ( !this.parser ) {
+iKonvertStream.prototype.sendActisensePGN = function (msg: string) {
+  if (this.cansend) {
+    if (!this.parser) {
       this.parser = new Parser(this.options)
-      
+
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       const that = this
-      this.parser.on('error', (pgn:PGN, error:any) => {
+      this.parser.on('error', (pgn: PGN, error: any) => {
         console.error(`Error parsing ${pgn.pgn} ${error}`)
         console.error(error.stack)
       })
 
-      this.parser.on('pgn', (pgn:PGN) => {
+      this.parser.on('pgn', (pgn: PGN) => {
         //let now = Date.now()
         //let lastSent = pgnsSent[pgn.pgn]
         const msg = pgnToiKonvertSerialFormat(pgn)
@@ -142,7 +142,7 @@ iKonvertStream.prototype.sendActisensePGN = function (msg:string) {
 
 iKonvertStream.prototype.setup = function () {
   let txPgns = '$PDGY,TX_LIST'
-  this.transmitPGNs.forEach((pgn:number) => {
+  this.transmitPGNs.forEach((pgn: number) => {
     txPgns = txPgns + `,${pgn}`
   })
   debug('sending pgn tx list')
@@ -151,14 +151,14 @@ iKonvertStream.prototype.setup = function () {
 
 iKonvertStream.prototype.getSetupCommands = function () {
   let txPgns = '$PDGY,TX_LIST'
-  this.transmitPGNs.forEach((pgn:number) => {
+  this.transmitPGNs.forEach((pgn: number) => {
     txPgns = txPgns + `,${pgn}`
   })
 
-  const setupCommands = [];
+  const setupCommands = []
 
   setupCommands.push('$PDGY,N2NET_OFFLINE:$PDGY,TEXT,Digital_Yacht_')
-  if ( this.isTcp ) {
+  if (this.isTcp) {
     setupCommands.push('$PDGY,N2NET_MODE,15:$PDGY,ACK,N2NET_MODE')
   }
   setupCommands.push('$PDGY,TX_LIMIT,OFF:$PDGY,') // NACK is ok with old firmware
@@ -168,17 +168,21 @@ iKonvertStream.prototype.getSetupCommands = function () {
   return setupCommands
 }
 
-iKonvertStream.prototype._transform = function (chunk:any, encoding:string, done:any) {
+iKonvertStream.prototype._transform = function (
+  chunk: any,
+  encoding: string,
+  done: any
+) {
   let line = chunk.toString().trim()
   line = line.substring(0, line.length) // take off the \r
 
-  if ( line.startsWith('$PDGY,TEXT') ) {
+  if (line.startsWith('$PDGY,TEXT')) {
     debug(line)
-  } else if ( line.startsWith('$PDGY,000000,') ) {
+  } else if (line.startsWith('$PDGY,000000,')) {
     const parts = line.split(',')
 
     //FIXME, camelCase?
-    if ( this.options.sendNetworkStats && parts[2] && parts[2].length > 0 ) {
+    if (this.options.sendNetworkStats && parts[2] && parts[2].length > 0) {
       const pgn = {
         pgn: 0x40100,
         prio: 7,
@@ -187,37 +191,39 @@ iKonvertStream.prototype._transform = function (chunk:any, encoding:string, done
         'CAN network load': Number(parts[2]),
         Errors: Number(parts[3]),
         'Device count': Number(parts[4]),
-        'Uptime': Number(parts[5]),
+        Uptime: Number(parts[5]),
         'Gateway address': Number(parts[6]),
         'Rejected TX requests': Number(parts[7])
       }
       const buf = toPgn(pgn)
-      if ( buf ) {
-        this.push(`!PDGY,${pgn.pgn},${pgn.prio},${pgn.src},${pgn.dst},0,${buf.toString('base64')}`)
+      if (buf) {
+        this.push(
+          `!PDGY,${pgn.pgn},${pgn.prio},${pgn.src},${pgn.dst},0,${buf.toString('base64')}`
+        )
       }
       done()
       return
     }
-  } else if ( line.startsWith('$PDGY,NAK') ) {
+  } else if (line.startsWith('$PDGY,NAK')) {
     const parts = line.split(',')
     const msg = `NavLink2 error ${parts[2]}: ${parts[3]}`
     console.error(msg)
     //this.setProviderError(msg)
   }
 
-  if ( !this.isSetup ) {
+  if (!this.isSetup) {
     debug(line)
     let command = this.setupCommands[this.state].split(':')
-    if ( !this.expecting ) {
+    if (!this.expecting) {
       this.sendString(command[0])
       this.expecting = true
       this.sentTime = Date.now()
       debug(`Waiting for ${command[1]}`)
     } else {
-      if ( line.startsWith(command[1]) ) {
+      if (line.startsWith(command[1])) {
         this.state = this.state + 1
-        
-        if ( this.state == this.setupCommands.length ) {
+
+        if (this.state == this.setupCommands.length) {
           this.isSetup = true
           this.cansend = true
           this.options.app.emit('nmea2000OutAvailable')
@@ -229,7 +235,7 @@ iKonvertStream.prototype._transform = function (chunk:any, encoding:string, done
           this.sentTime = Date.now()
           debug(`Waiting for ${command[1]}`)
         }
-      } else if ( Date.now() - this.sentTime > 5000 ) {
+      } else if (Date.now() - this.sentTime > 5000) {
         debug(`Did not receive expected: ${command[1]}, retrying...`)
         this.sendString(command[0])
         this.sentTime = Date.now()
@@ -238,10 +244,8 @@ iKonvertStream.prototype._transform = function (chunk:any, encoding:string, done
   } else {
     this.push(line)
   }
-  
+
   done()
 }
 
-iKonvertStream.prototype.end = function () {
-}
-
+iKonvertStream.prototype.end = function () {}

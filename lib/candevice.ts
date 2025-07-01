@@ -18,24 +18,26 @@ import { PGN } from '@canboat/pgns'
 import { N2kDevice } from './n2kDevice'
 import { debug as _debug } from 'debug'
 const debug = _debug('canboatjs:candevice')
-import _  from 'lodash'
+import _ from 'lodash'
 
 export class CanDevice extends N2kDevice {
   canbus: any
-  
-  constructor (canbus:any, options:any) {
+
+  constructor(canbus: any, options: any) {
     super(options)
     this.canbus = canbus
 
-    if ( options.app ) {
-      options.app.on(options.analyzerOutEvent || 'N2KAnalyzerOut', this.n2kMessage.bind(this))
+    if (options.app) {
+      options.app.on(
+        options.analyzerOutEvent || 'N2KAnalyzerOut',
+        this.n2kMessage.bind(this)
+      )
     }
   }
 
-  sendPGN(pgn:PGN, src:number|undefined = undefined) {
+  sendPGN(pgn: PGN, src: number | undefined = undefined) {
     pgn.src = src || this.address
     debug('Sending PGN %j', pgn)
     this.canbus.sendPGN(pgn, true)
   }
 }
-

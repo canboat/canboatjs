@@ -23,28 +23,28 @@ const debug = _debug('canboatjs:n2kdevice')
 export class YdDevice extends N2kDevice {
   app: any
   n2kOutEvent: string
-  
-  constructor (options:any) {
+
+  constructor(options: any) {
     super(options)
     this.app = options.app
     this.n2kOutEvent = options.jsonOutEvent || 'nmea2000JsonOut'
-    
+
     const analyzerOutEvent = options.analyzerOutEvent || 'N2KAnalyzerOut'
-    
+
     this.app.on(analyzerOutEvent, this.n2kMessage.bind(this))
   }
 
-  sendPGN(pgn:PGN, src:number|undefined = undefined) {
+  sendPGN(pgn: PGN, src: number | undefined = undefined) {
     pgn.src = src || this.address
 
     const ppgn = pgn as any //FIXME??
     ppgn.ydFullFormat = true
-    
+
     debug('Sending PGN %j', pgn)
     this.app.emit(this.n2kOutEvent, pgn)
   }
 
-  sendActisenseFormat(msg:string) {
+  sendActisenseFormat(msg: string) {
     this.app.emit('ydFullRawOut', actisenseToYdgwFullRawFormat(msg))
   }
 }

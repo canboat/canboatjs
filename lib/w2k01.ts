@@ -18,8 +18,13 @@ import { PGN } from '@canboat/pgns'
 import { debug as _debug } from 'debug'
 const debug = _debug('canboatjs:w2k01')
 const debugData = _debug('canboatjs:w2k01-data')
-import {Transform} from 'stream'
-import { pgnToActisenseN2KAsciiFormat, actisenseToN2KAsciiFormat, pgnToN2KActisenseFormat, actisenseToN2KActisenseFormat } from './toPgn'
+import { Transform } from 'stream'
+import {
+  pgnToActisenseN2KAsciiFormat,
+  actisenseToN2KAsciiFormat,
+  pgnToN2KActisenseFormat,
+  actisenseToN2KActisenseFormat
+} from './toPgn'
 import { readN2KActisense } from './n2k-actisense'
 import util from 'util'
 
@@ -28,7 +33,12 @@ import util from 'util'
 const N2K_ASCII = 0
 const N2K_ACTISENSE = 1
 
-export function W2K01Stream (this:any, options:any, type:string, outEvent:string) {
+export function W2K01Stream(
+  this: any,
+  options: any,
+  type: string,
+  outEvent: string
+) {
   /*
   if (!(this instanceof W2K01Stream)) {
     return new W2K01Stream(options)
@@ -45,18 +55,18 @@ export function W2K01Stream (this:any, options:any, type:string, outEvent:string
 
   this.format = type === 'ascii' ? N2K_ASCII : N2K_ACTISENSE
 
-  if ( this.format === N2K_ASCII ) {
-    if ( options.app ) {
-      options.app.on(this.options.outEevent || 'nmea2000out', (msg:string) => {
-        if ( typeof msg === 'string' ) {
+  if (this.format === N2K_ASCII) {
+    if (options.app) {
+      options.app.on(this.options.outEevent || 'nmea2000out', (msg: string) => {
+        if (typeof msg === 'string') {
           this.sendW2KPGN(msg)
         } else {
           this.sendPGN(msg)
         }
         options.app.emit('connectionwrite', { providerId: options.providerId })
       })
-      
-      options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg:PGN) => {
+
+      options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg: PGN) => {
         this.sendPGN(msg)
         options.app.emit('connectionwrite', { providerId: options.providerId })
       })
@@ -66,15 +76,15 @@ export function W2K01Stream (this:any, options:any, type:string, outEvent:string
   debug('started')
 }
 
-W2K01Stream.prototype.send = function (msg:string|Buffer) {
+W2K01Stream.prototype.send = function (msg: string | Buffer) {
   debug('sending %s', msg)
   this.options.app.emit(this.outEvent, msg)
 }
 
-W2K01Stream.prototype.sendPGN = function (pgn:PGN) {
+W2K01Stream.prototype.sendPGN = function (pgn: PGN) {
   //const now = Date.now()
   //let lastSent = pgnsSent[pgn.pgn]
-  if ( this.format === N2K_ASCII ) {
+  if (this.format === N2K_ASCII) {
     const ascii = pgnToActisenseN2KAsciiFormat(pgn)
     this.send(ascii + '\r\n')
   } else {
@@ -84,8 +94,8 @@ W2K01Stream.prototype.sendPGN = function (pgn:PGN) {
   //pgnsSent[pgn.pgn] = now
 }
 
-W2K01Stream.prototype.sendW2KPGN = function (msg:string) {
-  if ( this.format === N2K_ASCII ) {
+W2K01Stream.prototype.sendW2KPGN = function (msg: string) {
+  if (this.format === N2K_ASCII) {
     const ascii = actisenseToN2KAsciiFormat(msg)
     this.send(ascii + '\r\n')
   } else {
@@ -96,29 +106,33 @@ W2K01Stream.prototype.sendW2KPGN = function (msg:string) {
 
 util.inherits(W2K01Stream, Transform)
 
-W2K01Stream.prototype._transform = function (chunk:any, encoding:string, done:any) {
-  if ( !this.sentAvailable && this.format === N2K_ASCII ) {
+W2K01Stream.prototype._transform = function (
+  chunk: any,
+  encoding: string,
+  done: any
+) {
+  if (!this.sentAvailable && this.format === N2K_ASCII) {
     debug('emit nmea2000OutAvailable')
     this.options.app.emit('nmea2000OutAvailable')
     this.sentAvailable = true
   }
 
-  if ( this.format === N2K_ASCII ) {
-    if ( debugData.enabled ) {
+  if (this.format === N2K_ASCII) {
+    if (debugData.enabled) {
       debugData('Received: ' + chunk)
     }
     this.push(chunk)
   } else {
-    readN2KActisense(chunk, this.plainText, this, (data:any) => {
+    readN2KActisense(chunk, this.plainText, this, (data: any) => {
       this.push(data)
     })
   }
-  
+
   done()
 }
 
-W2K01Stream.prototype.pipe = function (pipeTo:any) {
-  if ( !pipeTo.fromPgn ) {
+W2K01Stream.prototype.pipe = function (pipeTo: any) {
+  if (!pipeTo.fromPgn) {
     this.plainText = true
   } else {
     this.plainText = false
@@ -126,7 +140,4 @@ W2K01Stream.prototype.pipe = function (pipeTo:any) {
   return (W2K01Stream as any).super_.prototype.pipe.call(this, pipeTo)
 }
 
-
-W2K01Stream.prototype.end = function () {
-}
-
+W2K01Stream.prototype.end = function () {}

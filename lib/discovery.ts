@@ -1,4 +1,3 @@
-
 /**
  * Copyright 2019 Scott Bender <scott@scottbender.net>
  *
@@ -20,36 +19,38 @@ const debug = _debug('canboatjs:discovery')
 import { isYDRAW } from './stringMsg'
 import dgram from 'dgram'
 
-export function discover(app:any) {
-
-  if ( app.config.settings.pipedProviders ) {
-    const exists = app.config.settings.pipedProviders.find((provider:any) => {
-      return provider.pipeElements
-        && provider.pipeElements.length === 1
-        && provider.pipeElements[0].type == 'providers/simple'
-        && provider.pipeElements[0].options
-        && provider.pipeElements[0].options.type === 'NMEA2000'
-        && provider.pipeElements[0].options.subOptions.type === 'ydwg02-udp-canboatjs'
-        && provider.pipeElements[0].options.subOptions.port === '2002'
+export function discover(app: any) {
+  if (app.config.settings.pipedProviders) {
+    const exists = app.config.settings.pipedProviders.find((provider: any) => {
+      return (
+        provider.pipeElements &&
+        provider.pipeElements.length === 1 &&
+        provider.pipeElements[0].type == 'providers/simple' &&
+        provider.pipeElements[0].options &&
+        provider.pipeElements[0].options.type === 'NMEA2000' &&
+        provider.pipeElements[0].options.subOptions.type ===
+          'ydwg02-udp-canboatjs' &&
+        provider.pipeElements[0].options.subOptions.port === '2002'
+      )
     })
 
-    if ( !exists ) {
+    if (!exists) {
       const socket = dgram.createSocket('udp4')
-      socket.on('message', (buffer:Buffer, _remote:any) => {
+      socket.on('message', (buffer: Buffer, _remote: any) => {
         const msg = buffer.toString('utf8')
-        if ( isYDRAW(msg) ) {
+        if (isYDRAW(msg)) {
           socket.close()
           app.emit('discovered', {
             id: 'YDGW-02-UDP',
             pipeElements: [
               {
-                "type": "providers/simple",
-                "options": {
-                  "logging": false,
-                  "type": "NMEA2000",
-                  "subOptions": {
-                    "type": "ydwg02-udp-canboatjs",
-                    "port": "2002"
+                type: 'providers/simple',
+                options: {
+                  logging: false,
+                  type: 'NMEA2000',
+                  subOptions: {
+                    type: 'ydwg02-udp-canboatjs',
+                    port: '2002'
                   }
                 }
               }
@@ -57,7 +58,7 @@ export function discover(app:any) {
           })
         }
       })
-      socket.on('error', (error:any) => {
+      socket.on('error', (error: any) => {
         debug(error)
       })
       socket.on('close', () => {
@@ -66,16 +67,16 @@ export function discover(app:any) {
       debug('looking for YDGW over UDP')
       try {
         socket.bind(2002)
-      } catch ( ex ) {
+      } catch (ex) {
         debug(ex)
       }
       setTimeout(() => {
-        if ( socket ) {
+        if (socket) {
           socket.close()
         }
       }, 5000)
     }
-  }  
+  }
 
   /*
   if ( app.config.settings.pipedProviders ) {

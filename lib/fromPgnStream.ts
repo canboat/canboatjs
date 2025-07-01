@@ -16,35 +16,39 @@
 
 import { PGN } from '@canboat/pgns'
 import { debug as _debug } from 'debug'
-import {Transform} from 'stream'
+import { Transform } from 'stream'
 import { Parser as FromPgn } from './fromPgn'
 import util from 'util'
 
 const debug = _debug('canboatjs:FromPgnStream')
 
-function fromPgnStream (this:any, options:any) {
+function fromPgnStream(this: any, options: any) {
   Transform.call(this, {
     objectMode: true
   })
 
   this.fromPgn = new FromPgn(options)
 
-  this.fromPgn.on('pgn', (pgn:PGN) => {
+  this.fromPgn.on('pgn', (pgn: PGN) => {
     this.push(pgn)
   })
 
-  this.fromPgn.on('warning', (pgn:PGN, warning:string) => {
+  this.fromPgn.on('warning', (pgn: PGN, warning: string) => {
     debug(`[warning] ${pgn.pgn} ${warning}`)
   })
 
-  this.fromPgn.on('error', (pgn:PGN, error:any) => {
+  this.fromPgn.on('error', (pgn: PGN, error: any) => {
     debug(`[error] ${pgn.pgn} ${error}`)
   })
 }
 
 util.inherits(fromPgnStream, Transform)
 
-fromPgnStream.prototype._transform = function (chunk:any, encoding:string, done:any) {
+fromPgnStream.prototype._transform = function (
+  chunk: any,
+  encoding: string,
+  done: any
+) {
   this.fromPgn.parse(chunk)
   done()
 }

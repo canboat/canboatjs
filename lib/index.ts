@@ -17,18 +17,27 @@
  */
 
 export { Parser as FromPgn } from './fromPgn'
-export { CanbusStream as canbus } from './canbus' 
-export { addCustomPgns, lookupEnumerationValue, lookupEnumerationName } from './pgns'
-export { parseN2kString, isN2KString, toActisenseSerialFormat } from './stringMsg'
-export { toPgn,
-         pgnToActisenseSerialFormat,
-         pgnToActisenseN2KAsciiFormat,
-         pgnToiKonvertSerialFormat,
-         pgnToYdgwRawFormat,
-         pgnToYdgwFullRawFormat,
-         pgnToPCDIN,
-         pgnToMXPGN
-       } from './toPgn'
+export { CanbusStream as canbus } from './canbus'
+export {
+  addCustomPgns,
+  lookupEnumerationValue,
+  lookupEnumerationName
+} from './pgns'
+export {
+  parseN2kString,
+  isN2KString,
+  toActisenseSerialFormat
+} from './stringMsg'
+export {
+  toPgn,
+  pgnToActisenseSerialFormat,
+  pgnToActisenseN2KAsciiFormat,
+  pgnToiKonvertSerialFormat,
+  pgnToYdgwRawFormat,
+  pgnToYdgwFullRawFormat,
+  pgnToPCDIN,
+  pgnToMXPGN
+} from './toPgn'
 export { Ydgw02Stream as Ydwg02 } from './ydgw02'
 export { Ydgw02Stream as Ydgw02 } from './ydgw02'
 export { W2K01Stream as W2k01 } from './w2k01'
@@ -39,4 +48,3 @@ export { discover } from './discovery'
 export { SimpleCan } from './simpleCan'
 export { YdDevice } from './yddevice'
 export { SerialStream as serial } from './serial'
-
