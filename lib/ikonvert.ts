@@ -23,14 +23,14 @@ import _ from 'lodash'
 import { defaultTransmitPGNs } from './codes'
 import util from 'util'
 
-const debug = createDebug('canboatjs:ikonvert')
-
 //const pgnsSent = {}
 
 export function iKonvertStream(this: any, options: any) {
   if (this == undefined) {
     return new (iKonvertStream as any)(options)
   }
+
+  this.debug = createDebug('canboatjs:ikonvert', options)
 
   Transform.call(this, {
     objectMode: true
@@ -89,7 +89,7 @@ export function iKonvertStream(this: any, options: any) {
     this.setupCommands = this.getSetupCommands()
     this.expecting = false
 
-    debug('started')
+    this.debug('started')
   }
 }
 
@@ -98,7 +98,7 @@ util.inherits(iKonvertStream, Transform)
 iKonvertStream.prototype.start = function () {}
 
 iKonvertStream.prototype.sendString = function (msg: string) {
-  debug('sending %s', msg)
+  this.debug('sending %s', msg)
   if (this.isTcp) {
     msg = msg + '\n\r'
   }
@@ -144,7 +144,7 @@ iKonvertStream.prototype.setup = function () {
   this.transmitPGNs.forEach((pgn: number) => {
     txPgns = txPgns + `,${pgn}`
   })
-  debug('sending pgn tx list')
+  this.debug('sending pgn tx list')
   this.sendString(txPgns)
 }
 
@@ -176,7 +176,7 @@ iKonvertStream.prototype._transform = function (
   line = line.substring(0, line.length) // take off the \r
 
   if (line.startsWith('$PDGY,TEXT')) {
-    debug(line)
+    this.debug(line)
   } else if (line.startsWith('$PDGY,000000,')) {
     const parts = line.split(',')
 
@@ -211,13 +211,13 @@ iKonvertStream.prototype._transform = function (
   }
 
   if (!this.isSetup) {
-    debug(line)
+    this.debug(line)
     let command = this.setupCommands[this.state].split(':')
     if (!this.expecting) {
       this.sendString(command[0])
       this.expecting = true
       this.sentTime = Date.now()
-      debug(`Waiting for ${command[1]}`)
+      this.debug(`Waiting for ${command[1]}`)
     } else {
       if (line.startsWith(command[1])) {
         this.state = this.state + 1
@@ -226,16 +226,16 @@ iKonvertStream.prototype._transform = function (
           this.isSetup = true
           this.cansend = true
           this.options.app.emit('nmea2000OutAvailable')
-          debug('Setup completed')
+          this.debug('Setup completed')
         } else {
           command = this.setupCommands[this.state].split(':')
           this.sendString(command[0])
           this.expecting = true
           this.sentTime = Date.now()
-          debug(`Waiting for ${command[1]}`)
+          this.debug(`Waiting for ${command[1]}`)
         }
       } else if (Date.now() - this.sentTime > 5000) {
-        debug(`Did not receive expected: ${command[1]}, retrying...`)
+        this.debug(`Did not receive expected: ${command[1]}, retrying...`)
         this.sendString(command[0])
         this.sentTime = Date.now()
       }

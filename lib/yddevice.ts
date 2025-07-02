@@ -19,14 +19,13 @@ import { N2kDevice } from './n2kDevice'
 import { actisenseToYdgwFullRawFormat } from './toPgn'
 import { createDebug } from './utilities'
 
-const debug = createDebug('canboatjs:n2kdevice')
-
 export class YdDevice extends N2kDevice {
   app: any
   n2kOutEvent: string
 
   constructor(options: any) {
     super(options)
+    this.debug = createDebug('canboatjs:n2kdevice', options)
     this.app = options.app
     this.n2kOutEvent = options.jsonOutEvent || 'nmea2000JsonOut'
 
@@ -41,7 +40,7 @@ export class YdDevice extends N2kDevice {
     const ppgn = pgn as any //FIXME??
     ppgn.ydFullFormat = true
 
-    debug('Sending PGN %j', pgn)
+    this.debug('Sending PGN %j', pgn)
     this.app.emit(this.n2kOutEvent, pgn)
   }
 

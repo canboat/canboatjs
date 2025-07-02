@@ -32,15 +32,12 @@ import {
   ControllerState,
   IsoControl
 } from '@canboat/ts-pgns'
-import { createDebug } from './utilities'
 import { EventEmitter } from 'node:events'
 import _ from 'lodash'
 import { Uint64LE } from 'int64-buffer'
 import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
 import packageJson from '../package.json'
-
-const debug = createDebug('canboatjs:n2kdevice')
 
 const deviceTransmitPGNs = [60928, 59904, 126996, 126464]
 
@@ -60,6 +57,7 @@ export class N2kDevice extends EventEmitter {
   addressClaimSentAt?: number
   addressClaimChecker?: any
   heartbeatInterval?: any
+  debug: any
 
   constructor(options: any) {
     super()
@@ -194,7 +192,7 @@ export class N2kDevice extends EventEmitter {
 }
 
 function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
-  debug('handleISORequest %j', n2kMsg)
+  device.debug('handleISORequest %j', n2kMsg)
 
   const PGN = Number(n2kMsg.fields.pgn)
 
@@ -206,7 +204,7 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
       sendConfigInformation(device)
       break
     case 60928: // ISO address claim request
-      debug('sending address claim %j', device.addressClaim)
+      device.debug('sending address claim %j', device.addressClaim)
       device.sendPGN(device.addressClaim as PGN)
       break
     case 126464:
@@ -214,21 +212,21 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
       break
     default:
       if (!device.options.disableNAKs) {
-        debug(`Got unsupported ISO request for PGN ${PGN}. Sending NAK.`)
+        device.debug(`Got unsupported ISO request for PGN ${PGN}. Sending NAK.`)
         sendNAKAcknowledgement(device, n2kMsg.src!, PGN)
       }
   }
 }
 
 function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
-  debug('handleGroupFunction %j', n2kMsg)
+  device.debug('handleGroupFunction %j', n2kMsg)
   const functionCode = n2kMsg.fields.functionCode
   if (functionCode === 'Request') {
     handleRequestGroupFunction(device, n2kMsg)
   } else if (functionCode === 'Command') {
     handleCommandGroupFunction(device, n2kMsg)
   } else {
-    debug('Got unsupported Group Function PGN: %j', n2kMsg)
+    device.debug('Got unsupported Group Function PGN: %j', n2kMsg)
   }
 
   function handleRequestGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
@@ -237,7 +235,7 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
 
       const PGN = n2kMsg.fields.pgn
 
-      debug(
+      device.debug(
         "Sending 'PGN Not Supported' Group Function response for requested PGN",
         PGN
       )
@@ -268,7 +266,7 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
 
       const PGN = n2kMsg.fields.pgn
 
-      debug(
+      device.debug(
         "Sending 'PGN Not Supported' Group Function response for commanded PGN",
         PGN
       )
@@ -294,7 +292,7 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
 function handleISOAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
   if (n2kMsg.src != device.address) {
     if (!device.devices[n2kMsg.src!]) {
-      debug(`registering device ${n2kMsg.src}`)
+      device.debug(`registering device ${n2kMsg.src}`)
       device.devices[n2kMsg.src!] = { addressClaim: n2kMsg }
       if (device.cansend) {
         //sendISORequest(device, 126996, undefined, n2kMsg.src)
@@ -303,7 +301,7 @@ function handleISOAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
     return
   }
 
-  debug('Checking ISO address claim. %j', n2kMsg)
+  device.debug('Checking ISO address claim. %j', n2kMsg)
 
   const uint64ValueFromReceivedClaim = getISOAddressClaimAsUint64(n2kMsg)
   const uint64ValueFromOurOwnClaim = getISOAddressClaimAsUint64(
@@ -311,12 +309,16 @@ function handleISOAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
   )
 
   if (uint64ValueFromOurOwnClaim < uint64ValueFromReceivedClaim) {
-    debug(`Address conflict detected! Kept our address as ${device.address}.`)
+    device.debug(
+      `Address conflict detected! Kept our address as ${device.address}.`
+    )
     sendAddressClaim(device) // We have smaller address claim data -> we can keep our address -> re-claim it
   } else if (uint64ValueFromOurOwnClaim > uint64ValueFromReceivedClaim) {
     device.foundConflict = true
     increaseOwnAddress(device) // We have bigger address claim data -> we have to change our address
-    debug(`Address conflict detected!  trying address ${device.address}.`)
+    device.debug(
+      `Address conflict detected!  trying address ${device.address}.`
+    )
     sendAddressClaim(device)
   }
 }
@@ -332,7 +334,7 @@ function handleProductInformation(device: N2kDevice, n2kMsg: PGN_126996) {
   if (!device.devices[n2kMsg.src!]) {
     device.devices[n2kMsg.src!] = {}
   }
-  debug('got product information %j', n2kMsg)
+  device.debug('got product information %j', n2kMsg)
   device.devices[n2kMsg.src!].productInformation = n2kMsg
 }
 
@@ -361,7 +363,7 @@ function sendAddressClaim(device: N2kDevice) {
     //someone already has this address, so find a free one
     increaseOwnAddress(device)
   }
-  debug(`Sending address claim ${device.address}`)
+  device.debug(`Sending address claim ${device.address}`)
   device.sendPGN(device.addressClaim)
   device.setStatus(`Claimed address ${device.address}`)
   device.addressClaimSentAt = Date.now()
@@ -372,7 +374,7 @@ function sendAddressClaim(device: N2kDevice) {
   device.addressClaimChecker = setTimeout(() => {
     //if ( Date.now() - device.addressClaimSentAt > 1000 ) {
     //device.addressClaimChecker = null
-    debug('claimed address %d', device.address)
+    device.debug('claimed address %d', device.address)
     device.cansend = true
     if (!device.sentAvailable) {
       if (device.options.app) {
@@ -397,7 +399,7 @@ function sendISORequest(
   src: number | undefined = undefined,
   dst = 255
 ) {
-  debug(`Sending iso request for ${pgn} to ${dst}`)
+  device.debug(`Sending iso request for ${pgn} to ${dst}`)
 
   const isoRequest: PGN_59904 = {
     pgn: 59904,
@@ -410,14 +412,14 @@ function sendISORequest(
 }
 
 function sendProductInformation(device: N2kDevice) {
-  debug('Sending product info %j', device.productInfo)
+  device.debug('Sending product info %j', device.productInfo)
 
   device.sendPGN(device.productInfo)
 }
 
 function sendConfigInformation(device: N2kDevice) {
   if (device.configurationInfo) {
-    debug('Sending config info..')
+    device.debug('Sending config info..')
     device.sendPGN(device.configurationInfo)
   }
 }

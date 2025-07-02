@@ -27,8 +27,6 @@ import {
 } from './toPgn'
 import util from 'util'
 
-const debug = createDebug('canboatjs:ydgw02')
-
 //const pgnsSent = {}
 
 export function Ydgw02Stream(this: any, options: any, type: string) {
@@ -40,6 +38,7 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
     objectMode: true
   })
 
+  this.debug = createDebug('canboatjs:ydgw02', options)
   this.sentAvailable = false
   this.options = options
   this.outEvent = options.ydgwOutEvent || 'ydwg02-out'
@@ -52,7 +51,7 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   })
 
   this.fromPgn.on('error', (pgn: PGN, error: any) => {
-    debug(`[error] ${pgn.pgn} ${error}`)
+    this.debug(`[error] ${pgn.pgn} ${error}`)
   })
 
   if (options.app) {
@@ -87,7 +86,7 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
       this.device.start()
     }
 
-    debug('started')
+    this.debug('started')
   }
 }
 
@@ -97,7 +96,7 @@ Ydgw02Stream.prototype.cansend = function (_msg: any) {
 
 Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
   if (this.cansend() || forceSend === true) {
-    debug('sending %s', msg)
+    this.debug('sending %s', msg)
     this.options.app.emit(this.outEvent, msg)
   }
 }
@@ -176,7 +175,7 @@ Ydgw02Stream.prototype._transform = function (
   //line = line.substring(0, line.length) // take off the \r
 
   if (this.device === undefined && !this.sentAvailable) {
-    debug('emit nmea2000OutAvailable')
+    this.debug('emit nmea2000OutAvailable')
     this.options.app.emit('nmea2000OutAvailable')
     this.sentAvailable = true
   }

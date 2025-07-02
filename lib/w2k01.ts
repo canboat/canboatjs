@@ -26,9 +26,6 @@ import {
 import { readN2KActisense } from './n2k-actisense'
 import util from 'util'
 
-const debug = createDebug('canboatjs:w2k01')
-const debugData = createDebug('canboatjs:w2k01-data')
-
 //const pgnsSent = {}
 
 const N2K_ASCII = 0
@@ -47,6 +44,9 @@ export function W2K01Stream(
   Transform.call(this, {
     objectMode: true
   })
+
+  this.debug = createDebug('canboatjs:w2k01', options)
+  this.debugData = createDebug('canboatjs:w2k01-data', options)
 
   this.sentAvailable = false
   this.options = options
@@ -72,11 +72,11 @@ export function W2K01Stream(
     }
   }
 
-  debug('started')
+  this.debug('started')
 }
 
 W2K01Stream.prototype.send = function (msg: string | Buffer) {
-  debug('sending %s', msg)
+  this.debug('sending %s', msg)
   this.options.app.emit(this.outEvent, msg)
 }
 
@@ -111,14 +111,14 @@ W2K01Stream.prototype._transform = function (
   done: any
 ) {
   if (!this.sentAvailable && this.format === N2K_ASCII) {
-    debug('emit nmea2000OutAvailable')
+    this.debug('emit nmea2000OutAvailable')
     this.options.app.emit('nmea2000OutAvailable')
     this.sentAvailable = true
   }
 
   if (this.format === N2K_ASCII) {
-    if (debugData.enabled) {
-      debugData('Received: ' + chunk)
+    if (this.debugData.enabled) {
+      this.debugData('Received: ' + chunk)
     }
     this.push(chunk)
   } else {

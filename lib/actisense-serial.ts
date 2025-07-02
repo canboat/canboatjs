@@ -25,9 +25,6 @@ import { defaultTransmitPGNs } from './codes'
 import _ from 'lodash'
 import { Parser as FromPgn } from './fromPgn'
 
-const debugOut = createDebug('signalk:actisense-out')
-const debug = createDebug('signalk:actisense-serial')
-
 /* ASCII characters used to mark packet start/stop */
 
 const STX = 0x02 /* Start packet */
@@ -62,11 +59,14 @@ export function ActisenseStream(this: any, options: any) {
     return new (ActisenseStream as any)(options)
   }
 
+  this.debugOut = createDebug('canboatjs:actisense-out', options)
+  this.debug = createDebug('canboatjs:actisense-serial', options)
+
   Transform.call(this, {
     objectMode: true
   })
 
-  debug('options: %j', options)
+  this.debug('options: %j', options)
 
   this.reconnect = options.reconnect || true
   this.serial = null
@@ -151,10 +151,10 @@ ActisenseStream.prototype.start = function (this: any) {
 
     if (this.options.app) {
       const writeString = (msg: string) => {
-        debugOut(`sending ${msg}`)
+        this.debugOut(`sending ${msg}`)
         let buf = parseInput(msg)
         buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
-        debugOut(buf)
+        this.debugOut(buf)
         this.serial.write(buf)
         this.options.app.emit('connectionwrite', {
           providerId: this.options.providerId
@@ -164,10 +164,10 @@ ActisenseStream.prototype.start = function (this: any) {
       const writeObject = (msg: PGN) => {
         const data = toPgn(msg)
         const actisense = encodeActisense({ pgn: msg.pgn, data, dst: msg.dst })
-        debugOut(`sending ${actisense}`)
+        this.debugOut(`sending ${actisense}`)
         let buf = parseInput(actisense)
         buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
-        debugOut(buf)
+        this.debugOut(buf)
         this.serial.write(buf)
         this.options.app.emit('connectionwrite', {
           providerId: this.options.providerId
@@ -218,17 +218,17 @@ ActisenseStream.prototype.start = function (this: any) {
           Buffer.from(NGT_STARTUP_MSG),
           NGT_STARTUP_MSG.length
         )
-        debugOut(buf)
+        this.debugOut(buf)
         this.serial.write(buf)
-        debug('sent startup message')
+        this.debug('sent startup message')
         this.gotStartupResponse = false
         if (this.options.disableSetTransmitPGNs) {
           enableOutput(this)
         } else {
           setTimeout(() => {
             if (this.gotStartupResponse === false) {
-              debug('retry startup message...')
-              debugOut(buf)
+              this.debug('retry startup message...')
+              this.debugOut(buf)
               this.serial.write(buf)
             }
           }, 5000)
@@ -247,7 +247,7 @@ ActisenseStream.prototype.scheduleReconnect = function () {
   const msg = `Not connected (retry delay ${(
     this.reconnectDelay / 1000
   ).toFixed(0)} s)`
-  debug(msg)
+  this.debug(msg)
   this.setProviderStatus(msg)
   setTimeout(this.start.bind(this), this.reconnectDelay)
 }
@@ -308,15 +308,15 @@ function read1Byte(that: any, c: any) {
   }
 }
 
-function enableTXPGN(serial: any, pgn: number) {
-  debug('enabling pgn %d', pgn)
+function enableTXPGN(that: any, pgn: number) {
+  that.debug('enabling pgn %d', pgn)
   const msg = composeEnablePGN(pgn)
-  debugOut(msg)
-  serial.write(msg)
+  that.debugOut(msg)
+  that.serial.write(msg)
 }
 
 function enableOutput(that: any) {
-  debug('outputEnabled')
+  that.debug('outputEnabled')
   that.outAvailable = true
   if (that.options.app) {
     that.options.app.emit('nmea2000OutAvailable')
@@ -324,14 +324,14 @@ function enableOutput(that: any) {
 }
 
 function requestTransmitPGNList(that: any) {
-  debug('request tx pgns...')
+  that.debug('request tx pgns...')
   const requestMsg = composeRequestTXPGNList()
-  debugOut(requestMsg)
+  that.debugOut(requestMsg)
   that.serial.write(requestMsg)
   setTimeout(() => {
     if (!that.gotTXPGNList) {
       if (that.transmitPGNRetries-- > 0) {
-        debug('did not get tx pgn list, retrying...')
+        that.debug('did not get tx pgn list, retrying...')
         requestTransmitPGNList(that)
       } else {
         const msg = 'could not set transmit pgn list'
@@ -353,11 +353,11 @@ function processNTGMessage(that: any, buffer: Buffer, len: number) {
   const command = buffer[2]
 
   if (checksum != 0) {
-    debug('received message with invalid checksum (%d,%d)', command, len)
+    that.debug('received message with invalid checksum (%d,%d)', command, len)
     return
   }
 
-  if (that.options.sendNetworkStats || debug.enabled) {
+  if (that.options.sendNetworkStats || that.debug.enabled) {
     const newbuf = Buffer.alloc(len + 7)
     const bs = new BitStream(newbuf)
     const pgn = 0x40000 + buffer[2]
@@ -376,14 +376,14 @@ function processNTGMessage(that: any, buffer: Buffer, len: number) {
     } else {
       that.push(bs.view.buffer, len + 7)
     }
-    if (debug.enabled && command != 0xf2) {
+    if (that.debug.enabled && command != 0xf2) {
       //don't log system status
       if (!that.parser) {
         that.parser = new FromPgn({})
       }
       const js = that.parser.parseBuffer(bs.view.buffer)
       if (js) {
-        debug('got ntg message: %j', js)
+        that.debug('got ntg message: %j', js)
       }
     }
   }
@@ -391,7 +391,7 @@ function processNTGMessage(that: any, buffer: Buffer, len: number) {
   if (command === 0x11) {
     //confirm startup
     that.gotStartupResponse = true
-    debug('got startup response')
+    that.debug('got startup response')
   }
 
   if (!that.outAvailable) {
@@ -409,17 +409,17 @@ function processNTGMessage(that: any, buffer: Buffer, len: number) {
       for (let i = 0; i < pgnCount; i++) {
         pgns.push(bs.readUint32())
       }
-      debug('tx pgns: %j', pgns)
+      that.debug('tx pgns: %j', pgns)
 
       that.neededTransmitPGNs = that.transmitPGNs.filter((pgn: number) => {
         return pgns.indexOf(pgn) == -1
       })
-      debug('needed pgns: %j', that.neededTransmitPGNs)
+      that.debug('needed pgns: %j', that.neededTransmitPGNs)
     } else if (command === 0x49 && buffer[3] === 4) {
       //I think this means done receiving the pgns list
       if (that.neededTransmitPGNs) {
         if (that.neededTransmitPGNs.length) {
-          enableTXPGN(that.serial, that.neededTransmitPGNs[0])
+          enableTXPGN(that, that.neededTransmitPGNs[0])
         } else {
           enableOutput(that)
         }
@@ -427,25 +427,25 @@ function processNTGMessage(that: any, buffer: Buffer, len: number) {
     } else if (command === 0x47) {
       //response from enable a pgn
       if (buffer[3] === 1) {
-        debug('enabled %d', that.neededTransmitPGNs[0])
+        that.debug('enabled %d', that.neededTransmitPGNs[0])
         that.neededTransmitPGNs = that.neededTransmitPGNs.slice(1)
         if (that.neededTransmitPGNs.length === 0) {
           const commitMsg = composeCommitTXPGN()
-          debugOut(commitMsg)
+          that.debugOut(commitMsg)
           that.serial.write(commitMsg)
         } else {
           enableTXPGN(that.serial, that.neededTransmitPGNs[0])
         }
       } else {
-        debug('bad response from Enable TX: %d', buffer[3])
+        that.debug('bad response from Enable TX: %d', buffer[3])
       }
     } else if (command === 0x01) {
-      debug('commited tx list')
+      that.debug('commited tx list')
       const activateMsg = composeActivateTXPGN()
-      debugOut(activateMsg)
+      that.debugOut(activateMsg)
       that.serial.write(activateMsg)
     } else if (command === 0x4b) {
-      debug('activated tx list')
+      that.debug('activated tx list')
       enableOutput(that)
     }
   }
@@ -468,7 +468,7 @@ function processN2KMessage(that: any, buffer: Buffer, len: number) {
   }
 
   if (checksum != 0) {
-    debug('received message with invalid checksum')
+    that.debug('received message with invalid checksum')
     return
   }
 
@@ -534,7 +534,7 @@ function composeMessage(command: number, buffer: Buffer, len: number) {
 
   out.view.buffer.writeUInt8(len, lenPos)
 
-  //debug(`command ${out.view.buffer[2]} ${lenPos} ${len} ${out.view.buffer[lenPos]} ${out.view.buffer.length} ${out.byteIndex}`)
+  //that.debug(`command ${out.view.buffer[2]} ${lenPos} ${len} ${out.view.buffer[lenPos]} ${out.view.buffer.length} ${out.byteIndex}`)
 
   return out.view.buffer.slice(0, out.byteIndex)
 }
@@ -600,7 +600,7 @@ function composeEnablePGN(pgn: number) {
     out.byteIndex
   )
 
-  //debug('composeEnablePGN: %o', res)
+  //that.debug('composeEnablePGN: %o', res)
 
   return res
 }
@@ -621,7 +621,7 @@ function composeDisablePGN(pgn) {
 
   let res = composeMessage(NGT_MSG_SEND, out.view.buffer.slice(0, out.byteIndex), out.byteIndex)
   
-  debug('composeDisablePGN: %o', res)
+  that.debug('composeDisablePGN: %o', res)
   
   return res;
   }
@@ -638,7 +638,7 @@ ActisenseStream.prototype._transform = function (
   encoding: string,
   done: any
 ) {
-  debug(`got data ${typeof chunk}`)
+  this.debug(`got data ${typeof chunk}`)
   readData(this, chunk)
   done()
 }
