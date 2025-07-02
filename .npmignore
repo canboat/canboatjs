@@ -67,3 +67,5 @@ packages
 .travis.yml
 
 ios_canboat.js
+examples/
+ios.js

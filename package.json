@@ -39,7 +39,8 @@
     "actisense-n2k-tcp": "./dist/bin/actisense-n2k-tcp.js",
     "candumpjs": "./dist/bin/candumpjs.js",
     "ikonvert-serial": "./dist/bin/ikonvert-serial.js",
-    "cansend": "./dist/bin/cansend.js"
+    "cansend": "./dist/bin/cansend.js",
+    "ydr-file": "./dist/bin/ydvr-file.js"
   },
   "keywords": [
     "boat",

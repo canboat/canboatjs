@@ -5,10 +5,13 @@ import minimist from 'minimist'
 import { serial } from '../index'
 import { Transform } from 'stream'
 import fs from 'fs'
+import { printVersion } from './utils'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' }
 })
+
+printVersion(argv)
 
 if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} file

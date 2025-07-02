@@ -4,11 +4,14 @@ import { PGN } from '@canboat/ts-pgns'
 import { Parser } from '../fromPgn'
 import minimist from 'minimist'
 import readline from 'readline'
+import { printVersion } from './utils'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
   boolean: ['n', 'r', 'camel', 'camel-compat']
 })
+
+printVersion(argv)
 
 if (argv['help']) {
   console.error(`Usage: ${process.argv[1]} [options]

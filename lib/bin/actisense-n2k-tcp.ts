@@ -4,12 +4,15 @@ import { createDebug } from '../utilities'
 import net from 'net'
 import { readN2KActisense } from '../n2k-actisense'
 import minimist from 'minimist'
+import { printVersion } from './utils'
 
 const debug = createDebug('canboatjs:w2k01')
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' }
 })
+
+printVersion(argv)
 
 function help() {
   console.error(`Usage: ${process.argv[0]} [options] host port

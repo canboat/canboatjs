@@ -5,11 +5,14 @@ import minimist from 'minimist'
 import readline from 'readline'
 import { serial } from '../index'
 import { Transform } from 'stream'
+import { printVersion } from './utils'
 
 const argv = minimist(process.argv.slice(2), {
   boolean: ['disable-output'],
   alias: { h: 'help' }
 })
+
+printVersion(argv)
 
 if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options] device_path

@@ -6,12 +6,15 @@ import { getPlainPGNs, binToActisense } from '../utilities'
 import { encodeCanId } from '../canId'
 import readline from 'readline'
 import minimist from 'minimist'
+import { printVersion } from './utils'
 
 const argv = minimist(process.argv.slice(2), {
   boolean: ['test', 'log-output'],
   string: ['src'],
   alias: { h: 'help' }
 })
+
+printVersion(argv)
 
 if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options] candevice
