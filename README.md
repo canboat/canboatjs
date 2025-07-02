@@ -20,7 +20,7 @@ Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) 
 
 # PGN Descriptions
 
-The details about the PGNs recognized by Canboatjs come from the canboat project in [pgns.json](https://github.com/canboat/canboat/blob/master/analyzer/pgns.json). If you want to add or update PGN details, please make changes to the [pgn.h file](https://github.com/canboat/canboat/blob/master/analyzer/pgn.h) in canboat and submit a pull request there. Include sample data and raise an issue here so that I can include your changes in Canboatjs.
+The details about the PGNs recognized by Canboatjs come from the canboat project in [canboat.json](https://github.com/canboat/canboat/blob/master/docs/canboat.json). If you want to add or update PGN details, please make changes to the [pgn.h file](https://github.com/canboat/canboat/blob/master/analyzer/pgn.h) in canboat and submit a pull request there. Include sample data and raise an issue here so that I can include your changes in Canboatjs.
 
 # Command Line Programs
 
@@ -34,16 +34,11 @@ Examples:
 - `ikonvert-serial /dev/ttyUSB0 | analyzerjs`
 - `nc ydgw 1475 | analyzerjs`
 - `nc w2k-1 6002 | analyzerjs` // port should be N2K ACSCII format server on a w2k-1
+-  `candump can0 | analyzerjs`
 
 ## to-pgn
 
 This program takes input in the canboat json format and outputs actisense serial format.
-
-## candumpanalyzer
-
-This program takes input in the candump format and outputs canboat json format
-
-Example: `candump can0 | candumpanalyzerjs`
 
 ## candumpjs
 
