@@ -15,7 +15,7 @@ jobs:
     - name: Install and build 
       run: |
         npm cache clean -f
-        npm install --package-lock-only
+        npm install
         npm ci && npm cache clean --force
         npm run build
 
