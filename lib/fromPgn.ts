@@ -88,7 +88,7 @@ export class Parser extends EventEmitter {
     }
 
     if (this.options.useCamel === undefined) {
-      this.options.useCamelCompat = true
+      this.options.useCamel = true
     }
 
     if (this.options.useCamelCompat === undefined) {
