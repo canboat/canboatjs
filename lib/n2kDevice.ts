@@ -115,7 +115,7 @@ export class N2kDevice extends EventEmitter {
         'NMEA 2000 Version': 1300,
         'Product Code': 667, // Just made up..
         'Model ID': 'Signal K',
-        'Model Version': 'canboatjs',
+        'Model Version': getModelVersion(options),
         'Model Serial Code': uniqueNumber.toString(),
         'Certification Level': 0,
         'Load Equivalency': 1
@@ -234,6 +234,14 @@ export class N2kDevice extends EventEmitter {
   }
 
   sendPGN(_pgn: PGN, _src: number | undefined = undefined) {}
+}
+
+function getModelVersion(options: any) {
+  if (options.app?.config?.getExternalHostname !== undefined) {
+    return `${options.app.config.ssl ? 'https' : 'http'}://${options.app.config.getExternalHostname()}:${options.app.config.getExternalPort()}`
+  } else {
+    return 'canboatjs'
+  }
 }
 
 function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
