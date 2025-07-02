@@ -38,6 +38,8 @@ import { Uint64LE } from 'int64-buffer'
 import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
 import packageJson from '../package.json'
+import { getPersistedData, savePersistedData } from './utilities'
+import { createDebug } from './utilities'
 
 const deviceTransmitPGNs = [60928, 59904, 126996, 126464]
 
@@ -59,8 +61,22 @@ export class N2kDevice extends EventEmitter {
   heartbeatInterval?: any
   debug: any
 
-  constructor(options: any) {
+  constructor(options: any, debugName: string) {
     super()
+
+    this.options = options === undefined ? {} : options
+    this.debug = createDebug(debugName, options)
+
+    let uniqueNumber: number
+    if (options.uniqueNumber !== undefined) {
+      uniqueNumber = options.uniqueNumber
+    } else {
+      uniqueNumber = this.getPersistedData('uniqueNumber')
+      if (uniqueNumber === undefined) {
+        uniqueNumber = Math.floor(Math.random() * Math.floor(2097151))
+        this.savePersistedData('uniqueNumber', uniqueNumber)
+      }
+    }
 
     if (options.addressClaim) {
       this.addressClaim = options.addressClaim
@@ -72,7 +88,6 @@ export class N2kDevice extends EventEmitter {
         pgn: 60928,
         dst: 255,
         prio: 6,
-        'Unique Number': 1263,
         'Manufacturer Code': 999,
         'Device Function': 130, // PC gateway
         'Device Class': 25, // Inter/Intranetwork Device
@@ -83,8 +98,8 @@ export class N2kDevice extends EventEmitter {
         Reserved1: 1,
         Reserved2: 2
       }
-      this.addressClaim['Unique Number'] =
-        options.uniqueNumber || Math.floor(Math.random() * Math.floor(2097151))
+
+      this.addressClaim['Unique Number'] = uniqueNumber
     }
 
     const version = packageJson ? packageJson.version : '1.0'
@@ -101,9 +116,7 @@ export class N2kDevice extends EventEmitter {
         'Product Code': 667, // Just made up..
         'Model ID': 'Signal K',
         'Model Version': 'canboatjs',
-        'Model Serial Code': options.uniqueNumber
-          ? options.uniqueNumber.toString()
-          : '000001',
+        'Model Serial Code': uniqueNumber.toString(),
         'Certification Level': 0,
         'Load Equivalency': 1
       }
@@ -121,11 +134,16 @@ export class N2kDevice extends EventEmitter {
       }
     }
 
-    this.options = _.isUndefined(options) ? {} : options
+    let address: number | undefined = undefined
 
-    this.address = _.isUndefined(options.preferredAddress)
-      ? 100
-      : options.preferredAddress
+    address = this.getPersistedData('lastAddress')
+
+    if (address === undefined) {
+      address = _.isUndefined(options.preferredAddress)
+        ? 100
+        : options.preferredAddress
+    }
+    this.address = address!
     this.cansend = false
     this.foundConflict = false
     this.heartbeatCounter = 0
@@ -154,9 +172,36 @@ export class N2kDevice extends EventEmitter {
     }, 1000)
   }
 
+  getPersistedData(key: string) {
+    try {
+      return getPersistedData(this.options, this.options.providerId, key)
+    } catch (err: any) {
+      this.debug('reading persisted data %o', err)
+      if (err.code !== 'ENOENT') {
+        console.error(err)
+        this.setError(err.message)
+      }
+    }
+  }
+
+  savePersistedData(key: string, value: any) {
+    try {
+      savePersistedData(this.options, this.options.providerId, key, value)
+    } catch (err: any) {
+      console.error(err)
+      this.setError(err.message)
+    }
+  }
+
   setStatus(msg: string) {
     if (this.options.app && this.options.app.setPluginStatus) {
       this.options.app.setProviderStatus(this.options.providerId, msg)
+    }
+  }
+
+  setError(msg: string) {
+    if (this.options.app && this.options.app.setPluginStatus) {
+      this.options.app.setProviderError(this.options.providerId, msg)
     }
   }
 
@@ -375,6 +420,9 @@ function sendAddressClaim(device: N2kDevice) {
     //if ( Date.now() - device.addressClaimSentAt > 1000 ) {
     //device.addressClaimChecker = null
     device.debug('claimed address %d', device.address)
+
+    device.savePersistedData('lastAddress', device.address)
+
     device.cansend = true
     if (!device.sentAvailable) {
       if (device.options.app) {

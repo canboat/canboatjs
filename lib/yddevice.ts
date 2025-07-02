@@ -17,15 +17,13 @@
 import { PGN } from '@canboat/ts-pgns'
 import { N2kDevice } from './n2kDevice'
 import { actisenseToYdgwFullRawFormat } from './toPgn'
-import { createDebug } from './utilities'
 
 export class YdDevice extends N2kDevice {
   app: any
   n2kOutEvent: string
 
   constructor(options: any) {
-    super(options)
-    this.debug = createDebug('canboatjs:n2kdevice', options)
+    super(options, 'canboatjs:yddevice')
     this.app = options.app
     this.n2kOutEvent = options.jsonOutEvent || 'nmea2000JsonOut'
 
