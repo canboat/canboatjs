@@ -15,6 +15,7 @@ Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) 
   - Digital Yacht iKonvert
   - Yacht Devices YDWG-02 and YDEN-02
   - Shipmodul MiniPlex-3-N2K
+  - socketcan based devices
 - Parses input in canboat analyzer json format
 - Converts and outputs binary N2K format to supported devices
 
