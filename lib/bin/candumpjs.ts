@@ -4,6 +4,7 @@ import { FromPgn } from '../index'
 import { parseCanId } from '../canId'
 import minimist from 'minimist'
 import { binToActisense } from '../utilities'
+import { printVersion } from './utils'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const socketcan = require('socketcan')
@@ -14,6 +15,8 @@ const argv = minimist(process.argv.slice(2), {
     boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches']
   }
 })
+
+printVersion(argv)
 
 if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options] candevice
