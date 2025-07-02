@@ -1,4 +1,44 @@
-module.exports = [{
-  "expected": {"timestamp":"2016-02-28T19:57:02.481Z","prio":3,"src":60,"dst":255,"pgn":127501,"description":"Binary Switch Bank Status","fields":{"Instance":1,"Indicator1":"Off","Indicator10": null,"Indicator11": null,"Indicator12": null,"Indicator13": null,"Indicator14": null,"Indicator15": null,"Indicator16": null,"Indicator17": null,"Indicator18": null,"Indicator19": null,"Indicator2": null,"Indicator20": null,"Indicator21": null,"Indicator22": null,"Indicator23": null,"Indicator24": null,"Indicator25": null,"Indicator26": null,"Indicator27": null,"Indicator28": null,"Indicator3": null,"Indicator4": null,"Indicator5": null,"Indicator6": null,"Indicator7": null,"Indicator8": null,"Indicator9": null}},
-  "input": "2016-02-28T19:57:02.481Z,3,127501,60,255,8,01,fc,ff,ff,ff,ff,ff,ff"
-}]
+module.exports = [
+  {
+    expected: {
+      timestamp: '2016-02-28T19:57:02.481Z',
+      prio: 3,
+      src: 60,
+      dst: 255,
+      pgn: 127501,
+      description: 'Binary Switch Bank Status',
+      fields: {
+        Instance: 1,
+        Indicator1: 'Off',
+        Indicator10: null,
+        Indicator11: null,
+        Indicator12: null,
+        Indicator13: null,
+        Indicator14: null,
+        Indicator15: null,
+        Indicator16: null,
+        Indicator17: null,
+        Indicator18: null,
+        Indicator19: null,
+        Indicator2: null,
+        Indicator20: null,
+        Indicator21: null,
+        Indicator22: null,
+        Indicator23: null,
+        Indicator24: null,
+        Indicator25: null,
+        Indicator26: null,
+        Indicator27: null,
+        Indicator28: null,
+        Indicator3: null,
+        Indicator4: null,
+        Indicator5: null,
+        Indicator6: null,
+        Indicator7: null,
+        Indicator8: null,
+        Indicator9: null
+      }
+    },
+    input: '2016-02-28T19:57:02.481Z,3,127501,60,255,8,01,fc,ff,ff,ff,ff,ff,ff'
+  }
+]
