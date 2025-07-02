@@ -19,8 +19,12 @@ import { debug } from 'debug'
 import { CanID } from './canId'
 import { map, padCharsStart, trimChars } from 'lodash/fp'
 
-export const createDebug = (name: string) => {
-  return debug(name)
+export const createDebug = (name: string, appOptions: any = undefined) => {
+  if (appOptions !== undefined && appOptions.createDebug !== undefined) {
+    return appOptions.createDebug(name)
+  } else {
+    return debug(name)
+  }
 }
 
 export function getPlainPGNs(buffer: Buffer) {

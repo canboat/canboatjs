@@ -19,13 +19,12 @@ import { N2kDevice } from './n2kDevice'
 import { createDebug } from './utilities'
 import _ from 'lodash'
 
-const debug = createDebug('canboatjs:candevice')
-
 export class CanDevice extends N2kDevice {
   canbus: any
 
   constructor(canbus: any, options: any) {
     super(options)
+    this.debug = createDebug('canboatjs:candevice', options)
     this.canbus = canbus
 
     if (options.app) {
@@ -38,7 +37,7 @@ export class CanDevice extends N2kDevice {
 
   sendPGN(pgn: PGN, src: number | undefined = undefined) {
     pgn.src = src || this.address
-    debug('Sending PGN %j', pgn)
+    this.debug('Sending PGN %j', pgn)
     this.canbus.sendPGN(pgn, true)
   }
 }

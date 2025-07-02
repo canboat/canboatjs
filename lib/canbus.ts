@@ -25,12 +25,12 @@ import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
 import util from 'util'
 
-const debug = createDebug('canboatjs:canbus')
-
 export function CanbusStream(this: any, options: any) {
   if (this === undefined) {
     return new (CanbusStream as any)(options)
   }
+
+  this.debug = createDebug('canboatjs:canbus', options)
 
   Transform.call(this, {
     objectMode: true
@@ -185,7 +185,7 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
       return
     }
 
-    debug('sending %j', msg)
+    this.debug('sending %j', msg)
 
     if (this.options.app) {
       this.options.app.emit('connectionwrite', {
@@ -236,13 +236,13 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
         buffer = pgn.data
       }
 
-      if (debug.enabled) {
+      if (this.debug.enabled) {
         const str = toActisenseSerialFormat(pgn.pgn, buffer, pgn.dst, pgn.src)
-        debug(str)
+        this.debug(str)
       }
 
       if (buffer === undefined) {
-        debug("can't convert %j", msg)
+        this.debug("can't convert %j", msg)
         return
       }
 
