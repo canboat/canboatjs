@@ -27,7 +27,7 @@ jobs:
         sparse-checkout: |
           docs/canboat.json
         sparse-checkout-cone-mode: false
-        
+
     - name: Checkout ts-pgns
       uses: actions/checkout@v4
       with:
