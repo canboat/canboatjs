@@ -19,10 +19,11 @@ import {
   PGN_60928,
   PGN_59904,
   PGN_59904Defaults,
-  PGN_126208,
-  PGN_126208_Acknowledge,
-  PGN_126208_AcknowledgeDefaults,
-  PGN_126208_Command,
+  PGN_126208_NmeaRequestGroupFunction,
+  PGN_126208_NmeaAcknowledgeGroupFunction,
+  PGN_126208_NmeaAcknowledgeGroupFunctionDefaults,
+  PGN_126208_NmeaAcknowledgeGroupFunctionMatchFields,
+  PGN_126208_NmeaCommandGroupFunction,
   PGN_126996,
   PGN_126993,
   PGN_59392,
@@ -30,7 +31,6 @@ import {
   PGN_126464,
   PGN_126464Defaults,
   PgnListFunction,
-  GroupFunction,
   PgnErrorCode,
   TransmissionInterval,
   ControllerState,
@@ -215,7 +215,7 @@ export class N2kDevice extends EventEmitter {
         if (pgn.pgn == 59904) {
           handleISORequest(this, pgn)
         } else if (pgn.pgn == 126208) {
-          handleGroupFunction(this, pgn as PGN_126208)
+          handleGroupFunction(this, pgn as PGN_126208_NmeaRequestGroupFunction)
         } else if (pgn.pgn == 60928) {
           handleISOAddressClaim(this, pgn as PGN_60928)
         } else if (pgn.pgn == 126996) {
@@ -275,7 +275,10 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
   }
 }
 
-function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
+function handleGroupFunction(
+  device: N2kDevice,
+  n2kMsg: PGN_126208_NmeaRequestGroupFunction
+) {
   device.debug('handleGroupFunction %j', n2kMsg)
   const functionCode = n2kMsg.fields.functionCode
   if (functionCode === 'Request') {
@@ -286,7 +289,10 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
     device.debug('Got unsupported Group Function PGN: %j', n2kMsg)
   }
 
-  function handleRequestGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
+  function handleRequestGroupFunction(
+    device: N2kDevice,
+    n2kMsg: PGN_126208_NmeaRequestGroupFunction
+  ) {
     if (!device.options.disableNAKs) {
       // We really don't support group function requests for any PGNs yet -> always respond with pgnErrorCode 1 = "PGN not supported"
 
@@ -297,11 +303,11 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
         PGN
       )
 
-      const acknowledgement: PGN_126208_Acknowledge = {
-        ...PGN_126208_AcknowledgeDefaults,
+      const acknowledgement: PGN_126208_NmeaAcknowledgeGroupFunction = {
+        ...PGN_126208_NmeaAcknowledgeGroupFunctionDefaults,
         dst: n2kMsg.src!,
         fields: {
-          functionCode: GroupFunction.Acknowledge,
+          ...PGN_126208_NmeaAcknowledgeGroupFunctionMatchFields,
           pgn: PGN,
           pgnErrorCode: PgnErrorCode.NotSupported,
           transmissionIntervalPriorityErrorCode:
@@ -316,7 +322,7 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
 
   function handleCommandGroupFunction(
     device: N2kDevice,
-    n2kMsg: PGN_126208_Command
+    n2kMsg: PGN_126208_NmeaCommandGroupFunction
   ) {
     if (!device.options.disableNAKs) {
       // We really don't support group function commands for any PGNs yet -> always respond with pgnErrorCode 1 = "PGN not supported"
@@ -328,11 +334,11 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
         PGN
       )
 
-      const acknowledgement: PGN_126208_Acknowledge = {
-        ...PGN_126208_AcknowledgeDefaults,
+      const acknowledgement: PGN_126208_NmeaAcknowledgeGroupFunction = {
+        ...PGN_126208_NmeaAcknowledgeGroupFunctionDefaults,
         dst: n2kMsg.src!,
         fields: {
-          functionCode: GroupFunction.Acknowledge,
+          ...PGN_126208_NmeaAcknowledgeGroupFunctionMatchFields,
           pgn: PGN,
           pgnErrorCode: PgnErrorCode.NotSupported,
           transmissionIntervalPriorityErrorCode:
