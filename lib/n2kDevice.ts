@@ -18,13 +18,17 @@ import {
   PGN,
   PGN_60928,
   PGN_59904,
+  PGN_59904Defaults,
   PGN_126208,
   PGN_126208_Acknowledge,
+  PGN_126208_AcknowledgeDefaults,
   PGN_126208_Command,
   PGN_126996,
   PGN_126993,
   PGN_59392,
+  PGN_59392Defaults,
   PGN_126464,
+  PGN_126464Defaults,
   PgnListFunction,
   GroupFunction,
   PgnErrorCode,
@@ -294,7 +298,7 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
       )
 
       const acknowledgement: PGN_126208_Acknowledge = {
-        pgn: 126208,
+        ...PGN_126208_AcknowledgeDefaults,
         dst: n2kMsg.src!,
         fields: {
           functionCode: GroupFunction.Acknowledge,
@@ -325,7 +329,7 @@ function handleGroupFunction(device: N2kDevice, n2kMsg: PGN_126208) {
       )
 
       const acknowledgement: PGN_126208_Acknowledge = {
-        pgn: 126208,
+        ...PGN_126208_AcknowledgeDefaults,
         dst: n2kMsg.src!,
         fields: {
           functionCode: GroupFunction.Acknowledge,
@@ -458,6 +462,7 @@ function sendISORequest(
   device.debug(`Sending iso request for ${pgn} to ${dst}`)
 
   const isoRequest: PGN_59904 = {
+    ...PGN_59904Defaults,
     pgn: 59904,
     dst: dst,
     fields: {
@@ -486,7 +491,7 @@ function sendNAKAcknowledgement(
   requestedPGN: number
 ) {
   const acknowledgement: PGN_59392 = {
-    pgn: 59392,
+    ...PGN_59392Defaults,
     dst: src,
     fields: {
       control: IsoControl.Ack,
@@ -501,11 +506,13 @@ function sendPGNList(device: N2kDevice, dst: number) {
   //FIXME: for now, adding everything that signalk-to-nmea2000 supports
   //need a way for plugins, etc. to register the pgns they provide
   const pgnList: PGN_126464 = {
-    pgn: 126464,
+    ...PGN_126464Defaults,
     dst,
     fields: {
       functionCode: PgnListFunction.TransmitPgnList,
-      list: device.transmitPGNs
+      list: device.transmitPGNs.map((num: number) => {
+        return { pgn: num }
+      })
     }
   }
   device.sendPGN(pgnList)
