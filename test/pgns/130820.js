@@ -8,11 +8,11 @@ module.exports = [
       pgn: 130820,
       description: 'Fusion: Power State',
       fields: {
-        'Manufacturer Code': 'Fusion Electronics',
-        'Industry Code': 'Marine Industry',
-        'Message ID': 'Power',
-        State: 'On',
-        Reserved1: null
+        manufacturerCode: 'Fusion Electronics',
+        industryCode: 'Marine Industry',
+        messageId: 'Power',
+        state: 'On',
+        reserved: null
       }
     },
     input: '2017-04-15T14:57:58.469Z,7,130820,10,255,5,a3,99,20,80,01'
@@ -25,15 +25,15 @@ module.exports = [
       src: 11,
       timestamp: '2023-03-30T18:28:03.510Z',
       fields: {
-        'Manufacturer Code': 'Fusion Electronics',
-        'Industry Code': 'Marine Industry',
-        'Message ID': 'Source',
-        Flags: 197,
-        'Source ID': 1,
-        'Current Source ID': 11,
-        Source: 'FM',
-        Reserved1: null,
-        'Source Type': 'FM'
+        manufacturerCode: 'Fusion Electronics',
+        industryCode: 'Marine Industry',
+        messageId: 'Source',
+        flags: 197,
+        sourceId: 1,
+        currentSourceId: 11,
+        source: 'FM',
+        reserved: null,
+        sourceType: 'FM'
       },
       description: 'Fusion: Source'
     },

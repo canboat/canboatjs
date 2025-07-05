@@ -8,17 +8,17 @@ module.exports = [
       pgn: 130845,
       description: 'Simnet: Key Value',
       fields: {
-        'Manufacturer Code': 'Simrad',
-        'Industry Code': 'Marine Industry',
-        'Display Group': 'Default',
-        Key: 'Backlight level',
-        MinLength: 1,
-        Value: 88,
-        Spare: 0,
-        Address: null,
-        'Repeat Indicator': null,
-        Reserved1: null,
-        Reserved2: null
+        manufacturerCode: 'Simrad',
+        industryCode: 'Marine Industry',
+        displayGroup: 'Default',
+        key: 'Backlight level',
+        minlength: 1,
+        value: 88,
+        spare9: 0,
+        address: null,
+        repeatIndicator: null,
+        reserved: null,
+        reserved7: null
       }
     },
     input:

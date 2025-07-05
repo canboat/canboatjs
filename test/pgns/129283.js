@@ -8,12 +8,12 @@ module.exports = [
       pgn: 129283,
       description: 'Cross Track Error',
       fields: {
-        'XTE mode': 'Autonomous',
-        'Navigation Terminated': 'No',
-        XTE: -0.75,
-        Reserved1: null,
-        Reserved2: null,
-        SID: null
+        xteMode: 'Autonomous',
+        navigationTerminated: 'No',
+        xte: -0.75,
+        reserved: null,
+        reserved6: null,
+        sid: null
       }
     },
     input: '2017-04-15T14:57:58.468Z,3,129283,3,255,8,ff,30,b5,ff,ff,ff,ff,ff'

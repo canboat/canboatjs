@@ -8,15 +8,15 @@ module.exports = [
       pgn: 130842,
       description: 'Simnet: AIS Class B static data (msg 24 Part A)',
       fields: {
-        'Manufacturer Code': 'Simrad',
-        'Industry Code': 'Marine Industry',
-        'Message ID': 'Msg 24 Part A',
-        'Repeat Indicator': 'Second retransmission',
-        E: 24,
-        'User ID': 338184312,
-        Name: 'WILHELM',
-        D: null,
-        Reserved1: null
+        manufacturerCode: 'Simrad',
+        industryCode: 'Marine Industry',
+        messageId: 'Msg 24 Part A',
+        repeatIndicator: 'Second retransmission',
+        e: 24,
+        userId: 338184312,
+        name: 'WILHELM',
+        d: null,
+        reserved: null
       }
     },
     input:

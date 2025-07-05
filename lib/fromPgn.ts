@@ -16,7 +16,13 @@
 
 // FIXME: MMSI sould be a string
 
-import { Definition, Field, PGN, FieldType } from '@canboat/ts-pgns'
+import {
+  Definition,
+  Field,
+  PGN,
+  FieldType,
+  getPGNClass
+} from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
 import { EventEmitter } from 'node:events'
 import pkg from '../package.json'
@@ -387,22 +393,38 @@ export class Parser extends EventEmitter {
         }
       }
 
-      pgn.description = pgnData.Description
-
-      //console.log(`pgn: ${JSON.stringify(pgn)}`)
-
-      // Stringify timestamp because SK Server needs it that way.
-      const ts = _.get(pgn, 'timestamp', new Date())
-      pgn.timestamp = _.isDate(ts) ? ts.toISOString() : ts
-      this.emit('pgn', pgn)
-      cb && cb(undefined, pgn)
-
       /*
       if ( pgnData.callback ) {
         pgnData.callback(pgn)
         }
       */
-      return pgn
+
+      const cf = getPGNClass(pgnData.Id)
+
+      if (cf === undefined) {
+        this.emit('error', pgn, 'no class')
+        cb && cb('no class', undefined)
+        return
+      }
+
+      const res = cf(pgn.fields)
+
+      res.description = pgnData.Description
+      res.src = pgn.src
+      res.dst = pgn.dst
+      res.prio = pgn.prio
+      res.canId = (pgn as any).canId
+      res.time = (pgn as any).time
+      res.timer = (pgn as any).timer
+      res.direction = (pgn as any).direction
+
+      // Stringify timestamp because SK Server needs it that way.
+      const ts = _.get(pgn, 'timestamp', new Date())
+      res.timestamp = _.isDate(ts) ? ts.toISOString() : ts
+      this.emit('pgn', res)
+      cb && cb(undefined, res)
+
+      return res
     } catch (error) {
       this.emit('error', pgn, error)
       cb && cb(error, undefined)
@@ -674,10 +696,17 @@ export function getField(pgn_number: number, index: number, data: any) {
         const field = pgn.Fields[idx]
         const hasMatch = !_.isUndefined(field.Match)
         if (hasMatch && dataList.length > 0) {
-          const param = dataList.find((f: any) => f.Parameter === idx + 1)
+          const param = dataList.find((f: any) => {
+            const param = f.parameter !== undefined ? f.parameter : f.Parameter
+            return param === idx + 1
+          })
 
           if (param) {
-            pgnList = pgnList.filter((f) => f.Fields[idx].Match == param.Value)
+            pgnList = pgnList.filter((f) => {
+              const value =
+                param.value !== undefined ? param.value : param.Value
+              return f.Fields[idx].Match == value
+            })
             if (pgnList.length == 0) {
               throw new Error('unable to read: ' + JSON.stringify(data))
               return
@@ -986,7 +1015,7 @@ function readVariableLengthField(
 
   try {
     const refField = getField(
-      (pgn.fields as any).PGN,
+      (pgn.fields as any).pgn || (pgn.fields as any).PGN,
       bs.view.buffer[bs.byteIndex - 1] - 1,
       pgn
     )

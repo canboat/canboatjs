@@ -8,156 +8,156 @@ module.exports = [
       pgn: 129540,
       description: 'GNSS Sats in View',
       fields: {
-        SID: 184,
-        'Sats in View': 18,
-        Reserved1: null,
-        'Range Residual Mode': null,
         list: [
           {
-            PRN: 3,
-            Elevation: 0.5585,
-            Azimuth: 5.3407,
-            SNR: 31,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 3,
+            elevation: 0.5585,
+            azimuth: 5.3407,
+            snr: 31,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 4,
-            Elevation: 1.0297,
-            Azimuth: 3.002,
-            SNR: 28,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 4,
+            elevation: 1.0297,
+            azimuth: 3.002,
+            snr: 28,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 10,
-            Elevation: 0.1047,
-            Azimuth: 2.8972,
-            SNR: 28,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 10,
+            elevation: 0.1047,
+            azimuth: 2.8972,
+            snr: 28,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 14,
-            Elevation: 1.1519,
-            Azimuth: 1.5359,
-            SNR: 30,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 14,
+            elevation: 1.1519,
+            azimuth: 1.5359,
+            snr: 30,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 16,
-            Elevation: 0.4014,
-            Azimuth: 3.4383,
-            SNR: 33,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 16,
+            elevation: 0.4014,
+            azimuth: 3.4383,
+            snr: 33,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 22,
-            Elevation: 0.8029,
-            Azimuth: 4.8346,
-            SNR: 31,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 22,
+            elevation: 0.8029,
+            azimuth: 4.8346,
+            snr: 31,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 25,
-            Elevation: 0.4538,
-            Azimuth: 0.7679,
-            SNR: 33,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 25,
+            elevation: 0.4538,
+            azimuth: 0.7679,
+            snr: 33,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 26,
-            Elevation: 0.9076,
-            Azimuth: 3.2463,
-            SNR: 26,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 26,
+            elevation: 0.9076,
+            azimuth: 3.2463,
+            snr: 26,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 31,
-            Elevation: 1.2217,
-            Azimuth: 0.2269,
-            SNR: 31,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 31,
+            elevation: 1.2217,
+            azimuth: 0.2269,
+            snr: 31,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 67,
-            Elevation: 0.7505,
-            Azimuth: 2.7751,
-            SNR: 32,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 67,
+            elevation: 0.7505,
+            azimuth: 2.7751,
+            snr: 32,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 68,
-            Elevation: 1.309,
-            Azimuth: 5.2709,
-            SNR: 34,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 68,
+            elevation: 1.309,
+            azimuth: 5.2709,
+            snr: 34,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 69,
-            Elevation: 0.4014,
-            Azimuth: 5.7072,
-            SNR: 26,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 69,
+            elevation: 0.4014,
+            azimuth: 5.7072,
+            snr: 26,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 77,
-            Elevation: 0.5934,
-            Azimuth: 0.6109,
-            SNR: 29,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 77,
+            elevation: 0.5934,
+            azimuth: 0.6109,
+            snr: 29,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 78,
-            Elevation: 1.2392,
-            Azimuth: 5.2011,
-            SNR: 27,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 78,
+            elevation: 1.2392,
+            azimuth: 5.2011,
+            snr: 27,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 79,
-            Elevation: 0.6632,
-            Azimuth: 4.2761,
-            SNR: 35,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 79,
+            elevation: 0.6632,
+            azimuth: 4.2761,
+            snr: 35,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 46,
-            Elevation: 0.6632,
-            Azimuth: 3.6826,
-            SNR: 30,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 46,
+            elevation: 0.6632,
+            azimuth: 3.6826,
+            snr: 30,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 48,
-            Elevation: 0.2967,
-            Azimuth: 4.311,
-            SNR: 29,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 48,
+            elevation: 0.2967,
+            azimuth: 4.311,
+            snr: 29,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           },
           {
-            PRN: 51,
-            Elevation: 0.6109,
-            Azimuth: 3.9095,
-            SNR: 35,
-            'Range residuals': 0,
-            Status: 'Used+Diff'
+            prn: 51,
+            elevation: 0.6109,
+            azimuth: 3.9095,
+            snr: 35,
+            rangeResiduals: 0,
+            status: 'Used+Diff'
           }
-        ]
+        ],
+        sid: 184,
+        satsInView: 18,
+        reserved: null,
+        rangeResidualMode: null
       }
     },
     input:
@@ -171,108 +171,108 @@ module.exports = [
       src: 1,
       timestamp: '2020-08-16T09:00:00.364Z',
       fields: {
-        Reserved1: null,
-        SID: 82,
-        'Range Residual Mode': 2,
-        'Sats in View': 12,
         list: [
           {
-            PRN: 7,
-            Elevation: 0.2443,
-            Azimuth: 5.6199,
-            SNR: 33,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 7,
+            elevation: 0.2443,
+            azimuth: 5.6199,
+            snr: 33,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 10,
-            Elevation: 0.6632,
-            Azimuth: 3.0543,
-            SNR: 35,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 10,
+            elevation: 0.6632,
+            azimuth: 3.0543,
+            snr: 35,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 13,
-            Elevation: 0.3141,
-            Azimuth: 0.5934,
-            SNR: 37,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 13,
+            elevation: 0.3141,
+            azimuth: 0.5934,
+            snr: 37,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 15,
-            Elevation: 0.4363,
-            Azimuth: 1.1693,
-            SNR: 39,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 15,
+            elevation: 0.4363,
+            azimuth: 1.1693,
+            snr: 39,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 16,
-            Elevation: 0.8028,
-            Azimuth: 4.0142,
-            SNR: 31,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 16,
+            elevation: 0.8028,
+            azimuth: 4.0142,
+            snr: 31,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 18,
-            Elevation: 0.8203,
-            Azimuth: 1.4311,
-            SNR: 32,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 18,
+            elevation: 0.8203,
+            azimuth: 1.4311,
+            snr: 32,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 20,
-            Elevation: 1.0471,
-            Azimuth: 2.3038,
-            SNR: 36,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 20,
+            elevation: 1.0471,
+            azimuth: 2.3038,
+            snr: 36,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 21,
-            Elevation: 0.9599,
-            Azimuth: 4.2935,
-            SNR: 28,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 21,
+            elevation: 0.9599,
+            azimuth: 4.2935,
+            snr: 28,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 26,
-            Elevation: 0.3316,
-            Azimuth: 3.4557,
-            SNR: 35,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 26,
+            elevation: 0.3316,
+            azimuth: 3.4557,
+            snr: 35,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 27,
-            Elevation: 1.0471,
-            Azimuth: 4.8869,
-            SNR: 35,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 27,
+            elevation: 1.0471,
+            azimuth: 4.8869,
+            snr: 35,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 8,
-            Elevation: 0.4886,
-            Azimuth: 5.1661,
-            SNR: 24,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 8,
+            elevation: 0.4886,
+            azimuth: 5.1661,
+            snr: 24,
+            rangeResiduals: 0,
+            status: 'Used'
           },
           {
-            PRN: 87,
-            Elevation: 1.2217,
-            Azimuth: 5.2359,
-            SNR: 28,
-            'Range residuals': 0,
-            Status: 'Used'
+            prn: 87,
+            elevation: 1.2217,
+            azimuth: 5.2359,
+            snr: 28,
+            rangeResiduals: 0,
+            status: 'Used'
           }
-        ]
+        ],
+        reserved: null,
+        sid: 82,
+        rangeResidualMode: 2,
+        satsInView: 12
       },
       description: 'GNSS Sats in View'
     },

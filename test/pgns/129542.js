@@ -8,14 +8,14 @@ module.exports = [
       pgn: 129542,
       description: 'GNSS Pseudorange Noise Statistics',
       fields: {
-        SID: 120,
-        'RMS of Position Uncertainty': 0.73,
-        'STD of Major axis': 0,
-        'STD of Minor axis': 0,
-        'Orientation of Major axis': 0,
-        'STD of Alt Error': 0,
-        'STD of Lat Error': 0,
-        'STD of Lon Error': 0
+        sid: 120,
+        rmsOfPositionUncertainty: 0.73,
+        stdOfMajorAxis: 0,
+        stdOfMinorAxis: 0,
+        orientationOfMajorAxis: 0,
+        stdOfAltError: 0,
+        stdOfLatError: 0,
+        stdOfLonError: 0
       }
     },
     input:

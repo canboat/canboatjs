@@ -7,11 +7,11 @@ module.exports = [
       src: 57,
       timestamp: '2020-03-31T02:34:18.529Z',
       fields: {
-        Instance: 224,
-        'Trip Fuel Used': 9,
-        'Fuel Rate, Average': -3100.2,
-        'Instantaneous Fuel Economy': -0.1,
-        'Fuel Rate, Economy': null
+        instance: 224,
+        tripFuelUsed: 9,
+        fuelRateAverage: -3100.2,
+        instantaneousFuelEconomy: -0.1,
+        fuelRateEconomy: null
       },
       description: 'Trip Parameters, Engine'
     },

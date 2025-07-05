@@ -322,7 +322,11 @@ function writeVariableLengthField(
   value: any,
   fields: Field[]
 ) {
-  const refField = getField(pgn.PGN, bs.view.buffer[bs.byteIndex - 1] - 1, pgn)
+  const refField = getField(
+    pgn.pgn | pgn.PGN,
+    bs.view.buffer[bs.byteIndex - 1] - 1,
+    pgn
+  )
 
   if (refField) {
     let bits

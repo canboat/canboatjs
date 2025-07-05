@@ -8,11 +8,11 @@ module.exports = [
       pgn: 127505,
       description: 'Fluid Level',
       fields: {
-        Instance: 0,
-        Type: 'Fuel',
-        Level: 56.264,
-        Capacity: 49.0,
-        Reserved1: null
+        instance: 0,
+        type: 'Fuel',
+        level: 56.264,
+        capacity: 49,
+        reserved: null
       }
     },
     input: '2017-04-15T14:57:58.469Z,6,127505,17,255,8,00,f2,36,ea,01,00,00,ff'

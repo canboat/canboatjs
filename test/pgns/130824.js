@@ -8,14 +8,14 @@ module.exports = [
       pgn: 130824,
       description: 'Maretron: Annunciator',
       fields: {
-        'Manufacturer Code': 'Maretron',
-        'Industry Code': 'Marine Industry',
-        'Field 4': 0,
-        'Field 5': 0,
-        Reserved1: null,
-        'Field 6': null,
-        'Field 7': null,
-        'Field 8': null
+        manufacturerCode: 'Maretron',
+        industryCode: 'Marine Industry',
+        field4: 0,
+        field5: 0,
+        reserved: null,
+        field6: null,
+        field7: null,
+        field8: null
       }
     },
     input:

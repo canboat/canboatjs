@@ -37,7 +37,7 @@ describe('from pgn test data converts', function () {
         }
 
         let format = typeof data.format !== 'undefined' ? data.format : 1
-        let useCamel = data.useCamel == true
+        let useCamel = true //data.useCamel == true
 
         var fromPgn = new FromPgn({ format, returnNulls: true, useCamel })
 

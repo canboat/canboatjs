@@ -8,14 +8,14 @@ module.exports = [
       pgn: 126996,
       description: 'Product Information',
       fields: {
-        'NMEA 2000 Version': 1.3,
-        'Product Code': 28199,
-        'Model ID': 'NMEA 2000 PC Interface (NGT-1)',
-        'Software Version Code': '1.100, 2.210',
-        'Model Version': 'NGT-1-USB  hv1.03',
-        'Model Serial Code': '177800',
-        'Certification Level': 'Level A',
-        'Load Equivalency': 1
+        nmea2000Version: 1.3,
+        productCode: 28199,
+        modelId: 'NMEA 2000 PC Interface (NGT-1)',
+        softwareVersionCode: '1.100, 2.210',
+        modelVersion: 'NGT-1-USB  hv1.03',
+        modelSerialCode: '177800',
+        certificationLevel: 'Level A',
+        loadEquivalency: 1
       }
     },
     input:

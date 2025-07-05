@@ -7,35 +7,35 @@ module.exports = [
       src: 3,
       timestamp: '2017-04-15T16:16:45.897Z',
       fields: {
-        'Start RPS#': 3,
-        nItems: 3,
-        'Database ID': 0,
-        'Route ID': 0,
-        'Supplementary Route/WP data available': 'Off',
-        Reserved1: 0,
-        'Route Name': 'Route',
-        Reserved2: null,
-        'Navigation direction in route': null,
+        nitems: 3,
         list: [
           {
-            'WP ID': 3,
-            'WP Name': 'ORIGIN',
-            'WP Latitude': 39.0525373,
-            'WP Longitude': -76.4183194
+            wpId: 3,
+            wpName: 'ORIGIN',
+            wpLatitude: 39.0525373,
+            wpLongitude: -76.4183194
           },
           {
-            'WP ID': 4,
-            'WP Name': 'Waypoint 168',
-            'WP Latitude': 39.0598473,
-            'WP Longitude': -76.2794236
+            wpId: 4,
+            wpName: 'Waypoint 168',
+            wpLatitude: 39.0598473,
+            wpLongitude: -76.2794236
           },
           {
-            'WP ID': 5,
-            'WP Name': 'Waypoint 245',
-            'WP Latitude': 39.0190642,
-            'WP Longitude': -76.2520773
+            wpId: 5,
+            wpName: 'Waypoint 245',
+            wpLatitude: 39.0190642,
+            wpLongitude: -76.2520773
           }
-        ]
+        ],
+        startRps: 3,
+        databaseId: 0,
+        routeId: 0,
+        supplementaryRouteWpDataAvailable: 'Off',
+        reserved: 0,
+        routeName: 'Route',
+        reserved9: null,
+        navigationDirectionInRoute: null
       },
       description: 'Navigation - Route/WP Information'
     },
@@ -52,35 +52,35 @@ module.exports = [
       direction: 'R',
       time: '17:29:52.266',
       fields: {
-        'Start RPS#': 1,
-        nItems: 3,
-        'Database ID': 0,
-        'Route ID': 0,
-        'Supplementary Route/WP data available': 'Off',
-        Reserved1: 0,
-        'Route Name': 'Route',
+        nitems: 3,
         list: [
           {
-            'WP ID': 1,
-            'WP Name': 'Waypoint 717',
-            'WP Latitude': 39.0641674,
-            'WP Longitude': -76.4878892
+            wpId: 1,
+            wpName: 'Waypoint 717',
+            wpLatitude: 39.0641674,
+            wpLongitude: -76.4878892
           },
           {
-            'WP ID': 2,
-            'WP Name': 'Waypoint 716',
-            'WP Latitude': 39.0689516,
-            'WP Longitude': -76.4831686
+            wpId: 2,
+            wpName: 'Waypoint 716',
+            wpLatitude: 39.0689516,
+            wpLongitude: -76.4831686
           },
           {
-            'WP ID': 3,
-            'WP Name': 'Waypoint 715',
-            'WP Latitude': 39.0700745,
-            'WP Longitude': -76.4798802
+            wpId: 3,
+            wpName: 'Waypoint 715',
+            wpLatitude: 39.0700745,
+            wpLongitude: -76.4798802
           }
         ],
-        'Navigation direction in route': null,
-        Reserved2: null
+        startRps: 1,
+        databaseId: 0,
+        routeId: 0,
+        supplementaryRouteWpDataAvailable: 'Off',
+        reserved: 0,
+        routeName: 'Route',
+        navigationDirectionInRoute: null,
+        reserved9: null
       },
       description: 'Navigation - Route/WP Information',
       timestamp: '2023-07-23T17:37:26.091Z'

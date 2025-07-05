@@ -8,19 +8,19 @@ module.exports = [
       pgn: 130821,
       description: 'Furuno: Unknown 130821',
       fields: {
-        'Manufacturer Code': 'Furuno',
-        'Industry Code': 'Marine Industry',
-        SID: 19,
-        A: 0,
-        B: 207,
-        C: 227,
-        D: 54,
-        E: 17,
-        F: 0,
-        G: 190,
-        H: 160,
-        I: 192,
-        Reserved1: null
+        manufacturerCode: 'Furuno',
+        industryCode: 'Marine Industry',
+        sid: 19,
+        a: 0,
+        b: 207,
+        c: 227,
+        d: 54,
+        e: 17,
+        f: 0,
+        g: 190,
+        h: 160,
+        i: 192,
+        reserved: null
       }
     },
     input:

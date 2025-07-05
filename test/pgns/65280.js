@@ -8,11 +8,11 @@ module.exports = [
       pgn: 65280,
       description: 'Furuno: Heave',
       fields: {
-        'Manufacturer Code': 'Furuno',
-        'Industry Code': 'Marine Industry',
-        Heave: 0.018,
-        Reserved1: null,
-        Reserved2: null
+        manufacturerCode: 'Furuno',
+        industryCode: 'Marine Industry',
+        heave: 0.018,
+        reserved: null,
+        reserved5: null
       }
     },
     input: '2016-02-28T19:57:02.364Z,7,65280,7,255,8,3f,9f,12,00,00,00,ff,ff'

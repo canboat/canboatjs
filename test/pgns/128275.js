@@ -7,7 +7,7 @@ module.exports = [
       dst: 255,
       pgn: 128275,
       description: 'Distance Log',
-      fields: { Log: 0, 'Trip Log': 0, Time: null, Date: null }
+      fields: { log: 0, tripLog: 0, time: null, date: null }
     },
     input:
       '2017-04-15T14:57:58.469Z,6,128275,35,255,14,ff,ff,ff,ff,ff,ff,00,00,00,00,00,00,00,00'

@@ -7,13 +7,13 @@ module.exports = [
       src: 43,
       dst: 255,
       fields: {
-        'Message ID': 'Static data report',
-        'Repeat Indicator': 'Initial',
-        'User ID': 338184312,
-        Name: 'WILHELM',
-        'AIS Transceiver information': 'Channel A VDL transmission',
-        Reserved1: 0,
-        'Sequence ID': null
+        messageId: 'Static data report',
+        repeatIndicator: 'Initial',
+        userId: 338184312,
+        name: 'WILHELM',
+        aisTransceiverInformation: 'Channel A VDL transmission',
+        reserved: 0,
+        sequenceId: null
       },
       description: 'AIS Class B static data (msg 24 Part A)'
     },

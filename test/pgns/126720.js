@@ -8,13 +8,13 @@ module.exports = [
       pgn: 126720,
       description: 'Seatalk1: Device Identification',
       fields: {
-        'Manufacturer Code': 'Raymarine',
-        'Industry Code': 'Marine Industry',
-        'Proprietary ID': '0x81f0',
         command: '0x90',
         device: 'S100',
-        Reserved1: null,
-        Reserved2: null
+        manufacturerCode: 'Raymarine',
+        industryCode: 'Marine Industry',
+        proprietaryId: '0x81f0',
+        reserved: null,
+        reserved6: null
       }
     },
     input: '2017-04-15T16:02:48.913Z,7,126720,1,255,7,3b,9f,f0,81,90,ff,03'
@@ -28,21 +28,21 @@ module.exports = [
       pgn: 126720,
       description: 'Airmar: Calibrate Speed',
       fields: {
-        'Manufacturer Code': 'Airmar',
-        'Industry Code': 'Marine Industry',
-        'Proprietary ID': 'Calibrate Speed',
-        'Number of pairs of data points': 8,
-        Reserved1: null,
         list: [
-          { 'Input frequency': 2.3, 'Output speed': 0.51 },
-          { 'Input frequency': 7.9, 'Output speed': 1.03 },
-          { 'Input frequency': 17.9, 'Output speed': 2.06 },
-          { 'Input frequency': 26.6, 'Output speed': 3.09 },
-          { 'Input frequency': 34.0, 'Output speed': 4.12 },
-          { 'Input frequency': 44.6, 'Output speed': 6.17 },
-          { 'Input frequency': 47.9, 'Output speed': 7.2 },
-          { 'Input frequency': 49.9, 'Output speed': 8.23 }
-        ]
+          { inputFrequency: 2.3, outputSpeed: 0.51 },
+          { inputFrequency: 7.9, outputSpeed: 1.03 },
+          { inputFrequency: 17.9, outputSpeed: 2.06 },
+          { inputFrequency: 26.6, outputSpeed: 3.09 },
+          { inputFrequency: 34, outputSpeed: 4.12 },
+          { inputFrequency: 44.6, outputSpeed: 6.17 },
+          { inputFrequency: 47.9, outputSpeed: 7.2 },
+          { inputFrequency: 49.9, outputSpeed: 8.23 }
+        ],
+        manufacturerCode: 'Airmar',
+        industryCode: 'Marine Industry',
+        proprietaryId: 'Calibrate Speed',
+        numberOfPairsOfDataPoints: 8,
+        reserved: null
       }
     },
     format: 0,
