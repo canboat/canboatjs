@@ -81,17 +81,14 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
       options.app.emit(this.outEvent, Buffer.from([0x30, 0x0a]))
     }
 
-    if (options.createDevice === true) {
-      this.device = new YdDevice(options)
-      this.device.start()
-    }
-
     this.debug('started')
   }
 }
 
 Ydgw02Stream.prototype.cansend = function (_msg: any) {
-  return this.device ? this.device.cansend : true
+  return this.options.createDevice
+    ? this.device && this.device.cansend
+    : this.sentAvailable
 }
 
 Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
@@ -178,6 +175,11 @@ Ydgw02Stream.prototype._transform = function (
     this.debug('emit nmea2000OutAvailable')
     this.options.app.emit('nmea2000OutAvailable')
     this.sentAvailable = true
+
+    if (this.options.createDevice === true) {
+      this.device = new YdDevice(this.options)
+      this.device.start()
+    }
   }
 
   const pgn = this.fromPgn.parseYDGW02(line)

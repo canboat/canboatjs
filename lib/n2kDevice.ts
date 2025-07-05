@@ -18,18 +18,13 @@ import {
   PGN,
   PGN_60928,
   PGN_59904,
-  PGN_59904Defaults,
   PGN_126208_NmeaRequestGroupFunction,
-  PGN_126208_NmeaAcknowledgeGroupFunction,
-  PGN_126208_NmeaAcknowledgeGroupFunctionDefaults,
-  PGN_126208_NmeaAcknowledgeGroupFunctionMatchFields,
   PGN_126208_NmeaCommandGroupFunction,
+  PGN_126208_NmeaAcknowledgeGroupFunction,
   PGN_126996,
   PGN_126993,
   PGN_59392,
-  PGN_59392Defaults,
   PGN_126464,
-  PGN_126464Defaults,
   PgnListFunction,
   PgnErrorCode,
   TransmissionInterval,
@@ -303,19 +298,17 @@ function handleGroupFunction(
         PGN
       )
 
-      const acknowledgement: PGN_126208_NmeaAcknowledgeGroupFunction = {
-        ...PGN_126208_NmeaAcknowledgeGroupFunctionDefaults,
-        dst: n2kMsg.src!,
-        fields: {
-          ...PGN_126208_NmeaAcknowledgeGroupFunctionMatchFields,
+      const acknowledgement = new PGN_126208_NmeaAcknowledgeGroupFunction(
+        {
           pgn: PGN,
           pgnErrorCode: PgnErrorCode.NotSupported,
           transmissionIntervalPriorityErrorCode:
             TransmissionInterval.Acknowledge,
           numberOfParameters: 0,
           list: []
-        }
-      }
+        },
+        n2kMsg.src!
+      )
       device.sendPGN(acknowledgement)
     }
   }
@@ -334,19 +327,18 @@ function handleGroupFunction(
         PGN
       )
 
-      const acknowledgement: PGN_126208_NmeaAcknowledgeGroupFunction = {
-        ...PGN_126208_NmeaAcknowledgeGroupFunctionDefaults,
-        dst: n2kMsg.src!,
-        fields: {
-          ...PGN_126208_NmeaAcknowledgeGroupFunctionMatchFields,
+      const acknowledgement = new PGN_126208_NmeaAcknowledgeGroupFunction(
+        {
           pgn: PGN,
           pgnErrorCode: PgnErrorCode.NotSupported,
           transmissionIntervalPriorityErrorCode:
             TransmissionInterval.Acknowledge,
           numberOfParameters: 0,
           list: []
-        }
-      }
+        },
+        n2kMsg.src!
+      )
+
       device.sendPGN(acknowledgement)
     }
   }
@@ -407,16 +399,11 @@ function sendHeartbeat(device: N2kDevice) {
     device.heartbeatCounter = 0
   }
 
-  const hb: PGN_126993 = {
-    pgn: 126993,
-    dst: 255,
-    prio: 7,
-    fields: {
-      dataTransmitOffset: 60,
-      sequenceCounter: device.heartbeatCounter,
-      controller1State: ControllerState.ErrorActive
-    }
-  }
+  const hb = new PGN_126993({
+    dataTransmitOffset: 60,
+    sequenceCounter: device.heartbeatCounter,
+    controller1State: ControllerState.ErrorActive
+  })
 
   device.sendPGN(hb)
 }
@@ -467,14 +454,8 @@ function sendISORequest(
 ) {
   device.debug(`Sending iso request for ${pgn} to ${dst}`)
 
-  const isoRequest: PGN_59904 = {
-    ...PGN_59904Defaults,
-    pgn: 59904,
-    dst: dst,
-    fields: {
-      pgn
-    }
-  }
+  const isoRequest = new PGN_59904({ pgn })
+
   device.sendPGN(isoRequest, src)
 }
 
@@ -496,31 +477,30 @@ function sendNAKAcknowledgement(
   src: number,
   requestedPGN: number
 ) {
-  const acknowledgement: PGN_59392 = {
-    ...PGN_59392Defaults,
-    dst: src,
-    fields: {
+  const acknowledgement = new PGN_59392(
+    {
       control: IsoControl.Ack,
       groupFunction: 255,
       pgn: requestedPGN
-    }
-  }
+    },
+    src
+  )
+
   device.sendPGN(acknowledgement)
 }
 
 function sendPGNList(device: N2kDevice, dst: number) {
   //FIXME: for now, adding everything that signalk-to-nmea2000 supports
   //need a way for plugins, etc. to register the pgns they provide
-  const pgnList: PGN_126464 = {
-    ...PGN_126464Defaults,
-    dst,
-    fields: {
+  const pgnList = new PGN_126464(
+    {
       functionCode: PgnListFunction.TransmitPgnList,
       list: device.transmitPGNs.map((num: number) => {
         return { pgn: num }
       })
-    }
-  }
+    },
+    dst
+  )
   device.sendPGN(pgnList)
 }
 
