@@ -1,5 +1,3 @@
-debugger
-
 const chai = require('chai')
 chai.Should()
 chai.use(require('chai-things'))

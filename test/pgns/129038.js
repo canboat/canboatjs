@@ -1,37 +1,36 @@
 module.exports = [
-  {
-    expected: {
-      timestamp: '2019-04-15T15:12:21.553Z',
-      prio: 4,
-      pgn: 129038,
-      src: 43,
-      dst: 255,
-      fields: {
-        'Message ID': 'Scheduled Class A position report',
-        'Repeat Indicator': 'Initial',
-        'User ID': 367306490,
-        Longitude: -76.5379949,
-        Latitude: 39.241965,
-        'Position Accuracy': 'Low',
-        RAIM: 'not in use',
-        'Time Stamp': '22',
-        COG: 5.4297,
-        SOG: 1.95,
-        'Communication State': 2257,
-        'AIS Transceiver information': 'Channel B VDL reception',
-        'Special Maneuver Indicator': 'Not available',
-        Reserved1: 0,
-        Spare: 0,
-        Reserved2: 0,
-        'Sequence ID': null,
-        'Rate of Turn': null,
-        'Rate of Turn': null,
-        'Nav Status': null,
-        Heading: null
-      },
-      description: 'AIS Class A Position Report'
+{
+  expected: {
+    timestamp: '2019-04-15T15:12:21.553Z',
+    prio: 4,
+    pgn: 129038,
+    src: 43,
+    dst: 255,
+    fields: {
+      messageId: 'Scheduled Class A position report',
+      repeatIndicator: 'Initial',
+      userId: 367306490,
+      longitude: -76.5379949,
+      latitude: 39.241965,
+      positionAccuracy: 'Low',
+      raim: 'not in use',
+      timeStamp: '22',
+      cog: 5.4297,
+      sog: 1.95,
+      communicationState: 2257,
+      aisTransceiverInformation: 'Channel B VDL reception',
+      specialManeuverIndicator: 'Not available',
+      reserved: 0,
+      spare18: 0,
+      reserved19: 0,
+      sequenceId: null,
+      rateOfTurn: null,
+      navStatus: null,
+      heading: null
     },
-    input:
-      '2019-04-15T15:12:21.553Z,4,129038,43,255,28,01,fa,a6,e4,15,93,3a,61,d2,42,d9,63,17,58,19,d4,c3,00,d1,08,08,ff,ff,ff,7f,0f,00,ff'
-  }
+    description: 'AIS Class A Position Report'
+  },
+  input: '2019-04-15T15:12:21.553Z,4,129038,43,255,28,01,fa,a6,e4,15,93,3a,61,d2,42,d9,63,17,58,19,d4,c3,00,d1,08,08,ff,ff,ff,7f,0f,00,ff'
+}
+,
 ]
