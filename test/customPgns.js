@@ -264,7 +264,6 @@ describe('custom pgns', function () {
     }
     })
     */
-
   /*
   it(`custom pgn callback works`, function (done) {
     definitions.callback = (pgn) => {
