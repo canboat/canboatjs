@@ -8,18 +8,25 @@ import { binToActisense } from '../utilities'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const socketcan = require('socketcan')
 
-const parser = new FromPgn()
-
 const argv = minimist(process.argv.slice(2), {
-  alias: { h: 'help' }
+  alias: {
+    h: 'help',
+    boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches']
+  }
 })
 
 if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options] candevice
 
 Options:
-  --format <format>    json, actisense
-  -h, --help           output usage information`)
+  --format <format>   json, actisense
+  -c                  don't check for invalid values
+  -n                  output null values
+  -r                  parse $MXPGN as little endian
+  --camel             output field names in camelCase
+  --camel-compat      output field names in camelCase and regular
+  --show-non-matches  show pgn data without any matches
+  -h, --help          output usage information`)
   process.exit(1)
 }
 
@@ -27,6 +34,15 @@ if (argv['_'].length === 0) {
   console.error('Please specify a device')
   process.exit(1)
 }
+
+const parser = new FromPgn({
+  returnNulls: argv['n'] === true,
+  littleEndianMXPGN: argv['r'] === true,
+  checkForInvalidFields: argv['c'] !== true,
+  useCamel: argv['camel'],
+  useCamelCompat: argv['camel-compat'],
+  returnNonMatches: argv['show-non-matches']
+})
 
 const format = argv['format'] || 'json'
 
