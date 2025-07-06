@@ -16,13 +16,7 @@
 
 // FIXME: MMSI sould be a string
 
-import {
-  Definition,
-  Field,
-  PGN,
-  FieldType,
-  getPGNClass
-} from '@canboat/ts-pgns'
+import { Definition, Field, PGN, FieldType, createPGN } from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
 import { EventEmitter } from 'node:events'
 import pkg from '../package.json'
@@ -386,24 +380,22 @@ export class Parser extends EventEmitter {
         }
       */
 
-      const cf = getPGNClass(pgnData.Id)
+      const res = createPGN(pgnData.Id, pgn.fields)
 
-      if (cf === undefined) {
+      if (res === undefined) {
         this.emit('error', pgn, 'no class')
         cb && cb('no class', undefined)
         return
       }
 
-      const res = cf(pgn.fields)
-
       res.description = pgnData.Description
       res.src = pgn.src
       res.dst = pgn.dst
       res.prio = pgn.prio
-      res.canId = (pgn as any).canId
-      res.time = (pgn as any).time
-      res.timer = (pgn as any).timer
-      res.direction = (pgn as any).direction
+      ;(res as any).canId = (pgn as any).canId
+      ;(res as any).time = (pgn as any).time
+      ;(res as any).timer = (pgn as any).timer
+      ;(res as any).direction = (pgn as any).direction
 
       // Stringify timestamp because SK Server needs it that way.
       const ts = _.get(pgn, 'timestamp', new Date())
@@ -499,6 +491,7 @@ export class Parser extends EventEmitter {
     return this.parseString(sentence, cb)
   }
 
+  /*
   // Venus MQTT-N2K
   parseVenusMQTT(pgn_data: any, cb: FromPgnCallback) {
     try {
@@ -521,7 +514,8 @@ export class Parser extends EventEmitter {
       cb && cb(error, undefined)
       this.emit('error', pgn_data, error)
     }
-  }
+    }
+    */
 
   //Yacht Devices NMEA2000 Wifi gateway
   parseYDGW02(pgn_data: any, cb: FromPgnCallback) {

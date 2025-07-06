@@ -1,5 +1,5 @@
 import {
-  getPGN,
+  getPGNWithNumber,
   EnumBase,
   Enumeration,
   BitEnumeration,
@@ -152,7 +152,7 @@ export const lookupFieldTypeEnumerations = organizeEnumerations(
   getFieldTypeEnumerations()
 )
 export const lookupBitEnumerations = organizeEnumerations(getBitEnumerations())
-export const getPgn = getPGN
+export const getPgn = getPGNWithNumber
 export const customPgns: any = {}
 
 export const addCustomPgns = (pgns: any, setter: any) => {
