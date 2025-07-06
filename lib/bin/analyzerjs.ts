@@ -7,7 +7,7 @@ import readline from 'readline'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
-  boolean: ['n', 'r', 'camel', 'camel-compat']
+  boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches']
 })
 
 if (argv['help']) {
@@ -19,6 +19,7 @@ Options:
   -r                  parse $MXPGN as little endian
   --camel             output field names in camelCase
   --camel-compat      output field names in camelCase and regular
+  --show-non-matches  show pgn data without any matches
   -h, --help          output usage information`)
   process.exit(1)
 }
@@ -28,7 +29,8 @@ const parser = new Parser({
   littleEndianMXPGN: argv['r'] === true,
   checkForInvalidFields: argv['c'] !== true,
   useCamel: argv['camel'],
-  useCamelCompat: argv['camel-compat']
+  useCamelCompat: argv['camel-compat'],
+  returnNonMatches: argv['show-non-matches']
 })
 
 parser.on('error', (pgn: PGN, error: any) => {
