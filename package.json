@@ -74,7 +74,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@canboat/ts-pgns": "^1.7.0",
+    "@canboat/ts-pgns": "^1.6.0",
     "bit-buffer": "0.2.3",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",
