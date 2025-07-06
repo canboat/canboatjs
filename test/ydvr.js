@@ -14,7 +14,7 @@ describe('Read Yacht Devices Voyage Recorder files', function () {
     const filestream = fs.createReadStream(
       path.join(__dirname, 'data', '00090013.DAT')
     )
-    const serial = YdvrStream()
+    const serial = YdvrStream({ returnNonMatches: true })
 
     let firstMessage
     let lastMessage

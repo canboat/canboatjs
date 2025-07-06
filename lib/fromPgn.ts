@@ -101,6 +101,10 @@ export class Parser extends EventEmitter {
       this.options.useCamelCompat = false
     }
 
+    if (this.options.returnNonMatches === undefined) {
+      this.options.returnNonMatches = false
+    }
+
     this.name = pkg.name
     this.version = pkg.version
     this.author = pkg.author
@@ -162,7 +166,6 @@ export class Parser extends EventEmitter {
     }
 
     let pgnData: Definition | undefined
-    const origPGNList = pgnList
 
     if (pgnList.length > 1) {
       pgnData = this.findMatchPgn(pgnList)
@@ -294,6 +297,7 @@ export class Parser extends EventEmitter {
     try {
       let fields = pgnData.Fields
 
+      let continueReading = true
       for (let i = 0; i < fields.length - RepeatingFields; i++) {
         const field = fields[i]
         const hasMatch = field.Match !== undefined
@@ -305,30 +309,13 @@ export class Parser extends EventEmitter {
           //console.log(JSON.stringify(pgnList, null, 2))
           pgnList = pgnList.filter((f) => f.Fields[i].Match == value)
           if (pgnList.length == 0) {
-            //this.emit('warning', pgn, `no conversion found for pgn`)
-            trace('warning no conversion found for pgn %j', pgn)
-
-            const nonMatch = this.findNonMatchPgn(origPGNList)
-            if (nonMatch) {
-              pgnList = [nonMatch]
-              pgnData = pgnList[0]
-              fields = pgnData.Fields
-              const postProcessor = fieldTypePostProcessors[field.FieldType]
-              if (postProcessor) {
-                value = postProcessor(pgnData.Fields[i], value)
-              }
+            if (this.options.returnNonMatches) {
+              //this.emit('warning', pgn, `no conversion found for pgn`)
+              trace('warning no conversion found for pgn %j', pgn)
+              continueReading = false
+              break
             } else {
-              const ts = _.get(pgn, 'timestamp', new Date())
-              pgn.timestamp = _.isDate(ts) ? ts.toISOString() : ts
-              if (
-                value === undefined &&
-                (value != null || this.options.returnNulls)
-              ) {
-                this.setField(pgn.fields, field, value)
-              }
-              this.emit('pgn', pgn)
-              cb && cb(undefined, pgn)
-              return pgn
+              return undefined
             }
           } else {
             pgnData = pgnList[0]
@@ -351,7 +338,7 @@ export class Parser extends EventEmitter {
           this.setField(pgn.fields, field, value)
         }
       }
-      if (RepeatingFields > 0) {
+      if (RepeatingFields > 0 && continueReading) {
         const repeating: Field[] = (fields as any).slice(
           fields.length - RepeatingFields
         )
