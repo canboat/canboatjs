@@ -166,6 +166,17 @@ export const parseYDRAW = (input: string) => {
     time
   })
 }
+
+export const isYDRAWOut = (input: string) => {
+  if (input.charAt(8) !== ' ') return false
+  return true
+}
+export const parseYDRAWOut = (input: string) => {
+  const parts = input.split(' ')
+  if (parts.length < 4) return buildErr('YDRAW', 'Invalid parts.', input)
+  const [canId, ...data] = parts // time format HH:mm:ss.SSS
+  return buildMsg(parseCanIdStr(canId), 'YDRAW', arrBuff(data))
+}
 //19F51323 01 02<CR><LF>
 export const encodeYDRAW = ({ data, ...canIdInfo }: any) => {
   const canId = encodeCanIdString(canIdInfo)
@@ -412,6 +423,9 @@ export const parseN2kString = (str: string, options: any): any => {
   }
   if (isYDRAW(str)) {
     return parseYDRAW(str)
+  }
+  if (isYDRAWOut(str)) {
+    return parseYDRAWOut(str)
   }
   if (isPCDIN(str)) {
     return parsePCDIN(str)
