@@ -12,7 +12,7 @@ const opts = { useCamel: true }
 describe('from pcdin data converts', function () {
   it(`from 127257 converts`, function (done) {
     var pcdin = '$PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59'
-    var expected: PGN_127257 = {
+    var expected = {
       pgn: 127257,
       timestamp: '2010-01-01T00:00:00.000Z',
       //timer: 1262304000000,
@@ -58,7 +58,7 @@ describe('from pcdin data converts', function () {
   it(`from 127257 converts with tag blocks`, function (done) {
     var pcdin =
       '\\s:serial,c:1696759212*3E\\$PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59'
-    var expected: PGN_127257 = {
+    var expected = {
       pgn: 127257,
       timestamp: '2010-01-01T00:00:00.000Z',
       //timer: 1262304000000,
