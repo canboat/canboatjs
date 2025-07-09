@@ -37,6 +37,11 @@ jobs:
         repository: SignalK/n2k-signalk
         path: ./n2k-signalk
 
+    - name: Use Node.js 22.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 22.x
+
     - name: Build & Test n2k-signalk
       run: |
         npm install
@@ -55,7 +60,12 @@ jobs:
         repository: SignalK/signalk-to-nmea2000
         ref: typescript
         path: ./signalk-to-nmea2000
-        
+
+    - name: Use Node.js 22.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 22.x
+
     - name: Buld & Test signalk-to-nmea2000
       run: |
         npm install
