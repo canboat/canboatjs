@@ -10,10 +10,6 @@ jobs:
     name: 'Build & Test'
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [22.x]
-        
     steps:
     - name: Checkout canboatjs
       uses: actions/checkout@v4
@@ -33,10 +29,10 @@ jobs:
         ref: typescript
         path: ./signalk-to-nmea2000
         
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js 22.x
       uses: actions/setup-node@v3
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: '22.x'
         
     - name: Build canboatjs
       run: |
@@ -53,7 +49,7 @@ jobs:
         npm test
       working-directory: ./n2k-signalk
 
-    - name: Buld & Test signalk-to-nmea2000
+    - name: Build & Test signalk-to-nmea2000
       run: |
         npm install
         npm link @canboat/canboatjs
