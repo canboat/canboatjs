@@ -4,6 +4,11 @@ on:
   repository_dispatch:
     types: [trigger-workflow]
   workflow_dispatch:
+    inputs:
+      canboat-branch:
+        description: 'Branch to get canboat.json from'
+        default: 'master'
+        required: true
 
 jobs:
   build_and_test:
@@ -21,6 +26,7 @@ jobs:
       with:
         repository: canboat/canboat
         path: ./canboat
+        ref: ${{ github.event.inputs.canboat-branch }}
         sparse-checkout: |
           docs/canboat.json
         sparse-checkout-cone-mode: false
