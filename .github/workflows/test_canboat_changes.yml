@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build_and_test:
+    name: 'Build & Test'
     runs-on: ubuntu-latest
 
     steps:
@@ -48,7 +49,7 @@ jobs:
       with:
         node-version: '22.x'
         
-    - name: Build & test ts-pgns
+    - name: Build & Test ts-pgns
       run: |
         cp ../canboat/docs/canboat.json .
         npm install
