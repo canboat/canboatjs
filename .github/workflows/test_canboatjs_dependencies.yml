@@ -47,7 +47,7 @@ jobs:
         npm test
       working-directory: ./n2k-signalk
 
-  test_n2k_signalk:
+  test_sk_to_nmea2000:
     runs-on: ubuntu-latest
     needs: build_canboatjs
     steps:
