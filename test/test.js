@@ -51,34 +51,41 @@ describe('from pgn test data converts', function () {
           done(new Error(`${pgn.pgn} ${warning}`))
         })
 
-        fromPgn.on('pgn', (pgn) => {
-          try {
-            //console.log(JSON.stringify(data.expected))
-            delete pgn.bus
-            if (data.expected.timestamp) {
-              pgn.timestamp.should.be.a('string')
-            } else {
-              delete pgn.timestamp
-            }
-            delete pgn.input
-            if (data.ignoreTimestamp) {
-              delete data.expected.timestamp
-              delete pgn.timestamp
-            }
-            pgn.should.jsonEqual(data.expected)
-            success()
-          } catch (e) {
-            done(e)
-          }
-        })
+        fromPgn.on('pgn', (pgn) => {})
 
         let input = data.input
         if (!Array.isArray(input)) {
           input = [input]
         }
+        let gotResult = false
         input.forEach((msg) => {
-          fromPgn.parseString(msg)
+          const pgn = fromPgn.parseString(msg)
+          if (pgn) {
+            gotResult = true
+            try {
+              //console.log(JSON.stringify(data.expected))
+              delete pgn.bus
+              if (data.expected.timestamp) {
+                pgn.timestamp.should.be.a('string')
+              } else {
+                delete pgn.timestamp
+              }
+              delete pgn.input
+              if (data.ignoreTimestamp) {
+                delete data.expected.timestamp
+                delete pgn.timestamp
+              }
+              pgn.should.jsonEqual(data.expected)
+              success()
+            } catch (e) {
+              done(e)
+            }
+          }
         })
+
+        if (gotResult == false) {
+          done(new Error('no pgn data received'))
+        }
       })
     })
   })

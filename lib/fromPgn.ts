@@ -16,8 +16,16 @@
 
 // FIXME: MMSI sould be a string
 
-import { Definition, Field, PGN, FieldType, createPGN } from '@canboat/ts-pgns'
-import { createDebug } from './utilities'
+import {
+  Definition,
+  Field,
+  PGN,
+  FieldType,
+  createPGN,
+  getPGNWithId,
+  Type
+} from '@canboat/ts-pgns'
+import { createDebug, byteString } from './utilities'
 import { EventEmitter } from 'node:events'
 import pkg from '../package.json'
 import _ from 'lodash'
@@ -159,7 +167,14 @@ export class Parser extends EventEmitter {
       return
     }
 
+    if (pgn.pgn === 59392) {
+      pgnList = pgnList.filter(
+        (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
+      )
+    }
+
     let pgnData: Definition | undefined
+    const origPGNList = pgnList
 
     if (pgnList.length > 1) {
       pgnData = this.findMatchPgn(pgnList)
@@ -292,7 +307,12 @@ export class Parser extends EventEmitter {
       let fields = pgnData.Fields
 
       let continueReading = true
-      for (let i = 0; i < fields.length - RepeatingFields; i++) {
+      let unknownPGN = false
+      for (
+        let i = 0;
+        i < fields.length - RepeatingFields && continueReading;
+        i++
+      ) {
         const field = fields[i]
         const hasMatch = field.Match !== undefined
 
@@ -307,7 +327,44 @@ export class Parser extends EventEmitter {
               //this.emit('warning', pgn, `no conversion found for pgn`)
               trace('warning no conversion found for pgn %j', pgn)
               continueReading = false
-              break
+
+              const nonMatch = this.findNonMatchPgn(origPGNList)
+              if (nonMatch) {
+                pgnList = [nonMatch]
+                pgnData = pgnList[0]
+                fields = pgnData.Fields
+              } else {
+                if (pgn.pgn >= 0xff00 && pgn.pgn <= 0xffff) {
+                  pgnData = getPGNWithId(
+                    '0xff000xffffManufacturerProprietarySingleFrameNonAddressed'
+                  )!
+                } else if (pgn.pgn >= 0x1ed00 && pgn.pgn <= 0x1ee00) {
+                  pgnData = getPGNWithId(
+                    '0x1ed000x1ee00StandardizedFastPacketAddressed'
+                  )!
+                } else {
+                  unknownPGN = true
+                }
+              }
+
+              if (bs.bitsLeft >= 8) {
+                const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+                ;(pgn as any).fields['Data'] = byteString(
+                  Buffer.from(data),
+                  ' '
+                )
+              }
+
+              const postProcessor = fieldTypePostProcessors[field.FieldType]
+              if (postProcessor) {
+                value = postProcessor(field, value)
+              } else if (
+                field.FieldType === 'LOOKUP' &&
+                (_.isUndefined(this.options.resolveEnums) ||
+                  this.options.resolveEnums)
+              ) {
+                value = lookup(field, value)
+              }
             } else {
               return undefined
             }
@@ -380,7 +437,10 @@ export class Parser extends EventEmitter {
         }
       */
 
-      const res = createPGN(pgnData.Id, pgn.fields)
+      const res =
+        unknownPGN === false
+          ? createPGN(pgnData.Id, pgn.fields)
+          : new PGN_Uknown(pgn.fields)
 
       if (res === undefined) {
         this.emit('error', pgn, 'no class')
@@ -388,7 +448,12 @@ export class Parser extends EventEmitter {
         return
       }
 
-      res.description = pgnData.Description
+      if (unknownPGN) {
+        res.description = 'Unknown PGN'
+        res.pgn = pgn.pgn
+      } else {
+        res.description = pgnData.Description
+      }
       res.src = pgn.src
       res.dst = pgn.dst
       res.prio = pgn.prio
@@ -669,6 +734,10 @@ export class Parser extends EventEmitter {
 export function getField(pgn_number: number, index: number, data: any) {
   let pgnList = getPgn(pgn_number)
   if (pgnList) {
+    pgnList = pgnList.filter(
+      (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
+    )
+
     let pgn = pgnList[0]
     const dataList = data.list ? data.list : data.fields.list
 
@@ -1215,4 +1284,23 @@ fieldTypePostProcessors['Pressure'] = (field, value) => {
 
 fieldTypePostProcessors[RES_BINARY] = (field, value) => {
   return value.toString()
+}
+
+class PGN_Uknown extends PGN {
+  constructor(fields: any) {
+    super({})
+    this.fields = fields
+  }
+
+  getDefinition(): Definition {
+    return {
+      PGN: this.pgn,
+      Id: 'unknown',
+      Description: 'Unknown PGN',
+      Type: Type.Single,
+      Complete: false,
+      Priority: 3,
+      Fields: []
+    }
+  }
 }
