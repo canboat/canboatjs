@@ -11,11 +11,14 @@ import {
   pgnToPCDIN,
   pgnToMXPGN
 } from '../index'
+import { printVersion } from './utils'
 
 const argv = minimist(process.argv.slice(2), {
   string: ['format'],
   alias: { h: 'help' }
 })
+
+printVersion(argv)
 
 if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options]
