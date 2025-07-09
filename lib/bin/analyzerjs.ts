@@ -7,7 +7,16 @@ import readline from 'readline'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
-  boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches']
+  boolean: [
+    'n',
+    'r',
+    'camel',
+    'camel-compat',
+    'show-non-matches',
+    //'show-create-pgns',
+    'pretty',
+    'show-warnings'
+  ]
 })
 
 if (argv['help']) {
@@ -17,9 +26,11 @@ Options:
   -c                  don't check for invalid values
   -n                  output null values
   -r                  parse $MXPGN as little endian
+  --pretty            pretty json 
   --camel             output field names in camelCase
   --camel-compat      output field names in camelCase and regular
   --show-non-matches  show pgn data without any matches
+  --show-warnings     show warning messages
   -h, --help          output usage information`)
   process.exit(1)
 }
@@ -38,12 +49,10 @@ parser.on('error', (pgn: PGN, error: any) => {
   console.error(error.stack)
 })
 
-parser.on('warning', (_pgn: PGN, _error: any) => {
-  //console.error(`Warning parsing ${pgn.pgn} ${error}`)
-})
-
-parser.on('pgn', (pgn: PGN) => {
-  console.log(JSON.stringify(pgn))
+parser.on('warning', (pgn: PGN, error: any) => {
+  if (argv['show-warnings']) {
+    console.error(`Warning parsing ${pgn.pgn} ${error}`)
+  }
 })
 
 const rl = readline.createInterface({
@@ -56,11 +65,27 @@ rl.on('line', (line: string) => {
   if (argv['log-input']) {
     console.log(line)
   }
+  let pgn: PGN | undefined
   if (line.length > 13 && line.charAt(13) === ';') {
     if (line.charAt(14) === 'A') {
-      parser.parseString(line.substring(16))
+      pgn = parser.parseString(line.substring(16))
     }
   } else {
-    parser.parseString(line.trim())
+    pgn = parser.parseString(line.trim())
+  }
+
+  if (pgn) {
+    /*
+    if ( argv['show-create-pgns'] ) {
+      let dst = ''
+      if ( pgn.dst !== 255 ) {
+        dst = ', 255'
+      }
+      console.log(`const pgn = new ${pgn.constructor.name}(${JSON.stringify(pgn.fields, null, 2)}${dst})`)
+      } else
+      */
+    {
+      console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
+    }
   }
 })
