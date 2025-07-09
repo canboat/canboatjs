@@ -23,7 +23,6 @@ jobs:
     - name: Build canboatjs
       run: |
         npm install
-        npm link @canboat/ts-pgns
         npm run build
         npm link
       working-directory: ./canboatjs
@@ -42,7 +41,6 @@ jobs:
       run: |
         npm install
         npm link @canboat/canboatjs
-        npm link @canboat/ts-pgns
         npm run build
         npm test
       working-directory: ./n2k-signalk
@@ -62,7 +60,6 @@ jobs:
       run: |
         npm install
         npm link @canboat/canboatjs
-        npm link @canboat/ts-pgns
         npm run build
         npm test
       working-directory: ./signalk-to-nmea2000
