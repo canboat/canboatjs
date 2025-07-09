@@ -6,43 +6,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_canboatjs:
+  build:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        node-version: [22.x]
+        
     steps:
     - name: Checkout canboatjs
       uses: actions/checkout@v4
       with:
         path: ./canboatjs
-
-    - name: Use Node.js 22.x
-      uses: actions/setup-node@v3
-      with:
-        node-version: 22.x
-
-    - name: Build canboatjs
-      run: |
-        npm install
-        npm run build
-        npm link
-      working-directory: ./canboatjs
-
-  test_n2k_signalk:
-    runs-on: ubuntu-latest
-    needs: build_canboatjs
-    steps:
+  
     - name: Checkout n2k-signalk
       uses: actions/checkout@v4
       with:
         repository: SignalK/n2k-signalk
         path: ./n2k-signalk
 
-    - name: Use Node.js 22.x
+    - name: Checkout signalk-to-nmea2000
+      uses: actions/checkout@v4
+      with:
+        repository: SignalK/signalk-to-nmea2000
+        ref: typescript
+        path: ./signalk-to-nmea2000
+        
+    - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
-        node-version: 22.x
+        node-version: ${{ matrix.node-version }}
+        
+    - name: Test canboatjs
+      run: |
+        npm install
+        npm run build
+        npm link
+        npm test
+      working-directory: ./canboatjs
 
-    - name: Build & Test n2k-signalk
+    - name: Test n2k-signalk
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -50,23 +53,7 @@ jobs:
         npm test
       working-directory: ./n2k-signalk
 
-  test_sk_to_nmea2000:
-    runs-on: ubuntu-latest
-    needs: build_canboatjs
-    steps:
-    - name: Checkout signalk-to-nmea2000
-      uses: actions/checkout@v4
-      with:
-        repository: SignalK/signalk-to-nmea2000
-        ref: typescript
-        path: ./signalk-to-nmea2000
-
-    - name: Use Node.js 22.x
-      uses: actions/setup-node@v3
-      with:
-        node-version: 22.x
-
-    - name: Buld & Test signalk-to-nmea2000
+    - name: Test signalk-to-nmea2000
       run: |
         npm install
         npm link @canboat/canboatjs
