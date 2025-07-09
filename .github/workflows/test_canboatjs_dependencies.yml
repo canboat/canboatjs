@@ -1,4 +1,4 @@
-name: Test canboatjs dependencies
+name: Test canboatjs dependents
 
 on:
   repository_dispatch:
@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build_and_test:
+    name: 'Build & Test'
     runs-on: ubuntu-latest
 
     strategy:
@@ -37,15 +38,14 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         
-    - name: Test canboatjs
+    - name: Build canboatjs
       run: |
         npm install
         npm run build
         npm link
-        npm test
       working-directory: ./canboatjs
 
-    - name: Test n2k-signalk
+    - name: Build & Test n2k-signalk
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -53,7 +53,7 @@ jobs:
         npm test
       working-directory: ./n2k-signalk
 
-    - name: Test signalk-to-nmea2000
+    - name: Buld & Test signalk-to-nmea2000
       run: |
         npm install
         npm link @canboat/canboatjs
