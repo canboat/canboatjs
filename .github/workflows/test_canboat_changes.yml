@@ -38,7 +38,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: SignalK/n2k-signalk
-        ref: typescript
         path: ./n2k-signalk
 
     - name: Checkout signalk-to-nmea2000
