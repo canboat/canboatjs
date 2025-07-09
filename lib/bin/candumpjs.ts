@@ -11,9 +11,9 @@ const socketcan = require('socketcan')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
-    h: 'help',
-    boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches']
-  }
+    h: 'help'
+  },
+  boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches', 'pretty']
 })
 
 printVersion(argv)
@@ -26,6 +26,7 @@ Options:
   -c                  don't check for invalid values
   -n                  output null values
   -r                  parse $MXPGN as little endian
+  --pretty            pretty json 
   --camel             output field names in camelCase
   --camel-compat      output field names in camelCase and regular
   --show-non-matches  show pgn data without any matches
@@ -75,7 +76,7 @@ parser.on('error', (pgn, error) => {
 })
 
 parser.on('pgn', (pgn) => {
-  console.log(JSON.stringify(pgn))
+  console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
 })
 
 const canDevice = argv['_'][0]
