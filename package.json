@@ -56,26 +56,12 @@
     "signal"
   ],
   "author": "Scott Bender <scott@scottbender.net>",
-  "contributors": [
-    {
-      "name": "Kees Verruijt",
-      "email": "kees@verruijt.net"
-    },
-    {
-      "name": "Teppo Kurki",
-      "email": "teppo.kurki@iki.fi"
-    },
-    {
-      "name": "Jouni Hartikainen",
-      "email": "jouni.hartikainen@iki.fi"
-    }
-  ],
   "license": "Apache-2.0",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@canboat/ts-pgns": "^1.6.0",
+    "@canboat/ts-pgns": "^1.8.0",
     "bit-buffer": "0.2.3",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",

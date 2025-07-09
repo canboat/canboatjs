@@ -82,6 +82,11 @@ export function toPgn(data: any): Buffer | undefined {
     return undefined
   }
 
+  //we would never write fallback pgns
+  pgnList = pgnList.filter(
+    (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
+  )
+
   const pgn_number = data.pgn
   let pgnData = pgnList[0]
 
