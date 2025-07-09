@@ -6,3 +6,4 @@ ios_canboat.js
 lib/coverage
 dist/
 tsconfig.tsbuildinfo
+*.tgz

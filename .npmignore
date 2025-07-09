@@ -69,3 +69,6 @@ packages
 ios_canboat.js
 examples/
 ios.js
+lib/
+.github/
+*.tgz
