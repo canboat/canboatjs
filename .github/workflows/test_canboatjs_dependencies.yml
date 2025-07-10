@@ -47,7 +47,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-n2k-switching-emulator
-        ref: ts-pgns
+        ref: main
         path: ./signalk-n2k-switching-emulator
 
     - name: Use Node.js 22.x
