@@ -28,7 +28,21 @@ jobs:
         repository: SignalK/signalk-to-nmea2000
         ref: typescript
         path: ./signalk-to-nmea2000
-        
+
+    - name: Checkout signalk-n2k-switching
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-n2k-switching
+        ref: typescript
+        path: ./signalk-n2k-switching
+
+    - name: Checkout signalk-n2k-displays
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-n2k-displays
+        ref: typescript
+        path: ./signalk-n2k-displays
+
     - name: Use Node.js 22.x
       uses: actions/setup-node@v3
       with:
@@ -56,3 +70,17 @@ jobs:
         npm run build
         npm test
       working-directory: ./signalk-to-nmea2000
+
+    - name: Build signalk-n2k-switching
+      run: |
+        npm install
+        npm link @canboat/canboatjs
+        npm run build
+      working-directory: ./signalk-n2k-switching
+
+    - name: Build signalk-n2k-displays
+      run: |
+        npm install
+        npm link @canboat/canboatjs
+        npm run build
+      working-directory: ./signalk-n2k-displays
