@@ -24,18 +24,9 @@ describe('from pgn test data converts', function () {
   _.keys(testData).forEach((key) => {
     var dataList = testData[key]
 
-    it(`from pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
-      let testsRemaining = dataList.length
-      function success() {
-        testsRemaining -= 1
-        if (!testsRemaining) done()
-      }
-      dataList.forEach((data) => {
-        if (data.disabled) {
-          success()
-          return
-        }
 
+    dataList.forEach((data, idx) => {
+      it(`from pgn ${key} (${data.expected.description}) (${idx}) converts`, function (done) {
         let format = typeof data.format !== 'undefined' ? data.format : 1
         let useCamel = true //data.useCamel == true
 
@@ -76,7 +67,7 @@ describe('from pgn test data converts', function () {
                 delete pgn.timestamp
               }
               pgn.should.jsonEqual(data.expected)
-              success()
+              done()
             } catch (e) {
               done(e)
             }
@@ -95,32 +86,30 @@ describe('to pgn test data converts', function () {
   _.keys(testData).forEach((key) => {
     var dataList = testData[key]
 
-    it(`to pgn ${key} (${dataList[0].expected.description}) converts`, function (done) {
-      let testsRemaining = dataList.length
-      function success() {
-        testsRemaining -= 1
-        if (!testsRemaining) done()
-      }
-      dataList.forEach((test) => {
+    dataList.forEach((test, idx) => {
         if (
           test.disabled ||
           test.skipEncoderTest ||
           Array.isArray(test.input)
         ) {
-          success()
           return
         }
 
-        var data = toPgn(test.expected)
-        var str = encodeActisense({ pgn: test.expected.pgn, data })
+      it(`to pgn ${key} (${test.expected.description}) (${idx}) converts`, function (done) {
+        try {
+          var data = toPgn(test.expected)
+          var str = encodeActisense({ pgn: test.expected.pgn, data })
+          
+          var expected = test.input.split(',')
+          var result = str.split(',')
+          
+          result[2].should.equal(expected[2])
 
-        var expected = test.input.split(',')
-        var result = str.split(',')
-
-        result[2].should.equal(expected[2])
-
-        result.slice(5).should.deep.equal(expected.slice(5))
-        success()
+          result.slice(5).should.deep.equal(expected.slice(5))
+          done()
+        } catch ( err ) {
+          done(err)
+        }
       })
     })
   })
