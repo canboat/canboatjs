@@ -43,6 +43,13 @@ jobs:
         ref: ts-pgns
         path: ./signalk-n2k-displays
 
+    - name: Checkout signalk-n2k-switching-emulator
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-n2k-switching-emulator
+        ref: ts-pgns
+        path: ./signalk-n2k-switching-emulator
+
     - name: Use Node.js 22.x
       uses: actions/setup-node@v3
       with:
@@ -84,3 +91,10 @@ jobs:
         npm link @canboat/canboatjs
         npm run build
       working-directory: ./signalk-n2k-displays
+
+    - name: Build signalk-n2k-switching-emulator
+      run: |
+        npm install
+        npm link @canboat/canboatjs
+        npm run build
+      working-directory: ./signalk-n2k-switching-emulator
