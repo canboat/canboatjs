@@ -42,40 +42,6 @@ jobs:
         path: ./ts-pgns
         ref: ${{ github.event.inputs.ts-pgns-branch }}
   
-    - name: Checkout n2k-signalk
-      uses: actions/checkout@v4
-      with:
-        repository: SignalK/n2k-signalk
-        path: ./n2k-signalk
-
-    - name: Checkout signalk-to-nmea2000
-      uses: actions/checkout@v4
-      with:
-        repository: SignalK/signalk-to-nmea2000
-        ref: typescript
-        path: ./signalk-to-nmea2000
-
-    - name: Checkout signalk-n2k-switching
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-n2k-switching
-        ref: typescript
-        path: ./signalk-n2k-switching
-
-    - name: Checkout signalk-n2k-displays
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-n2k-displays
-        ref: ts-pgns
-        path: ./signalk-n2k-displays
-
-    - name: Checkout signalk-n2k-switching-emulator
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-n2k-switching-emulator
-        ref: main
-        path: ./signalk-n2k-switching-emulator
-
     - name: Use Node.js 22.x
       uses: actions/setup-node@v3
       with:
@@ -101,6 +67,12 @@ jobs:
         npm test
       working-directory: ./canboatjs
 
+    - name: Checkout n2k-signalk
+      uses: actions/checkout@v4
+      with:
+        repository: SignalK/n2k-signalk
+        path: ./n2k-signalk
+
     - name: Build & Test n2k-signalk
       run: |
         npm install
@@ -109,6 +81,13 @@ jobs:
         npm run build
         npm test
       working-directory: ./n2k-signalk
+
+    - name: Checkout signalk-to-nmea2000
+      uses: actions/checkout@v4
+      with:
+        repository: SignalK/signalk-to-nmea2000
+        ref: typescript
+        path: ./signalk-to-nmea2000
 
     - name: Build & Test signalk-to-nmea2000
       run: |
@@ -119,6 +98,13 @@ jobs:
         npm test
       working-directory: ./signalk-to-nmea2000
 
+    - name: Checkout signalk-n2k-switching
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-n2k-switching
+        ref: typescript
+        path: ./signalk-n2k-switching
+
     - name: Build signalk-n2k-switching
       run: |
         npm install
@@ -126,6 +112,13 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-switching
+
+    - name: Checkout signalk-n2k-displays
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-n2k-displays
+        ref: ts-pgns
+        path: ./signalk-n2k-displays
 
     - name: Build signalk-n2k-displays
       run: |
@@ -135,6 +128,13 @@ jobs:
         npm run build
       working-directory: ./signalk-n2k-displays
 
+    - name: Checkout signalk-n2k-switching-emulator
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-n2k-switching-emulator
+        ref: main
+        path: ./signalk-n2k-switching-emulator
+
     - name: Build signalk-n2k-switching-emulator
       run: |
         npm install
@@ -142,3 +142,18 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-switching-emulator
+
+    - name: Checkout signalk-alarm-silencer
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-alarm-silencer
+        ref: ts-pgns
+        path: ./signalk-alarm-silencer
+
+    - name: Build signalk-alarm-silencer
+      run: |
+        npm install
+        npm link @canboat/canboatjs
+        npm link @canboat/ts-pgns
+        npm run build
+      working-directory: ./signalk-alarm-silencer
