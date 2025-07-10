@@ -16,7 +16,8 @@ const argv = minimist(process.argv.slice(2), {
     'show-non-matches',
     //'show-create-pgns',
     'pretty',
-    'show-warnings'
+    'show-warnings',
+    'coalesced'
   ]
 })
 
@@ -34,6 +35,7 @@ Options:
   --camel-compat      output field names in camelCase and regular
   --show-non-matches  show pgn data without any matches
   --show-warnings     show warning messages
+  --coalesced         force coalesced format
   -h, --help          output usage information`)
   process.exit(1)
 }
@@ -44,7 +46,8 @@ const parser = new Parser({
   checkForInvalidFields: argv['c'] !== true,
   useCamel: argv['camel'],
   useCamelCompat: argv['camel-compat'],
-  returnNonMatches: argv['show-non-matches']
+  returnNonMatches: argv['show-non-matches'],
+  format: argv['coalesced'] ? 1 : undefined
 })
 
 parser.on('error', (pgn: PGN, error: any) => {
