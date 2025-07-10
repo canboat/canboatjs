@@ -9,6 +9,10 @@ on:
         description: 'Branch to get canboat.json from'
         default: 'master'
         required: true
+      ts-pgns-branch:
+        description: 'Branch to get ts-pgns from'
+        default: 'main'
+        required: true        
 
 jobs:
   build_and_test:
@@ -36,6 +40,7 @@ jobs:
       with:
         repository: canboat/ts-pgns
         path: ./ts-pgns
+        ref: ${{ github.event.inputs.ts-pgns-branch }}
   
     - name: Checkout n2k-signalk
       uses: actions/checkout@v4
