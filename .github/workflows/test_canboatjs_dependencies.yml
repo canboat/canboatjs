@@ -124,7 +124,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-fusion-stereo
-        ref: ts-pgns
+        ref: typescript
         path: ./signalk-fusion-stereo
 
     - name: Build signalk-fusion-stereo
