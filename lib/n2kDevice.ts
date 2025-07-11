@@ -87,7 +87,10 @@ export class N2kDevice extends EventEmitter {
         pgn: 60928,
         dst: 255,
         prio: 6,
-        'Manufacturer Code': 999,
+        'Manufacturer Code':
+          options.manufacturerCode != undefined
+            ? options.manufacturerCode
+            : 999,
         'Device Function': 130, // PC gateway
         'Device Class': 25, // Inter/Intranetwork Device
         'Device Instance Lower': 0,
