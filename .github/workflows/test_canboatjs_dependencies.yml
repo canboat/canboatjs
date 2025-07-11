@@ -120,16 +120,16 @@ jobs:
         npm run build
       working-directory: ./signalk-alarm-silencer
 
-    - name: Checkout signalk-fusion-stereo
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-fusion-stereo
-        ref: typescript
-        path: ./signalk-fusion-stereo
+    # - name: Checkout signalk-fusion-stereo
+    #   uses: actions/checkout@v4
+    #   with:
+    #     repository: sbender9/signalk-fusion-stereo
+    #     ref: typescript
+    #     path: ./signalk-fusion-stereo
 
-    - name: Build signalk-fusion-stereo
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm run build
-      working-directory: ./signalk-fusion-stereo
+    # - name: Build signalk-fusion-stereo
+    #   run: |
+    #     npm install
+    #     npm link @canboat/canboatjs
+    #     npm run build
+    #   working-directory: ./signalk-fusion-stereo
