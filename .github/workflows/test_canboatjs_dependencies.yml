@@ -1,6 +1,10 @@
 name: Test canboatjs dependents
 
 on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
   repository_dispatch:
     types: [trigger-workflow]
   workflow_dispatch:
