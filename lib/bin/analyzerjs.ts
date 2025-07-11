@@ -36,8 +36,16 @@ Options:
   --show-non-matches  show pgn data without any matches
   --show-warnings     show warning messages
   --coalesced         force coalesced format
+  --fast              force fast format
   -h, --help          output usage information`)
   process.exit(1)
+}
+
+let format: number | undefined = undefined
+if (argv['coalesced']) {
+  format = 1
+} else if (argv['fast']) {
+  format = 0
 }
 
 const parser = new Parser({
@@ -47,7 +55,7 @@ const parser = new Parser({
   useCamel: argv['camel'],
   useCamelCompat: argv['camel-compat'],
   returnNonMatches: argv['show-non-matches'],
-  format: argv['coalesced'] ? 1 : undefined
+  format
 })
 
 parser.on('error', (pgn: PGN, error: any) => {
