@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@canboat/canboatjs.svg)](https://www.npmjs.com/@canboat/canboatjs)
 [![Node.js CI & Test](https://github.com/canboat/canboatjs/actions/workflows/test.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test.yml)
 [![Test Canboat json Changes](https://github.com/canboat/canboatjs/actions/workflows/test_canboat_changes.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test_canboat_changes.yml)
+[![Test canboatjs dependents](https://github.com/canboat/canboatjs/actions/workflows/test_canboatjs_dependencies.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test_canboatjs_dependencies.yml)
 
 Pure javascript NMEA 2000 decoder and encoder
 
