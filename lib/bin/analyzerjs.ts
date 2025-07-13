@@ -8,6 +8,7 @@ import { printVersion } from './utils'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
+  string: ['pgn', 'manufacturer'],
   boolean: [
     'n',
     'r',
@@ -27,17 +28,19 @@ if (argv['help']) {
   console.error(`Usage: ${process.argv[1]} [options]
 
 Options:
-  -c                  don't check for invalid values
-  -n                  output null values
-  -r                  parse $MXPGN as little endian
-  --pretty            pretty json 
-  --camel             output field names in camelCase
-  --camel-compat      output field names in camelCase and regular
-  --show-non-matches  show pgn data without any matches
-  --show-warnings     show warning messages
-  --coalesced         force coalesced format
-  --fast              force fast format
-  -h, --help          output usage information`)
+  -c                    don't check for invalid values
+  -n                    output null values
+  -r                    parse $MXPGN as little endian
+  --pretty              pretty json 
+  --camel               output field names in camelCase
+  --camel-compat        output field names in camelCase and regular
+  --show-non-matches    show pgn data without any matches
+  --show-warnings       show warning messages
+  --coalesced           force coalesced format
+  --fast                force fast format
+  --pgn <number>        filter for the given pgn number
+  --manufacturer <str>  filter for pgns from the given manufacturer
+  -h, --help            output usage information`)
   process.exit(1)
 }
 
@@ -46,6 +49,12 @@ if (argv['coalesced']) {
   format = 1
 } else if (argv['fast']) {
   format = 0
+}
+let pgn_filter: any = argv['pgn']
+const manufacturer_filter = argv['manufacturer']
+
+if (pgn_filter !== undefined && Array.isArray(pgn_filter) === false) {
+  pgn_filter = [pgn_filter]
 }
 
 const parser = new Parser({
@@ -88,18 +97,19 @@ rl.on('line', (line: string) => {
     pgn = parser.parseString(line.trim())
   }
 
-  if (pgn) {
-    /*
-    if ( argv['show-create-pgns'] ) {
-      let dst = ''
-      if ( pgn.dst !== 255 ) {
-        dst = ', 255'
+  if (
+    pgn &&
+    (pgn_filter === undefined ||
+      pgn_filter.find((p: string) => pgn.pgn === Number(p)))
+  ) {
+    if (manufacturer_filter !== undefined) {
+      const manufacturer =
+        (pgn as any).fields.manufacturerCode ||
+        (pgn as any).fields['Manufacturer Code']
+      if (manufacturer !== manufacturer_filter) {
+        return
       }
-      console.log(`const pgn = new ${pgn.constructor.name}(${JSON.stringify(pgn.fields, null, 2)}${dst})`)
-      } else
-      */
-    {
-      console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
     }
+    console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
   }
 })
