@@ -28,19 +28,19 @@ if (argv['help']) {
   console.error(`Usage: ${process.argv[1]} [options]
 
 Options:
-  -c                  don't check for invalid values
-  -n                  output null values
-  -r                  parse $MXPGN as little endian
-  --pretty            pretty json 
-  --camel             output field names in camelCase
-  --camel-compat      output field names in camelCase and regular
-  --show-non-matches  show pgn data without any matches
-  --show-warnings     show warning messages
-  --coalesced         force coalesced format
-  --fast              force fast format
-  --pgn <number>      filter for the given pgn number
-  --manufacturer <str> filter for pgns from the given manufacturer
-  -h, --help          output usage information`)
+  -c                    don't check for invalid values
+  -n                    output null values
+  -r                    parse $MXPGN as little endian
+  --pretty              pretty json 
+  --camel               output field names in camelCase
+  --camel-compat        output field names in camelCase and regular
+  --show-non-matches    show pgn data without any matches
+  --show-warnings       show warning messages
+  --coalesced           force coalesced format
+  --fast                force fast format
+  --pgn <number>        filter for the given pgn number
+  --manufacturer <str>  filter for pgns from the given manufacturer
+  -h, --help            output usage information`)
   process.exit(1)
 }
 
