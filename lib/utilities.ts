@@ -17,50 +17,6 @@
 import { debug } from 'debug'
 import { CanID } from './canId'
 import { map, padCharsStart, trimChars } from 'lodash/fp'
-import fs from 'fs'
-
-const getDataPath = (options: any) => {
-  if (options.app?.config?.configPath !== undefined) {
-    return `${options.app.config.configPath}/canboatjs-data.json`
-  }
-}
-
-export const getPersistedData = (options: any, id: string, key: string) => {
-  const path = getDataPath(options)
-  if (path !== undefined) {
-    const content = fs.readFileSync(path)
-    const data = JSON.parse(content.toString())
-    return data[id] !== undefined && data[id][key]
-  }
-}
-
-export const savePersistedData = (
-  options: any,
-  id: string,
-  key: string,
-  value: any
-) => {
-  const path = getDataPath(options)
-  if (path !== undefined) {
-    let content: string
-
-    try {
-      content = fs.readFileSync(path).toString()
-    } catch (err: any) {
-      if (err.code === 'ENOENT') {
-        content = '{}'
-      } else {
-        throw err
-      }
-    }
-    const data = JSON.parse(content.toString())
-    if (data[id] === undefined) {
-      data[id] = {}
-    }
-    data[id][key] = value
-    fs.writeFileSync(path, JSON.stringify(data, null, 2))
-  }
-}
 
 export const createDebug = (name: string, appOptions: any = undefined) => {
   if (appOptions !== undefined && appOptions.createDebug !== undefined) {

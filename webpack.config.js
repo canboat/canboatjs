@@ -4,6 +4,7 @@ module.exports = {
   resolve: {
     fallback: {
       buffer: require.resolve('buffer/'),
+      'node:events': require.resolve('events')
     },
   },
   plugins: [
