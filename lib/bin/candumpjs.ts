@@ -60,12 +60,12 @@ const parser = new FromPgn({
 
 const format = argv['format'] || 'json'
 
-parser.on('error', (pgn, error) => {
+parser.on('error', (pgn: any, error: any) => {
   console.error(`Error parsing ${pgn.pgn} ${error}`)
   console.error(error.stack)
 })
 
-parser.on('pgn', (pgn) => {
+parser.on('pgn', (pgn: any) => {
   if (
     pgn_filter === undefined ||
     pgn_filter.find((p: string) => pgn.pgn === Number(p))

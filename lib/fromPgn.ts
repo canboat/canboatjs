@@ -26,7 +26,9 @@ import {
   Type
 } from '@canboat/ts-pgns'
 import { createDebug, byteString } from './utilities'
-import { EventEmitter } from 'node:events'
+//import { EventEmitter } from 'node:events'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const EventEmitter = require('events')
 import pkg from '../package.json'
 import _ from 'lodash'
 import {

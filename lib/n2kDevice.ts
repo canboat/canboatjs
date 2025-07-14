@@ -37,7 +37,7 @@ import { Uint64LE } from 'int64-buffer'
 import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
 import packageJson from '../package.json'
-import { getPersistedData, savePersistedData } from './utilities'
+import { getPersistedData, savePersistedData } from './persist'
 import { createDebug } from './utilities'
 
 const deviceTransmitPGNs = [60928, 59904, 126996, 126464]

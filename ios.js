@@ -1,5 +1,5 @@
 
-const FromPgn = require('./lib/fromPgn').Parser
+const FromPgn = require('./dist/fromPgn').Parser
 const {
   pgnToYdgwRawFormat,
   actisenseToYdgwRawFormat,
@@ -11,7 +11,7 @@ const {
   actisenseToMXPGN,
   pgnToActisenseN2KAsciiFormat,
   actisenseToN2KAsciiFormat
-} = require('./lib/toPgn')
+} = require('./dist/toPgn')
 
 const parser = new FromPgn({})
 
