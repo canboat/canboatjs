@@ -8,11 +8,6 @@ on:
   repository_dispatch:
     types: [trigger-workflow]
   workflow_dispatch:
-    inputs:
-      ts-pgns-branch:
-        description: 'Branch to get ts-pgns from'
-        default: 'main'
-        required: true        
 
 jobs:
   build_and_test:

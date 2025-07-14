@@ -9,6 +9,10 @@ on:
         description: 'Branch to get canboat.json from'
         default: 'master'
         required: true
+      canboatjs-branch:
+        description: 'Branch to get canboat.json from'
+        default: 'master'
+        required: true
       ts-pgns-branch:
         description: 'Branch to get ts-pgns from'
         default: 'main'
@@ -24,6 +28,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         path: ./canboatjs
+        ref: ${{ github.event.inputs.canboatjs-branch }}
   
     - name: Checkout canboat.json
       uses: actions/checkout@v4
