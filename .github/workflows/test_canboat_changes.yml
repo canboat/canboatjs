@@ -10,7 +10,7 @@ on:
         default: 'master'
         required: true
       canboatjs-branch:
-        description: 'Branch to get canboat.json from'
+        description: 'Branch to get canboatjs from'
         default: 'master'
         required: true
       ts-pgns-branch:
