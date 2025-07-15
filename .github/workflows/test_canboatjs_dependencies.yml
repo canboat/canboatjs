@@ -42,7 +42,6 @@ jobs:
       run: |
         npm install
         npm link @canboat/canboatjs
-        npm link @canboat/ts-pgns
         npm run build
         npm test
       working-directory: ./n2k-signalk
@@ -58,7 +57,6 @@ jobs:
       run: |
         npm install
         npm link @canboat/canboatjs
-        npm link @canboat/ts-pgns
         npm run build
         npm test
       working-directory: ./signalk-to-nmea2000
@@ -133,3 +131,17 @@ jobs:
         npm link @canboat/canboatjs
         npm run build
       working-directory: ./signalk-fusion-stereo
+
+    - name: Checkout signalk-yd-alarm-button
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-yd-alarm-button
+        ref: ts-pgns
+        path: ./signalk-yd-alarm-button
+
+    - name: Build signalk-yd-alarm-button
+      run: |
+        npm install
+        npm link @canboat/canboatjs
+        npm run build
+      working-directory: ./signalk-yd-alarm-button
