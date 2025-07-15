@@ -192,3 +192,18 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-yd-alarm-button
+
+    - name: Checkout signalk-n2kais-to-nmea0183
+      uses: actions/checkout@v4
+      with:
+        repository: sbender9/signalk-n2kais-to-nmea0183
+        ref: typescript
+        path: ./signalk-n2kais-to-nmea0183
+
+    - name: Build signalk-n2kais-to-nmea0183
+      run: |
+        npm install
+        npm link @canboat/canboatjs
+        npm link @canboat/ts-pgns
+        npm run build
+      working-directory: ./signalk-n2kais-to-nmea0183
