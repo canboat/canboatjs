@@ -16,11 +16,7 @@
 
 export { Parser as FromPgn } from './fromPgn'
 export { CanbusStream as canbus } from './canbus'
-export {
-  addCustomPgns,
-  lookupEnumerationValue,
-  lookupEnumerationName
-} from './pgns'
+export { addCustomPgns } from './pgns'
 export {
   parseN2kString,
   isN2KString,
@@ -46,3 +42,8 @@ export { discover } from './discovery'
 export { SimpleCan } from './simpleCan'
 export { YdDevice } from './yddevice'
 export { ActisenseStream as serial } from './actisense-serial'
+
+import { getEnumerationValue, getEnumerationName } from '@canboat/ts-pgns'
+
+export const lookupEnumerationValue = getEnumerationValue
+export const lookupEnumerationName = getEnumerationName

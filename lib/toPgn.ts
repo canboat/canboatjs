@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-import { Field, PGN } from '@canboat/ts-pgns'
-import { getField } from './fromPgn'
 import {
-  getPgn,
-  getCustomPgn,
-  lookupEnumerationValue,
-  lookupFieldTypeEnumerationValue,
-  lookupBitEnumerationName,
-  lookupFieldTypeEnumerationBits
-} from './pgns'
+  Field,
+  PGN,
+  getEnumerationValue,
+  getFieldTypeEnumerationValue,
+  getBitEnumerationName,
+  getFieldTypeEnumerationBits
+} from '@canboat/ts-pgns'
+import { getField } from './fromPgn'
+import { getPgn, getCustomPgn } from './pgns'
 import _ from 'lodash'
 import { BitStream } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
@@ -347,9 +347,9 @@ function writeVariableLengthField(
 function lookup(field: Field, stringValue: string) {
   let res
   if (field.LookupEnumeration) {
-    res = lookupEnumerationValue(field.LookupEnumeration, stringValue)
+    res = getEnumerationValue(field.LookupEnumeration, stringValue)
   } else {
-    res = lookupFieldTypeEnumerationValue(
+    res = getFieldTypeEnumerationValue(
       field.LookupFieldTypeEnumeration,
       stringValue
     )
@@ -363,12 +363,9 @@ function lookupKeyBitLength(data: any, fields: Field[]) {
   if (field) {
     let val = data['Key'] || data['key']
     if (typeof val === 'string') {
-      val = lookupFieldTypeEnumerationValue(
-        field.LookupFieldTypeEnumeration,
-        val
-      )
+      val = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
     }
-    return lookupFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
+    return getFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
   }
 }
 
@@ -460,7 +457,7 @@ export const actisenseToN2KActisenseFormat = _.flow(
 )
 
 function bitIsSet(field: Field, index: number, value: string) {
-  const enumName = lookupBitEnumerationName(
+  const enumName = getBitEnumerationName(
     field.LookupBitEnumeration as string,
     index
   )

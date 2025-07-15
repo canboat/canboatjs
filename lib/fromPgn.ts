@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-// FIXME: MMSI sould be a string
-
 import {
   Definition,
   Field,
@@ -23,7 +21,12 @@ import {
   FieldType,
   createPGN,
   getPGNWithId,
-  Type
+  Type,
+  getEnumerationName,
+  getBitEnumerationName,
+  getFieldTypeEnumerationName,
+  getFieldTypeEnumerationValue,
+  getFieldTypeEnumerationBits
 } from '@canboat/ts-pgns'
 import { createDebug, byteString } from './utilities'
 //import { EventEmitter } from 'node:events'
@@ -31,16 +34,7 @@ import { createDebug, byteString } from './utilities'
 const EventEmitter = require('events')
 import pkg from '../package.json'
 import _ from 'lodash'
-import {
-  getPgn,
-  getCustomPgn,
-  addCustomPgns,
-  lookupEnumerationName,
-  lookupFieldTypeEnumerationName,
-  lookupBitEnumerationName,
-  lookupFieldTypeEnumerationBits,
-  lookupFieldTypeEnumerationValue
-} from './pgns'
+import { getPgn, getCustomPgn, addCustomPgns } from './pgns'
 import { BitStream, BitView } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 
@@ -798,12 +792,9 @@ function pad2(x: number) {
 function lookup(field: Field, value: number) {
   let name
   if (field.LookupEnumeration) {
-    name = lookupEnumerationName(field.LookupEnumeration, value)
+    name = getEnumerationName(field.LookupEnumeration, value)
   } else {
-    name = lookupFieldTypeEnumerationName(
-      field.LookupFieldTypeEnumeration,
-      value
-    )
+    name = getFieldTypeEnumerationName(field.LookupFieldTypeEnumeration, value)
   }
 
   return name ? name : value
@@ -1210,9 +1201,7 @@ fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
   const value: any[] = []
   for (let i = 0; i < (field.BitLength as number); i++) {
     if (bs.readBits(1, false)) {
-      value.push(
-        lookupBitEnumerationName(field.LookupBitEnumeration as string, i)
-      )
+      value.push(getBitEnumerationName(field.LookupBitEnumeration as string, i))
     }
   }
   return value
@@ -1222,14 +1211,11 @@ function lookupKeyBitLength(data: any, fields: Field[]): number | undefined {
   const field = fields.find((field) => field.Name === 'Key')
 
   if (field) {
-    let val = data['Key'] || data['key']
+    let val: any = data['Key'] || data['key']
     if (typeof val === 'string') {
-      val = lookupFieldTypeEnumerationValue(
-        field.LookupFieldTypeEnumeration,
-        val
-      )
+      val = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
     }
-    return lookupFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
+    return getFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
   }
 }
 
