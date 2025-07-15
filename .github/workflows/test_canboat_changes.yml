@@ -206,4 +206,5 @@ jobs:
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm run build
+        npm test
       working-directory: ./signalk-n2kais-to-nmea0183
