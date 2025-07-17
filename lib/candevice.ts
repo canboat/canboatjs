@@ -16,7 +16,6 @@
 
 import { PGN } from '@canboat/ts-pgns'
 import { N2kDevice } from './n2kDevice'
-import _ from 'lodash'
 
 export class CanDevice extends N2kDevice {
   canbus: any
