@@ -100,6 +100,9 @@ rl.on('line', (line: string) => {
   if (argv['log-input']) {
     console.log(line)
   }
+  if (line.length === 0) {
+    return
+  }
   let pgn: PGN | undefined
   if (line.length > 13 && line.charAt(13) === ';') {
     if (line.charAt(14) === 'A') {
