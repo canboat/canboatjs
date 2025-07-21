@@ -5,10 +5,11 @@ import { Parser } from '../fromPgn'
 import minimist from 'minimist'
 import readline from 'readline'
 import { printVersion } from './utils'
+import fs from 'fs'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
-  string: ['pgn', 'manufacturer'],
+  string: ['pgn', 'manufacturer', 'file'],
   boolean: [
     'n',
     'r',
@@ -31,6 +32,7 @@ Options:
   -c                    don't check for invalid values
   -n                    output null values
   -r                    parse $MXPGN as little endian
+  --file <path>         read from the given file
   --pretty              pretty json 
   --camel               output field names in camelCase
   --camel-compat        output field names in camelCase and regular
@@ -78,11 +80,21 @@ parser.on('warning', (pgn: PGN, error: any) => {
   }
 })
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  terminal: false
-})
+let rl
+const file = argv['file']
+if (file) {
+  const fileStream = fs.createReadStream(file)
+  rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity // This option ensures that '\r\n' is treated as a single line break
+  })
+} else {
+  rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false
+  })
+}
 
 rl.on('line', (line: string) => {
   if (argv['log-input']) {
