@@ -302,7 +302,7 @@ export class Parser extends EventEmitter {
     try {
       let fields = pgnData.Fields
 
-      let continueReading = true
+      const continueReading = true
       let unknownPGN = false
       for (
         let i = 0;
@@ -312,7 +312,15 @@ export class Parser extends EventEmitter {
         const field = fields[i]
         const hasMatch = field.Match !== undefined
 
-        let value = readField(this.options, !hasMatch, pgn, field, bs, fields)
+        let value = readField(
+          pgnData!,
+          this.options,
+          !hasMatch,
+          pgn,
+          field,
+          bs,
+          fields
+        )
 
         if (hasMatch) {
           //console.log(`looking for ${field.Name} == ${value}`)
@@ -322,7 +330,7 @@ export class Parser extends EventEmitter {
             if (this.options.returnNonMatches) {
               //this.emit('warning', pgn, `no conversion found for pgn`)
               trace('warning no conversion found for pgn %j', pgn)
-              continueReading = false
+              //continueReading = false
 
               const nonMatch = this.findNonMatchPgn(origPGNList)
               if (nonMatch) {
@@ -341,14 +349,6 @@ export class Parser extends EventEmitter {
                 } else {
                   unknownPGN = true
                 }
-              }
-
-              if (bs.bitsLeft >= 8) {
-                const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
-                ;(pgn as any).fields['Data'] = byteString(
-                  Buffer.from(data),
-                  ' '
-                )
               }
 
               const postProcessor = fieldTypePostProcessors[field.FieldType]
@@ -409,6 +409,7 @@ export class Parser extends EventEmitter {
           repeating.forEach((field) => {
             if (bs.bitsLeft > 0) {
               const value = readField(
+                pgnData!,
                 this.options,
                 true,
                 pgn,
@@ -801,6 +802,7 @@ function lookup(field: Field, value: number) {
 }
 
 function readField(
+  definition: Definition,
   options: any,
   runPostProcessor: boolean,
   pgn: PGN,
@@ -823,7 +825,7 @@ function readField(
       bs.readBits(bs.bitsLeft, false)
       return
     }
-    value = readValue(options, pgn, field, bs, fields)
+    value = readValue(definition, options, pgn, field, bs, fields)
   }
 
   //console.log(`${field.Name} ${value} ${field.Resolution}`)
@@ -906,6 +908,7 @@ function readField(
 }
 
 function readValue(
+  definition: Definition,
   options: any,
   pgn: PGN,
   field: Field,
@@ -914,7 +917,7 @@ function readValue(
   bitLength: number | undefined = undefined
 ) {
   if (field.FieldType == 'VARIABLE') {
-    return readVariableLengthField(options, pgn, field, bs)
+    return readVariableLengthField(definition, options, pgn, field, bs)
   } else {
     let value
     if (bitLength === undefined) {
@@ -932,8 +935,10 @@ function readValue(
         return
       }
     }
-
-    if (bitLength === 8) {
+    if (field.FieldType === FieldType.Binary && definition.Fallback === true) {
+      const data = bs.readArrayBuffer(bitLength / 8)
+      return byteString(Buffer.from(data), ' ')
+    } else if (bitLength === 8) {
       if (field.Signed) {
         value = bs.readInt8()
         value = value === 0x7f ? null : value
@@ -1042,6 +1047,7 @@ function isMax(numBits: number, value: number, signed: boolean) {
 }
 
 function readVariableLengthField(
+  definition: Definition,
   options: any,
   pgn: PGN,
   field: Field,
@@ -1065,7 +1071,7 @@ function readVariableLengthField(
     )
 
     if (refField) {
-      const res = readField(options, false, pgn, refField, bs)
+      const res = readField(definition, options, false, pgn, refField, bs)
 
       if (refField.BitLength !== undefined) {
         const bits = (refField.BitLength + 7) & ~7 // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
