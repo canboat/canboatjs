@@ -434,7 +434,7 @@ function processNTGMessage(that: any, buffer: Buffer, len: number) {
           that.debugOut(commitMsg)
           that.serial.write(commitMsg)
         } else {
-          enableTXPGN(that.serial, that.neededTransmitPGNs[0])
+          enableTXPGN(that, that.neededTransmitPGNs[0])
         }
       } else {
         that.debug('bad response from Enable TX: %d', buffer[3])
