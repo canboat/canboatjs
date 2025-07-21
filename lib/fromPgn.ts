@@ -942,7 +942,8 @@ function readValue(
       }
     }
     if (field.FieldType === FieldType.Binary && definition.Fallback === true) {
-      const data = bs.readArrayBuffer(bitLength / 8)
+      bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
+      const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
       return byteString(Buffer.from(data), ' ')
     } else if (bitLength === 8) {
       if (field.Signed) {
