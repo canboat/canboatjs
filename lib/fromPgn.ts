@@ -103,6 +103,10 @@ export class Parser extends EventEmitter {
       this.options.returnNonMatches = false
     }
 
+    if (this.options.createPGNObjects === undefined) {
+      this.options.createPGNObjects = false
+    }
+
     this.name = pkg.name
     this.version = pkg.version
     this.author = pkg.author
@@ -435,9 +439,11 @@ export class Parser extends EventEmitter {
       */
 
       const res =
-        unknownPGN === false
-          ? createPGN(pgnData.Id, pgn.fields)
-          : new PGN_Uknown(pgn.fields)
+        this.options.createPGNObjects === false
+          ? pgn
+          : unknownPGN === false
+            ? createPGN(pgnData.Id, pgn.fields)
+            : new PGN_Uknown(pgn.fields)
 
       if (res === undefined) {
         this.emit('error', pgn, 'no class')
