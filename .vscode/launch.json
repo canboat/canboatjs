@@ -11,7 +11,9 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "args":["--file", "/tmp/eb.log", "--pgn", "65280"],
+            "args":["--file", "/tmp/rr.log" 
+        //    "--pgn", "65280"
+        ],
             "program": "${workspaceFolder}/../canboatjs/dist/bin/analyzerjs.js",
             "outFiles": [
                 "${workspaceFolder}/../canboatjs/**/*.js"
