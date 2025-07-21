@@ -1,52 +1,432 @@
-# Canboatjs
+# @canboat/canboatjs
 
 [![npm version](https://img.shields.io/npm/v/@canboat/canboatjs.svg)](https://www.npmjs.com/@canboat/canboatjs)
 [![Node.js CI & Test](https://github.com/canboat/canboatjs/actions/workflows/test.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test.yml)
 [![Test Canboat json Changes](https://github.com/canboat/canboatjs/actions/workflows/test_canboat_changes.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test_canboat_changes.yml)
 [![Test canboatjs dependents](https://github.com/canboat/canboatjs/actions/workflows/test_canboatjs_dependencies.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test_canboatjs_dependencies.yml)
 
-Pure javascript NMEA 2000 decoder and encoder
+A comprehensive JavaScript library for parsing, encoding, and interfacing with NMEA 2000 marine electronics networks. This is a pure JavaScript port of the [canboat project](https://github.com/canboat/canboat) with extensive device support and multiple data format compatibility.
 
-Canboatjs is a port of the canboat project (https://github.com/canboat/canboat) to javascript
+## 📋 Table of Contents
 
-# Features
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Supported Devices](#supported-devices)
+- [Command Line Tools](#command-line-tools)
+- [API Reference](#api-reference)
+- [Usage Examples](#usage-examples)
+- [Device Integration](#device-integration)
+- [Data Formats](#data-formats)
+- [Contributing](#contributing)
+- [License](#license)
 
-- Reads directly from CAN bus devices and NMEA 2000 gateways including:
-  - Actisense NGT-1 and W2K-1
-  - Digital Yacht iKonvert
-  - Yacht Devices YDWG-02 and YDEN-02
-  - Shipmodul MiniPlex-3-N2K
-  - socketcan based devices
-- Parses input in canboat analyzer json format
-- Converts and outputs binary N2K format to supported devices
+## ✨ Features
 
-# PGN Descriptions
+- **🔌 Multi-Device Support**: Direct interface with popular NMEA 2000 gateways and CAN bus devices
+- **📡 Multiple Data Formats**: Parse and generate various N2K data formats (Actisense, iKonvert, YDWG, etc.)
+- **🔄 Bidirectional**: Both decode incoming N2K messages and encode/transmit outgoing messages
+- **⚡ Real-time Processing**: Stream-based processing for live data feeds
+- **🛠️ Command Line Tools**: Ready-to-use CLI utilities for data conversion and analysis
+- **🎯 Type Safety**: Built with TypeScript and includes comprehensive type definitions
+- **🌊 Marine Focus**: Specifically designed for marine electronics and navigation systems
+- **📊 JSON Output**: Standardized JSON format compatible with Signal K and other marine data systems
 
-The details about the PGNs recognized by Canboatjs come from the canboat project in [canboat.json](https://github.com/canboat/canboat/blob/master/docs/canboat.json). If you want to add or update PGN details, please make changes to the [pgn.h file](https://github.com/canboat/canboat/blob/master/analyzer/pgn.h) in canboat and submit a pull request there. Include sample data and raise an issue here so that I can include your changes in Canboatjs.
+## 📦 Installation
 
-# Command Line Programs
+### For Command Line Usage
 
-## analyzerjs
+```bash
+sudo npm install -g @canboat/canboatjs
+```
 
-This program is similar to the canboat `analyzer` command-line. It takes input in the actisense serial format and outputs canboat json for mat.
+### For Node.js Projects
 
-Examples:
+```bash
+npm install @canboat/canboatjs
+```
 
-- `actisense-serialjs /dev/ttyUSB0 | analyzerjs`
-- `ikonvert-serial /dev/ttyUSB0 | analyzerjs`
-- `nc ydgw 1475 | analyzerjs`
-- `nc w2k-1 6002 | analyzerjs` // port should be N2K ACSCII format server on a w2k-1
--  `candump can0 | analyzerjs`
+### Requirements
 
-## to-pgn
+- **Node.js**: Version 20 or higher
+- **Optional Dependencies**:
+  - `serialport`: For serial device communication
+  - `socketcan`: For direct CAN bus access on Linux
 
-This program takes input in the canboat json format and outputs actisense serial format.
+## 🚀 Quick Start
 
-## candumpjs
+### Basic Message Parsing
 
-Read directly from a socketcan device without the need to install can-utils
+```javascript
+const { FromPgn } = require('@canboat/canboatjs')
 
-Example: `candumpjs can0`
+// Create parser instance
+const parser = new FromPgn()
+
+// Handle warnings
+parser.on('warning', (pgn, warning) => {
+  console.log(`[WARNING] PGN ${pgn.pgn}: ${warning}`)
+})
+
+// Parse an Actisense format message
+const message = "2017-03-13T01:00:00.146Z,2,127245,204,255,8,fc,f8,ff,7f,ff,7f,ff,ff"
+const json = parser.parseString(message)
+
+if (json) {
+  console.log('Parsed PGN:', JSON.stringify(json, null, 2))
+}
+```
+
+### Generate N2K Messages
+
+```javascript
+const { pgnToActisenseSerialFormat } = require('@canboat/canboatjs')
+
+// Create a rudder position message
+const message = {
+  pgn: 127245,
+  prio: 2,
+  src: 204,
+  dst: 255,
+  fields: {
+    'Instance': 252,
+    'Direction Order': 0,
+    'Reserved1': '62'
+  }
+}
+
+const actisenseString = pgnToActisenseSerialFormat(message)
+console.log('Generated:', actisenseString)
+```
+
+## 🔌 Supported Devices
+
+### NMEA 2000 Gateways
+- **Actisense NGT-1** & **W2K-1** - USB and WiFi NMEA 2000 gateways
+- **Digital Yacht iKonvert** - Serial to NMEA 2000 converter
+- **Yacht Devices YDWG-02** & **YDEN-02** - WiFi and Ethernet gateways
+- **Shipmodul MiniPlex-3-N2K** - Multi-protocol marine data multiplexer
+
+### CAN Bus Interfaces
+- **SocketCAN devices** - Direct Linux CAN bus interface
+- **Various CAN adapters** - Hardware CAN interfaces compatible with SocketCAN
+
+### Supported Data Formats
+- **Actisense Serial Format** - Standard Actisense ASCII format
+- **iKonvert Format** - Digital Yacht proprietary format
+- **YDWG Raw Format** - Yacht Devices raw binary format
+- **PCDIN Format** - Chetco Digital Instruments format
+- **MXPGN Format** - MiniPlex-3 format
+- **SocketCAN** - Linux CAN bus native format
+
+## 🛠️ Command Line Tools
+
+Canboatjs includes several powerful command-line utilities:
+
+### `analyzerjs` - Message Analysis
+Convert various N2K formats to standardized JSON:
+
+```bash
+# From Actisense NGT-1
+actisense-serialjs /dev/ttyUSB0 | analyzerjs
+
+# From iKonvert
+ikonvert-serial /dev/ttyUSB0 | analyzerjs
+
+# From YDWG-02 over network
+nc ydgw-ip 1475 | analyzerjs
+
+# From W2K-1 WiFi gateway  
+nc w2k-1-ip 60002 | analyzerjs
+
+# From SocketCAN
+candumpjs can0
+```
+
+### `to-pgn` - Message Generation
+Convert JSON to various N2K formats:
+
+```bash
+echo '{"pgn":127245,"fields":{"Instance":0}}' | to-pgn --format=actisense
+```
+
+### `candumpjs` - Direct CAN Access
+Read from SocketCAN without installing can-utils:
+
+```bash
+candumpjs can0
+```
+
+### `ydvr-file` - YDVR File Processing
+Process Yacht Devices recorder files:
+
+```bash
+ydvr-file recording.ydvr | analyzerjs
+```
+
+### Additional Tools
+- `actisense-file` - Process Actisense log files
+- `actisense-n2k-tcp` - TCP server for Actisense data
+- `cansend` - Send CAN messages
+- `ikonvert-serial` - iKonvert serial interface
+
+## 📚 API Reference
+
+### Core Classes
+
+#### `FromPgn` - Message Parser
+```javascript
+const parser = new FromPgn(options)
+parser.parseString(message)  // Parse single message
+parser.parse(buffer)         // Parse binary data
+```
+
+#### `canbus` - CAN Bus Interface
+```javascript
+const canbus = new canbus(options)
+canbus.sendPGN(message)      // Send N2K message
+```
+
+#### Device-Specific Streams
+- `Ydwg02` - Yacht Devices YDWG-02 interface
+- `W2k01` - Actisense W2K-1 interface  
+- `iKonvert` - Digital Yacht iKonvert interface
+- `Venus` - Victron Venus OS interface
+- `serial` - Actisense NGT-1 serial interface
+
+### Utility Functions
+
+```javascript
+const {
+  parseN2kString,           // Parse N2K string formats
+  isN2KString,             // Detect N2K string format
+  toActisenseSerialFormat, // Convert to Actisense format
+  pgnToActisenseSerialFormat,
+  pgnToiKonvertSerialFormat,
+  pgnToYdgwRawFormat,
+  lookupEnumerationValue,   // Get enumeration values
+  lookupEnumerationName,    // Get enumeration names
+  discover                  // Network device discovery
+} = require('@canboat/canboatjs')
+```
+
+## 💡 Usage Examples
+
+### Real-time Data Streaming
+
+```javascript
+const { FromPgn, serial } = require('@canboat/canboatjs')
+
+// Connect to Actisense NGT-1
+const actisense = new serial({
+  device: '/dev/ttyUSB0',
+  baudrate: 115200
+})
+
+const parser = new FromPgn()
+
+actisense.pipe(parser)
+
+parser.on('pgn', (pgn) => {
+  if (pgn.pgn === 129025) { // Position Rapid Update
+    console.log(`Lat: ${pgn.fields.Latitude}, Lon: ${pgn.fields.Longitude}`)
+  }
+})
+```
+
+### Device Discovery
+
+```javascript
+const { discover } = require('@canboat/canboatjs')
+
+// Discover NMEA 2000 devices on network
+discover((device) => {
+  console.log(`Found device: ${device.name} at ${device.address}:${device.port}`)
+})
+```
+
+### Working with Multiple Formats
+
+```javascript
+const { FromPgn } = require('@canboat/canboatjs')
+const parser = new FromPgn()
+
+// Actisense format
+const actisense = "2017-03-13T01:00:00.146Z,2,127245,204,255,8,fc,f8,ff,7f,ff,7f,ff,ff"
+
+// YDWG-02 format
+const ydwg = "16:29:27.082 R 09F8017F 50 C3 B8 13 47 D8 2B C6"
+
+// MiniPlex-3 format
+const miniplex = "$MXPGN,01F801,2801,C1308AC40C5DE343*19"
+
+// All parse to same JSON structure
+[actisense, ydwg, miniplex].forEach(message => {
+  const json = parser.parseString(message)
+  if (json) {
+    console.log(`PGN ${json.pgn}: ${json.description}`)
+  }
+})
+```
+
+### Custom Device Integration
+
+```javascript
+const { SimpleCan } = require('@canboat/canboatjs')
+
+// Create virtual N2K device
+const device = new SimpleCan({
+  canDevice: 'can0',
+  preferredAddress: 35,
+  addressClaim: {
+    "Unique Number": 139725,
+    "Manufacturer Code": 'My Company',
+    "Device Function": 130,
+    "Device Class": 'Navigation',
+    "Device Instance Lower": 0,
+    "Device Instance Upper": 0,
+    "System Instance": 0,
+    "Industry Group": 'Marine'
+  },
+  productInfo: {
+    "NMEA 2000 Version": 1300,
+    "Product Code": 667,
+    "Model ID": "MyDevice-1000",
+    "Software Version Code": "1.0",
+    "Model Version": "1.0",
+    "Model Serial Code": "123456"
+  }
+}, (message) => {
+  // Handle incoming messages
+  console.log('Received:', message)
+})
+
+device.start()
+```
+
+## 🌐 Data Formats
+
+### Input Format Support
+
+| Format | Description | Example |
+|--------|-------------|---------|
+| **Actisense** | Standard timestamped CSV | `2017-03-13T01:00:00.146Z,2,127245,204,255,8,fc,f8,ff,7f,ff,7f,ff,ff` |
+| **YDWG Raw** | Yacht Devices binary | `16:29:27.082 R 09F8017F 50 C3 B8 13 47 D8 2B C6` |
+| **iKonvert** | Digital Yacht base64 | `!PDGY,127245,255,/Pj/f/9///8=` |
+| **PCDIN** | Chetco Digital | `$PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59` |
+| **MXPGN** | MiniPlex-3 | `$MXPGN,01F801,2801,C1308AC40C5DE343*19` |
+
+### Output Format Support
+
+Generate data in any supported format from JSON:
+
+```javascript
+const message = { pgn: 127245, fields: { Instance: 0 } }
+
+// Convert to different formats
+const actisense = pgnToActisenseSerialFormat(message)
+const ikonvert = pgnToiKonvertSerialFormat(message)  
+const ydwg = pgnToYdgwRawFormat(message)
+const pcdin = pgnToPCDIN(message)
+const mxpgn = pgnToMXPGN(message)
+```
+
+## 🏗️ Building from Source
+
+```bash
+# Clone repository
+git clone https://github.com/canboat/canboatjs.git
+cd canboatjs
+
+# Install dependencies
+npm install
+
+# Build TypeScript
+npm run build
+
+# Run tests
+npm test
+
+# Run with coverage
+npm run code-coverage
+
+# Lint and format
+npm run format
+```
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run with file watching
+npm run dev-test
+
+# Generate coverage report
+npm run code-coverage
+```
+
+## 📋 PGN Definitions
+
+The PGN (Parameter Group Number) definitions used by canboatjs come from the [canboat project](https://github.com/canboat/canboat) via [canboat.json](https://github.com/canboat/canboat/blob/master/docs/canboat.json).
+
+### Adding New PGNs
+
+To add or update PGN definitions:
+
+1. **Submit changes to canboat**: Modify [pgn.h](https://github.com/canboat/canboat/blob/master/analyzer/pgn.h) in the upstream canboat project
+2. **Include sample data**: Provide real-world message examples
+3. **Create issue here**: Let us know about the changes so we can update canboatjs
+
+This ensures consistency across the entire canboat ecosystem.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes with tests
+4. Run the test suite: `npm test`
+5. Run formating and linting: `npm run format`
+6. Commit following [Angular conventions](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commits)
+7. Submit a Pull Request
+
+### Commit Message Format
+
+Use the format: `<type>: <description>`
+
+- **feat**: New feature
+- **fix**: Bug fix  
+- **docs**: Documentation changes
+- **style**: Code formatting
+- **refactor**: Code restructuring
+- **test**: Adding tests
+- **chore**: Maintenance tasks
+
+## 📄 License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for details.
+
+## 🔗 Related Projects
+
+- **[@canboat/ts-pgns](https://github.com/canboat/ts-pgns)** - TypeScript PGN definitions
+- **[canboat](https://github.com/canboat/canboat)** - Original C implementation
+- **[Signal K](https://signalk.org/)** - Modern marine data standard
+- **[Signal K Server](https://github.com/SignalK/signalk-server-node)** - Signal K server implementation
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/canboat/canboatjs/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/canboat/canboatjs/discussions)
+- **Signal K Community**: [Community](https://signalk.org/community/)
+
+---
+
+Made with ⚓ by the Canboat project contributors
 
 ## ydvr-file
 
