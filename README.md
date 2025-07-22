@@ -141,6 +141,33 @@ nc w2k-1-ip 60002 | analyzerjs
 
 # From SocketCAN
 candumpjs can0
+
+# Filter by specific PGN numbers
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025  # Position updates only
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 127245  # Rudder data only
+
+# Filter by multiple PGNs
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --pgn 127245 --pgn 129029
+
+# Filter by source address (device that sent the message)
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --src 15      # From device address 15
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --src 127     # From device address 127
+
+# Filter by destination address 
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --dst 255     # Broadcast messages only
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --dst 204     # Messages to device 204
+
+# Filter by manufacturer
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --manufacturer "Garmin"
+
+# Combine multiple filters
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --src 15 --dst 255
+
+# Pretty print JSON output
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --pretty
+
+# Process log files with filtering
+analyzerjs --file my_log.txt --pgn 129025 --pgn 127245 --src 15
 ```
 
 ### `to-pgn` - Message Generation
@@ -154,7 +181,40 @@ echo '{"pgn":127245,"fields":{"Instance":0}}' | to-pgn --format=actisense
 Read from SocketCAN without installing can-utils:
 
 ```bash
+# Basic CAN bus monitoring
 candumpjs can0
+
+# Filter by specific PGN numbers
+candumpjs can0 --pgn 129025                    # Position updates only
+candumpjs can0 --pgn 127245                    # Rudder data only
+
+# Filter by multiple PGNs  
+candumpjs can0 --pgn 129025 --pgn 127245 --pgn 129029
+
+# Filter by source address (device that sent the message)
+candumpjs can0 --src 15                        # From device address 15
+candumpjs can0 --src 127                       # From device address 127
+
+# Filter by destination address
+candumpjs can0 --dst 255                       # Broadcast messages only
+candumpjs can0 --dst 204                       # Messages to device 204
+
+# Filter by manufacturer
+candumpjs can0 --manufacturer "Garmin"
+
+# Combine multiple filters
+candumpjs can0 --pgn 129025 --src 15 --dst 255
+
+# Output in Actisense format instead of JSON
+candumpjs can0 --format actisense
+
+# Pretty print JSON with filtering
+candumpjs can0 --pgn 129025 --pretty
+
+# Common PGN filters for navigation data
+candumpjs can0 --pgn 129025 --pgn 129026 --pgn 129029  # GPS position data
+candumpjs can0 --pgn 127245 --pgn 127250               # Rudder and heading
+candumpjs can0 --pgn 128267 --pgn 128259               # Depth and speed
 ```
 
 ### `ydvr-file` - YDVR File Processing
@@ -169,6 +229,130 @@ ydvr-file recording.ydvr | analyzerjs
 - `actisense-n2k-tcp` - TCP server for Actisense data
 - `cansend` - Send CAN messages
 - `ikonvert-serial` - iKonvert serial interface
+
+### Message Filtering
+
+Both `analyzerjs` and `candumpjs` support powerful filtering options to focus on specific data:
+
+#### PGN Filtering
+Filter by Parameter Group Number to see only specific message types:
+
+```bash
+# Navigation data
+--pgn 129025    # Position, Rapid Update
+--pgn 129026    # COG & SOG, Rapid Update  
+--pgn 129029    # GNSS Position Data
+--pgn 127250    # Vessel Heading
+
+# Engine data
+--pgn 127488    # Engine Parameters, Rapid Update
+--pgn 127489    # Engine Parameters, Dynamic
+
+# Environmental data
+--pgn 128267    # Water Depth
+--pgn 128259    # Speed
+--pgn 130311    # Environmental Parameters
+
+# Multiple PGNs
+--pgn 129025 --pgn 129026 --pgn 127250
+```
+
+#### Source and Destination Filtering
+Filter by device addresses to monitor specific devices or message types:
+
+```bash
+# Source address filtering (device that sent the message)
+--src 15        # Messages from device address 15 (often a chartplotter)
+--src 127       # Messages from device address 127 (often a GPS)
+--src 204       # Messages from device address 204 (often an autopilot)
+
+# Destination address filtering
+--dst 255       # Broadcast messages (most common)
+--dst 204       # Directed messages to device 204
+--dst 15        # Directed messages to device 15
+
+# Multiple source/destination addresses
+--src 15 --src 127 --dst 255
+```
+
+#### Manufacturer Filtering
+Filter by device manufacturer:
+
+```bash
+--manufacturer "Garmin"
+--manufacturer "Raymarine" 
+--manufacturer "Simrad"
+--manufacturer "Furuno"
+```
+
+#### Practical Examples
+
+```bash
+# Monitor only GPS position data from all devices
+candumpjs can0 --pgn 129025 --pgn 129029
+
+# Watch rudder and autopilot commands
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 127245 --pgn 127237
+
+# Filter Garmin devices only
+nc chartplotter-ip 1475 | analyzerjs --manufacturer "Garmin"
+
+# Monitor messages from chartplotter (address 15) to autopilot (address 204)
+candumpjs can0 --src 15 --dst 204
+
+# Watch GPS data from specific device
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --src 127
+
+# Monitor all broadcast navigation messages  
+candumpjs can0 --pgn 129025 --pgn 129026 --pgn 127250 --dst 255
+
+# Combine filters for specific Garmin GPS data
+candumpjs can0 --pgn 129025 --manufacturer "Garmin" --pretty
+
+# Debug communication between specific devices
+analyzerjs --file network_log.txt --src 15 --dst 204 --pretty
+```
+
+#### Common PGN Reference
+
+| PGN | Description | Use Case |
+|-----|-------------|----------|
+| **129025** | Position, Rapid Update | GPS lat/lon monitoring |
+| **129026** | COG & SOG, Rapid Update | Course and speed tracking |
+| **129029** | GNSS Position Data | Detailed GPS information |
+| **127250** | Vessel Heading | Compass/heading data |
+| **127245** | Rudder | Steering position |
+| **127237** | Heading/Track Control | Autopilot commands |
+| **128267** | Water Depth | Depth sounder data |
+| **128259** | Speed | Speed through water |
+| **127488** | Engine Parameters, Rapid | RPM, temperature |
+| **130311** | Environmental Parameters | Air/water temperature |
+
+#### Understanding Source and Destination
+
+NMEA 2000 messages include source (src) and destination (dst) address fields:
+
+- **Source (src)**: Address of the device sending the message (0-251)
+- **Destination (dst)**: Target device address, or 255 for broadcast
+
+Both `analyzerjs` and `candumpjs` support filtering by these address fields using `--src` and `--dst` options. Common device addresses:
+
+- **15**: Often a chartplotter/display
+- **127**: Often a GPS receiver  
+- **204**: Often an autopilot
+- **255**: Broadcast to all devices (most common for dst)
+
+Examples:
+```bash
+# Filter messages from GPS receiver
+analyzerjs --src 127
+
+# Filter only broadcast messages
+candumpjs can0 --dst 255
+
+# Monitor autopilot commands (directed messages to address 204)
+analyzerjs --dst 204 --pgn 127237
+```
 
 ## API Reference
 
