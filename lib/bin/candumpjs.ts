@@ -13,7 +13,7 @@ const argv = minimist(process.argv.slice(2), {
   alias: {
     h: 'help'
   },
-  string: ['format', 'manufacturer'],
+  string: ['format', 'manufacturer', 'src', 'pgn', 'dst'],
   boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches', 'pretty']
 })
 
@@ -32,6 +32,8 @@ Options:
   --camel-compat       output field names in camelCase and regular
   --show-non-matches   show pgn data without any matches
   --pgn <number>       filter for the given pgn number
+  --src <number>       filter for the given source address
+  --dst <number>       filter for the given destination address
   --manufacturer <str> filter for pgns from the given manufacturer
   -h, --help           output usage information`)
   process.exit(1)
@@ -47,6 +49,16 @@ const manufacturer_filter = argv['manufacturer']
 
 if (pgn_filter !== undefined && Array.isArray(pgn_filter) === false) {
   pgn_filter = [pgn_filter]
+}
+
+let src_filter: any = argv['src']
+if (src_filter !== undefined && Array.isArray(src_filter) === false) {
+  src_filter = [src_filter]
+}
+
+let dst_filter: any = argv['dst']
+if (dst_filter !== undefined && Array.isArray(dst_filter) === false) {
+  dst_filter = [dst_filter]
 }
 
 const parser = new FromPgn({
@@ -67,8 +79,12 @@ parser.on('error', (pgn: any, error: any) => {
 
 parser.on('pgn', (pgn: any) => {
   if (
-    pgn_filter === undefined ||
-    pgn_filter.find((p: string) => pgn.pgn === Number(p))
+    (pgn_filter === undefined ||
+      pgn_filter.find((p: string) => pgn.pgn === Number(p))) &&
+    (src_filter === undefined ||
+      src_filter.find((s: string) => pgn.src === Number(s))) &&
+    (dst_filter === undefined ||
+      dst_filter.find((d: string) => pgn.dst === Number(d)))
   ) {
     if (manufacturer_filter !== undefined) {
       const manufacturer =
