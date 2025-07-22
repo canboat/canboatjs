@@ -7,7 +7,7 @@
 
 A comprehensive JavaScript library for parsing, encoding, and interfacing with NMEA 2000 marine electronics networks. This is a pure JavaScript port of the [canboat project](https://github.com/canboat/canboat) with extensive device support and multiple data format compatibility.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
@@ -21,7 +21,7 @@ A comprehensive JavaScript library for parsing, encoding, and interfacing with N
 - [Contributing](#contributing)
 - [License](#license)
 
-## ✨ Features
+## Features
 
 - **🔌 Multi-Device Support**: Direct interface with popular NMEA 2000 gateways and CAN bus devices
 - **📡 Multiple Data Formats**: Parse and generate various N2K data formats (Actisense, iKonvert, YDWG, etc.)
@@ -32,7 +32,7 @@ A comprehensive JavaScript library for parsing, encoding, and interfacing with N
 - **🌊 Marine Focus**: Specifically designed for marine electronics and navigation systems
 - **📊 JSON Output**: Standardized JSON format compatible with Signal K and other marine data systems
 
-## 📦 Installation
+## Installation
 
 ### For Command Line Usage
 
@@ -53,7 +53,7 @@ npm install @canboat/canboatjs
   - `serialport`: For serial device communication
   - `socketcan`: For direct CAN bus access on Linux
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Basic Message Parsing
 
@@ -99,7 +99,7 @@ const actisenseString = pgnToActisenseSerialFormat(message)
 console.log('Generated:', actisenseString)
 ```
 
-## 🔌 Supported Devices
+## Supported Devices
 
 ### NMEA 2000 Gateways
 - **Actisense NGT-1** & **W2K-1** - USB and WiFi NMEA 2000 gateways
@@ -119,7 +119,7 @@ console.log('Generated:', actisenseString)
 - **MXPGN Format** - MiniPlex-3 format
 - **SocketCAN** - Linux CAN bus native format
 
-## 🛠️ Command Line Tools
+## Command Line Tools
 
 Canboatjs includes several powerful command-line utilities:
 
@@ -170,7 +170,7 @@ ydvr-file recording.ydvr | analyzerjs
 - `cansend` - Send CAN messages
 - `ikonvert-serial` - iKonvert serial interface
 
-## 📚 API Reference
+## API Reference
 
 ### Core Classes
 
@@ -210,7 +210,7 @@ const {
 } = require('@canboat/canboatjs')
 ```
 
-## 💡 Usage Examples
+## Usage Examples
 
 ### Real-time Data Streaming
 
@@ -304,7 +304,7 @@ const device = new SimpleCan({
 device.start()
 ```
 
-## 🌐 Data Formats
+## Data Formats
 
 ### Input Format Support
 
@@ -331,7 +331,7 @@ const pcdin = pgnToPCDIN(message)
 const mxpgn = pgnToMXPGN(message)
 ```
 
-## 🏗️ Building from Source
+## Building from Source
 
 ```bash
 # Clone repository
@@ -354,7 +354,7 @@ npm run code-coverage
 npm run format
 ```
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all tests
@@ -367,7 +367,7 @@ npm run dev-test
 npm run code-coverage
 ```
 
-## 📋 PGN Definitions
+## PGN Definitions
 
 The PGN (Parameter Group Number) definitions used by canboatjs come from the [canboat project](https://github.com/canboat/canboat) via [canboat.json](https://github.com/canboat/canboat/blob/master/docs/canboat.json).
 
@@ -381,7 +381,7 @@ To add or update PGN definitions:
 
 This ensures consistency across the entire canboat ecosystem.
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
@@ -407,18 +407,18 @@ Use the format: `<type>: <description>`
 - **test**: Adding tests
 - **chore**: Maintenance tasks
 
-## 📄 License
+## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for details.
 
-## 🔗 Related Projects
+## Related Projects
 
 - **[@canboat/ts-pgns](https://github.com/canboat/ts-pgns)** - TypeScript PGN definitions
 - **[canboat](https://github.com/canboat/canboat)** - Original C implementation
 - **[Signal K](https://signalk.org/)** - Modern marine data standard
 - **[Signal K Server](https://github.com/SignalK/signalk-server-node)** - Signal K server implementation
 
-## 📞 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/canboat/canboatjs/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/canboat/canboatjs/discussions)
