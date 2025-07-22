@@ -495,10 +495,14 @@ device.start()
 | Format | Description | Example |
 |--------|-------------|---------|
 | **Actisense** | Standard timestamped CSV | `2017-03-13T01:00:00.146Z,2,127245,204,255,8,fc,f8,ff,7f,ff,7f,ff,ff` |
+| **Actisense N2K ASCII** | Actisense ASCII format | `A764027.880 CCF52 1F10D FC10FF7FFF7FFFFF` |
 | **YDWG Raw** | Yacht Devices binary | `16:29:27.082 R 09F8017F 50 C3 B8 13 47 D8 2B C6` |
 | **iKonvert** | Digital Yacht base64 | `!PDGY,127245,255,/Pj/f/9///8=` |
 | **PCDIN** | Chetco Digital | `$PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59` |
 | **MXPGN** | MiniPlex-3 | `$MXPGN,01F801,2801,C1308AC40C5DE343*19` |
+| **candump1** | Linux CAN utils (Angstrom) | `<0x18eeff01> [8] 05 a0 be 1c 00 a0 a0 c0` |
+| **candump2** | Linux CAN utils (Debian) | `can0  09F8027F   [8]  00 FC FF FF 00 00 FF FF` |
+| **candump3** | Linux CAN utils (log) | `(1502979132.106111) slcan0 09F50374#000A00FFFF00FFFF` |
 
 ### Output Format Support
 
