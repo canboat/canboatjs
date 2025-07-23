@@ -26,7 +26,7 @@ graph TB
     end
 
     %% canboatjs Layer
-    subgraph "canboatjs (@canboat/canboatjs)"
+    subgraph "@canboat/canboatjs"
         direction TB
         FROMPGN[FromPgn Parser]
     end
@@ -37,22 +37,9 @@ graph TB
     end
 
     %% n2k-signalk Layer
-    subgraph "n2k-signalk (@signalk/n2k-signalk)"
+    subgraph "@signalk/n2k-signalk"
         direction TB
         N2K_MAPPER[N2kMapper]
-        PGN_MAPPINGS[PGN Mappings]
-        DELTA_CONV[Delta Converter]
-        
-        subgraph "PGN Mappings"
-            STANDARD_PGNS[Standard PGNs]
-            FUSION_PGNS[Fusion PGNs]
-            LOWRANCE_PGNS[Lowrance PGNs]
-            RAYMARINE_PGNS[Raymarine PGNs]
-            MARETRON_PGNS[Maretron PGNs]
-            ACTISENSE_PGNS[Actisense PGNs]
-            DIGITALYACHT_PGNS[Digital Yacht PGNs]
-            SIMRAD_PGNS[Simrad PGNs]
-        end
     end
 
     %% Signal K Delta
@@ -108,7 +95,6 @@ graph TB
 
     %% n2k-signalk conversion
     JSON_N2K --> N2K_MAPPER
-    PGN_MAPPINGS --> N2K_MAPPER
     N2K_MAPPER --> SIGNALK_DELTA
 
     %% signalk-server processing
@@ -141,7 +127,7 @@ graph TB
     class N2K,CAN,ACTISENSE,YDWG,IKON,MINIPLEX,SOCKETCAN hardware
     class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT format
     class FROMPGN canboatjs
-    class N2K_MAPPER,PGN_MAPPINGS,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
+    class N2K_MAPPER,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
     class SIGNALK_SERVER signalkserver
     class NMEA0183_OUT,NMEA2000_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
     class APPS,WIDGETS,CUSTOM_CLIENTS,WILHELMSK clients
