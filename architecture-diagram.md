@@ -70,38 +70,6 @@ graph TB
         PLUGINS[Plugin System]
         WEBAPP[Web Application]
         API[REST/WebSocket APIs]
-        
-        subgraph "Stream Processors"
-            CANBOATJS_STREAM[CanboatJs Stream]
-            N2K_SIGNALK_STREAM[N2kToSignalK Stream]
-            NMEA0183_STREAM[NMEA0183ToSignalK]
-            AUTODETECT[AutoDetect Stream]
-        end
-
-        subgraph "Data Providers"
-            SIMPLE_PROVIDER[Simple Provider]
-            EXECUTE_PROVIDER[Execute Provider]
-            SERIAL_PROVIDER[Serial Provider]
-            TCP_PROVIDER[TCP Provider]
-            UDP_PROVIDER[UDP Provider]
-            FILE_PROVIDER[File Provider]
-        end
-
-        subgraph "Network Interfaces"
-            HTTP_INTERFACE[HTTP Server :3000]
-            WS_INTERFACE[WebSocket Server]
-            TCP_NMEA[TCP NMEA 0183 :10110]
-            MDNS[mDNS Discovery]
-        end
-
-        subgraph "Plugin Ecosystem"
-            TO_NMEA0183[signalk-to-nmea0183]
-            N2KAIS_TO_NMEA0183[signalk-n2kais-to-nmea0183]
-            TO_NMEA2000[signalk-to-nmea2000]
-            AUTOPILOT[signalk-autopilot]
-            VENUS_PLUGIN[signalk-venus-plugin]
-            CUSTOM_PLUGINS[Custom Plugins...]
-        end
     end
 
     %% Client Applications
@@ -150,10 +118,8 @@ graph TB
     N2K_MAPPER --> SIGNALK_DELTA
 
     %% signalk-server processing
-    SIGNALK_DELTA --> N2K_SIGNALK_STREAM
-    JSON_N2K --> CANBOATJS_STREAM
-    CANBOATJS_STREAM --> N2K_SIGNALK_STREAM
-    N2K_SIGNALK_STREAM --> SERVER_CORE
+    SIGNALK_DELTA --> STREAM_PROCESSORS
+    STREAM_PROCESSORS --> SERVER_CORE
 
     PROVIDERS --> STREAM_PROCESSORS
     STREAM_PROCESSORS --> SERVER_CORE
@@ -189,7 +155,7 @@ graph TB
     class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT format
     class FROMPGN canboatjs
     class N2K_MAPPER,PGN_MAPPINGS,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
-    class SERVER_CORE,STREAM_PROCESSORS,PROVIDERS,INTERFACES,PLUGINS,WEBAPP,API,CANBOATJS_STREAM,N2K_SIGNALK_STREAM,NMEA0183_STREAM,AUTODETECT,SIMPLE_PROVIDER,EXECUTE_PROVIDER,SERIAL_PROVIDER,TCP_PROVIDER,UDP_PROVIDER,FILE_PROVIDER,HTTP_INTERFACE,WS_INTERFACE,TCP_NMEA,MDNS,TO_NMEA0183,N2KAIS_TO_NMEA0183,TO_NMEA2000,AUTOPILOT,VENUS_PLUGIN,CUSTOM_PLUGINS signalkserver
+    class SERVER_CORE,STREAM_PROCESSORS,PROVIDERS,INTERFACES,PLUGINS,WEBAPP,API signalkserver
     class NMEA0183_OUT,NMEA2000_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
     class APPS,WIDGETS,CUSTOM_CLIENTS,WILHELMSK clients
 ```
