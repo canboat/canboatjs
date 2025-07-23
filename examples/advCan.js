@@ -16,14 +16,14 @@ const address_claim = {
   "Industry Group": "Marine"
 }
 const product_info = {
-  "NMEA 2000 Version": 1.301,
-  "Product Code": 11497,
-  "Model ID": "Steering Controller",
+  "nmea2000Version": 1.301,
+  "productCode": 11497,
+  "modelId": "Steering Controller",
   "Software Version Code": "SW0250RevAH (RSCP V1 L1)",
-  "Model Version": "Optimus",
-  "Model Serial Code": "SP0562400038",
-  "Certification Level": 1,
-  "Load Equivalency": 0 
+  "modelVersion": "Optimus",
+  "modelSerialCode": "SP0562400038",
+  "certificationLevel": 1,
+  "loadEquivalency": 0 
 }
 
 let messageCb = (jsonData) => {

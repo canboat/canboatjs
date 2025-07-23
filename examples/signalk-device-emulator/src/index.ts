@@ -47,14 +47,14 @@ export default function (app: any) {
           'Industry Group': 'Marine'
         },
         productInfo: {
-          'NMEA 2000 Version': 2100,
-          'Product Code': 246,
-          'Model ID': 'H5000 CPU',
+          'nmea2000Version': 2100,
+          'productCode': 246,
+          'modelId': 'H5000 CPU',
           'Software Version Code': '2.0.45.0.29',
-          'Model Version': '',
-          'Model Serial Code': '005469',
-          'Certification Level': 2,
-          'Load Equivalency': 1
+          'modelVersion': '',
+          'modelSerialCode': '005469',
+          'certificationLevel': 2,
+          'loadEquivalency': 1
         }
       }
 

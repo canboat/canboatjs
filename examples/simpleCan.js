@@ -27,14 +27,14 @@ let simpleCan = new canboatjs.SimpleCan({
     "Industry Group": 'Marine'
   },
   productInfo: {
-    "NMEA 2000 Version": 1300,
-    "Product Code": 667,
-    "Model ID": "MS-UD650",
+    "nmea2000Version": 1300,
+    "productCode": 667,
+    "modelId": "MS-UD650",
     "Software Version Code": "1.0",
-    "Model Version": "1.0",
-    "Model Serial Code": "123456",
-    "Certification Level": 0,
-    "Load Equivalency": 1
+    "modelVersion": "1.0",
+    "modelSerialCode": "123456",
+    "certificationLevel": 0,
+    "loadEquivalency": 1
   }
 }, messageCb)
 
