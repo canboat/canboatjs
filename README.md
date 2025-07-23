@@ -33,7 +33,7 @@ A TypeScript library for parsing, encoding, and interfacing with NMEA 2000 marin
 
 ## Architecture
 
-For an overview of how canboatjs integrates with n2k-signalk and signalk-server to create a complete marine data processing pipeline, see the [Architecture Diagram](./architecture-diagram.md).
+For an overview of how canboatjs integrates with signalk-server to create a complete marine data processing pipeline, see the [Architecture Diagram](./architecture-diagram.md).
 
 The diagram illustrates:
 - **Data Flow**: From NMEA 2000 hardware through parsing and conversion to Signal K format
