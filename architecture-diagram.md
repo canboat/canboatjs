@@ -8,7 +8,6 @@ graph TB
     %% Hardware Layer
     subgraph "Hardware Layer"
         N2K[NMEA 2000 Network]
-        CAN[CAN Bus]
         ACTISENSE[Actisense NGT-1]
         YDWG[Yacht Devices YDWG-02]
         IKON[Digital Yacht iKonvert]
@@ -30,7 +29,6 @@ graph TB
     subgraph "canboatjs (@canboat/canboatjs)"
         direction TB
         FROMPGN[FromPgn Parser]
-        UTILS[Utility Functions]
     end
 
     %% Parsed Data
@@ -128,7 +126,7 @@ graph TB
     N2K --> YDWG
     N2K --> IKON
     N2K --> MINIPLEX
-    CAN --> SOCKETCAN
+    N2K --> SOCKETCAN
 
     ACTISENSE --> ACT_FMT
     YDWG --> YDWG_FMT
@@ -189,7 +187,7 @@ graph TB
 
     class N2K,CAN,ACTISENSE,YDWG,IKON,MINIPLEX,SOCKETCAN hardware
     class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT format
-    class FROMPGN,UTILS canboatjs
+    class FROMPGN canboatjs
     class N2K_MAPPER,PGN_MAPPINGS,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
     class SERVER_CORE,STREAM_PROCESSORS,PROVIDERS,INTERFACES,PLUGINS,WEBAPP,API,CANBOATJS_STREAM,N2K_SIGNALK_STREAM,NMEA0183_STREAM,AUTODETECT,SIMPLE_PROVIDER,EXECUTE_PROVIDER,SERIAL_PROVIDER,TCP_PROVIDER,UDP_PROVIDER,FILE_PROVIDER,HTTP_INTERFACE,WS_INTERFACE,TCP_NMEA,MDNS,TO_NMEA0183,N2KAIS_TO_NMEA0183,TO_NMEA2000,AUTOPILOT,VENUS_PLUGIN,CUSTOM_PLUGINS signalkserver
     class NMEA0183_OUT,NMEA2000_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
@@ -206,7 +204,6 @@ graph TB
 ### 2. **canboatjs (@canboat/canboatjs)**
 **Purpose**: Parse and encode NMEA 2000 data in various formats
 - **FromPgn Parser**: Core parser that converts various N2K formats to standardized JSON
-- **Utility Functions**: Format conversion, detection, and encoding functions
 
 **Key Features**:
 - Multi-format input support (Actisense, YDWG, iKonvert, etc.)
