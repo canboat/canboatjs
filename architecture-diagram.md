@@ -8,7 +8,6 @@ graph TB
     %% Hardware Layer
     subgraph "Hardware Layer"
         N2K[NMEA 2000 Network]
-        CAN[CAN Bus]
         ACTISENSE[Actisense NGT-1]
         YDWG[Yacht Devices YDWG-02]
         IKON[Digital Yacht iKonvert]
@@ -27,141 +26,56 @@ graph TB
     end
 
     %% canboatjs Layer
-    subgraph "canboatjs (@canboat/canboatjs)"
-        direction TB
-        FROMPGN[FromPgn Parser]
-        DEVICE_STREAMS[Device Streams]
-        UTILS[Utility Functions]
-        CLI_TOOLS[CLI Tools]
-        
-        subgraph "Device Streams"
-            SERIAL_STREAM[serial - NGT-1]
-            YDWG_STREAM[Ydwg02 - YDWG-02]
-            IKON_STREAM[iKonvert - iKonvert]
-            W2K_STREAM[W2k01 - W2K-1]
-            CANBUS_STREAM[canbus - SocketCAN]
-            VENUS_STREAM[Venus - Victron]
-        end
-
-        subgraph "CLI Tools"
-            ANALYZER[analyzerjs]
-            TO_PGN[to-pgn]
-            CANDUMP[candumpjs]
-            ACT_SERIAL[actisense-serialjs]
-            YDVR_FILE[ydvr-file]
-        end
-
-        subgraph "Core Functions"
-            PARSE_N2K[parseN2kString]
-            TO_ACTISENSE[pgnToActisenseSerialFormat]
-            TO_IKON[pgnToiKonvertSerialFormat]
-            TO_YDWG[pgnToYdgwRawFormat]
-            DETECT[isN2KString]
-        end
-    end
+    FROMPGN["@canboat/canboatjs<br>FromPGN Parser"]
+    TOPGN["@canboat/canboatjs<br>ToPGN Converter"]
+    JSON_N2K_OUT["Canboat JSON Format<br/>(for output)"]
 
     %% Parsed Data
     subgraph "Parsed N2K Data (JSON)"
-        JSON_N2K["Canboat JSON Format<br/>{<br/>  'pgn': 127245,<br/>  'src': 204,<br/>  'dst': 255,<br/>  'fields': {<br/>    'Instance': 252,<br/>    'Direction Order': 0<br/>  }<br/>}"]
+        JSON_N2K["Canboat JSON Format<br/><code>{<br/>  'pgn': 127245,<br/>  'src': 204,<br/>  'dst': 255,<br/>  'fields': {<br/>    'Instance': 252,<br/>    'Direction Order': 0,<br/>'Angle Order': 0.1745<br>  }<br/>}</code>"]
     end
+    style JSON_N2K text-align:left
 
     %% n2k-signalk Layer
-    subgraph "n2k-signalk (@signalk/n2k-signalk)"
-        direction TB
-        N2K_MAPPER[N2kMapper]
-        PGN_MAPPINGS[PGN Mappings]
-        DELTA_CONV[Delta Converter]
-        
-        subgraph "PGN Mappings"
-            STANDARD_PGNS[Standard PGNs]
-            FUSION_PGNS[Fusion PGNs]
-            LOWRANCE_PGNS[Lowrance PGNs]
-            RAYMARINE_PGNS[Raymarine PGNs]
-            MARETRON_PGNS[Maretron PGNs]
-            ACTISENSE_PGNS[Actisense PGNs]
-            DIGITALYACHT_PGNS[Digital Yacht PGNs]
-            SIMRAD_PGNS[Simrad PGNs]
-        end
-    end
+    N2K_MAPPER["@signalk/n2k-signalk<br>N2kMapper"]
 
     %% Signal K Delta
     subgraph "Signal K Delta Format"
-        SIGNALK_DELTA["Signal K Delta<br/>{<br/>  'context': 'vessels.self',<br/>  'updates': [{<br/>    'source': {<br/>      'pgn': 127245,<br/>      'src': '204'<br/>    },<br/>    'values': [{<br/>      'path': 'steering.rudderAngle',<br/>      'value': 0.1745<br/>    }]<br/>  }]<br/>}"]
+        SIGNALK_DELTA["Signal K Delta<br/><code>{<br/>  'context': 'vessels.self',<br/>  'updates': [{<br/>'values': [{<br/>      'path': 'steering.rudderAngle',<br/>      'value': 0.1745<br/>    }]<br/>  }]<br/>}</code>"]
     end
+    style SIGNALK_DELTA text-align:left
 
     %% signalk-server Layer
-    subgraph "signalk-server"
-        direction TB
-        SERVER_CORE[Server Core]
-        STREAM_PROCESSORS[Stream Processors]
-        PROVIDERS[Data Providers]
-        INTERFACES[Network Interfaces]
-        PLUGINS[Plugin System]
-        WEBAPP[Web Application]
-        API[REST/WebSocket APIs]
-        
-        subgraph "Stream Processors"
-            CANBOATJS_STREAM[CanboatJs Stream]
-            N2K_SIGNALK_STREAM[N2kToSignalK Stream]
-            NMEA0183_STREAM[NMEA0183ToSignalK]
-            AUTODETECT[AutoDetect Stream]
-        end
-
-        subgraph "Data Providers"
-            SIMPLE_PROVIDER[Simple Provider]
-            EXECUTE_PROVIDER[Execute Provider]
-            SERIAL_PROVIDER[Serial Provider]
-            TCP_PROVIDER[TCP Provider]
-            UDP_PROVIDER[UDP Provider]
-            FILE_PROVIDER[File Provider]
-        end
-
-        subgraph "Network Interfaces"
-            HTTP_INTERFACE[HTTP Server :3000]
-            WS_INTERFACE[WebSocket Server]
-            TCP_NMEA[TCP NMEA 0183 :10110]
-            MDNS[mDNS Discovery]
-        end
-
-        subgraph "Plugin Ecosystem"
-            TO_NMEA0183[signalk-to-nmea0183]
-            N2KAIS_TO_NMEA0183[signalk-n2kais-to-nmea0183]
-            TO_NMEA2000[signalk-to-nmea2000]
-            AUTOPILOT[signalk-autopilot]
-            VENUS_PLUGIN[signalk-venus-plugin]
-            CUSTOM_PLUGINS[Custom Plugins...]
-        end
-    end
+    SIGNALK_SERVER[Signal K Server]
 
     %% Client Applications
     subgraph "Client Applications"
         APPS[Navigation Apps<br/>Navionics, iSailor,<br/>iNavX, Aqua Map]
+        WILHELMSK[WilhelmSK]
         WIDGETS[Web Widgets]
         CUSTOM_CLIENTS[Custom Applications]
-        WILHELMSK[WilhelmSK]
     end
 
     %% Output Formats
     subgraph "Output Data Formats"
         NMEA0183_OUT[NMEA 0183 TCP :10110]
-        NMEA2000_OUT[NMEA 2000 Output]
         SIGNALK_WS[Signal K WebSocket]
         SIGNALK_REST[Signal K REST API]
         SIGNALK_TCP[Signal K TCP]
     end
 
     %% Connections - Hardware to canboatjs
-    N2K --> ACTISENSE
-    N2K --> YDWG
-    N2K --> IKON
-    N2K --> MINIPLEX
-    CAN --> SOCKETCAN
+    N2K <--> ACTISENSE
+    N2K <--> YDWG
+    N2K <--> IKON
+    N2K <--> MINIPLEX
+    N2K <--> SOCKETCAN
 
-    ACTISENSE --> ACT_FMT
-    YDWG --> YDWG_FMT
-    IKON --> IKON_FMT
-    SOCKETCAN --> CANDUMP_FMT
-    MINIPLEX --> MXPGN_FMT
+    ACTISENSE <--> ACT_FMT
+    YDWG <--> YDWG_FMT
+    IKON <--> IKON_FMT
+    SOCKETCAN <--> CANDUMP_FMT
+    MINIPLEX <--> MXPGN_FMT
 
     %% canboatjs parsing
     ACT_FMT --> FROMPGN
@@ -171,52 +85,32 @@ graph TB
     PCDIN_FMT --> FROMPGN
     MXPGN_FMT --> FROMPGN
 
-    SERIAL_STREAM --> FROMPGN
-    YDWG_STREAM --> FROMPGN
-    IKON_STREAM --> FROMPGN
-    W2K_STREAM --> FROMPGN
-    CANBUS_STREAM --> FROMPGN
-    VENUS_STREAM --> FROMPGN
-
     FROMPGN --> JSON_N2K
 
     %% n2k-signalk conversion
     JSON_N2K --> N2K_MAPPER
-    PGN_MAPPINGS --> N2K_MAPPER
     N2K_MAPPER --> SIGNALK_DELTA
 
     %% signalk-server processing
-    SIGNALK_DELTA --> N2K_SIGNALK_STREAM
-    JSON_N2K --> CANBOATJS_STREAM
-    CANBOATJS_STREAM --> N2K_SIGNALK_STREAM
-    N2K_SIGNALK_STREAM --> SERVER_CORE
-
-    PROVIDERS --> STREAM_PROCESSORS
-    STREAM_PROCESSORS --> SERVER_CORE
-    SERVER_CORE --> API
-    SERVER_CORE --> INTERFACES
-    SERVER_CORE --> PLUGINS
+    SIGNALK_DELTA --> SIGNALK_SERVER
 
     %% Output connections
-    API --> SIGNALK_WS
-    API --> SIGNALK_REST
-    INTERFACES --> TCP_NMEA
-    INTERFACES --> SIGNALK_TCP
-    PLUGINS --> NMEA0183_OUT
-    PLUGINS --> NMEA2000_OUT
+    SIGNALK_SERVER --> SIGNALK_WS
+    SIGNALK_SERVER --> SIGNALK_REST
+    SIGNALK_SERVER --> SIGNALK_TCP
+    SIGNALK_SERVER --> NMEA0183_OUT
 
     %% Client connections
     SIGNALK_WS --> APPS
     SIGNALK_REST --> WIDGETS
-    TCP_NMEA --> APPS
+    NMEA0183_OUT --> APPS
     SIGNALK_TCP --> CUSTOM_CLIENTS
     SIGNALK_WS --> WILHELMSK
 
-    %% CLI Tools connections
-    ACT_FMT -.-> ANALYZER
-    YDWG_FMT -.-> ANALYZER
-    JSON_N2K -.-> TO_PGN
-    CAN -.-> CANDUMP
+    %% Reverse flow - Signal K to N2K
+    SIGNALK_SERVER --> JSON_N2K_OUT
+    JSON_N2K_OUT --> TOPGN
+    TOPGN --> ACT_FMT
 
     %% Styling
     classDef hardware fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
@@ -228,11 +122,12 @@ graph TB
     classDef clients fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
 
     class N2K,CAN,ACTISENSE,YDWG,IKON,MINIPLEX,SOCKETCAN hardware
-    class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT format
-    class FROMPGN,DEVICE_STREAMS,UTILS,CLI_TOOLS,SERIAL_STREAM,YDWG_STREAM,IKON_STREAM,W2K_STREAM,CANBUS_STREAM,VENUS_STREAM,ANALYZER,TO_PGN,CANDUMP,ACT_SERIAL,YDVR_FILE,PARSE_N2K,TO_ACTISENSE,TO_IKON,TO_YDWG,DETECT canboatjs
-    class N2K_MAPPER,PGN_MAPPINGS,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
-    class SERVER_CORE,STREAM_PROCESSORS,PROVIDERS,INTERFACES,PLUGINS,WEBAPP,API,CANBOATJS_STREAM,N2K_SIGNALK_STREAM,NMEA0183_STREAM,AUTODETECT,SIMPLE_PROVIDER,EXECUTE_PROVIDER,SERIAL_PROVIDER,TCP_PROVIDER,UDP_PROVIDER,FILE_PROVIDER,HTTP_INTERFACE,WS_INTERFACE,TCP_NMEA,MDNS,TO_NMEA0183,N2KAIS_TO_NMEA0183,TO_NMEA2000,AUTOPILOT,VENUS_PLUGIN,CUSTOM_PLUGINS signalkserver
-    class NMEA0183_OUT,NMEA2000_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
+    class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT,JSON_N2K_OUT format
+    class FROMPGN canboatjs
+    class TOPGN canboatjs
+    class N2K_MAPPER,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
+    class SIGNALK_SERVER signalkserver
+    class NMEA0183_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
     class APPS,WIDGETS,CUSTOM_CLIENTS,WILHELMSK clients
 ```
 
@@ -246,15 +141,12 @@ graph TB
 ### 2. **canboatjs (@canboat/canboatjs)**
 **Purpose**: Parse and encode NMEA 2000 data in various formats
 - **FromPgn Parser**: Core parser that converts various N2K formats to standardized JSON
-- **Device Streams**: Specialized stream handlers for different hardware devices
-- **CLI Tools**: Command-line utilities for data conversion and analysis
-- **Utility Functions**: Format conversion, detection, and encoding functions
 
 **Key Features**:
 - Multi-format input support (Actisense, YDWG, iKonvert, etc.)
 - Real-time stream processing
 - Bidirectional conversion (parse and generate)
-- Command-line tools for debugging and analysis
+- Hardware abstraction layer
 
 ### 3. **n2k-signalk (@signalk/n2k-signalk)**
 **Purpose**: Convert parsed NMEA 2000 JSON to Signal K delta format
@@ -294,11 +186,6 @@ graph TB
 - N2K data flows through canboatjs → n2k-signalk → Signal K deltas
 - Server maintains device metadata and manages data flow
 
-### **CLI Tools Integration**
-- `analyzerjs` uses canboatjs parsing with optional n2k-signalk conversion
-- `candumpjs` provides direct CAN bus access without can-utils dependency
-- Tools support filtering by PGN, source, destination, and manufacturer
-
 ## Output Capabilities
 
 ### **Data Formats**
@@ -319,4 +206,4 @@ graph TB
 3. **Extensibility**: Plugin system and custom mappings
 4. **Standardization**: Convert proprietary formats to open Signal K standard
 5. **Bridging**: Connect legacy NMEA 0183 apps to modern NMEA 2000 networks
-6. **Development Tools**: Rich CLI toolset for debugging and analysis
+6. **Device Integration**: Support for multiple hardware interfaces and protocols

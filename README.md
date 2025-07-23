@@ -5,11 +5,12 @@
 [![Test Canboat json Changes](https://github.com/canboat/canboatjs/actions/workflows/test_canboat_changes.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test_canboat_changes.yml)
 [![Test canboatjs dependents](https://github.com/canboat/canboatjs/actions/workflows/test_canboatjs_dependencies.yml/badge.svg)](https://github.com/canboat/canboatjs/actions/workflows/test_canboatjs_dependencies.yml)
 
-A comprehensive JavaScript library for parsing, encoding, and interfacing with NMEA 2000 marine electronics networks. This is a pure JavaScript port of the [canboat project](https://github.com/canboat/canboat) with extensive device support and multiple data format compatibility.
+A TypeScript library for parsing, encoding, and interfacing with NMEA 2000 marine electronics networks. It used the PGN definition database from  [canboat](https://github.com/canboat/canboat) with extensive device support, multiple data format compatibility, and PGN output.
 
 ## Table of Contents
 
 - [Features](#features)
+- [Architecture](#architecture)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Supported Devices](#supported-devices)
@@ -26,11 +27,19 @@ A comprehensive JavaScript library for parsing, encoding, and interfacing with N
 - **🔌 Multi-Device Support**: Direct interface with popular NMEA 2000 gateways and CAN bus devices
 - **📡 Multiple Data Formats**: Parse and generate various N2K data formats (Actisense, iKonvert, YDWG, etc.)
 - **🔄 Bidirectional**: Both decode incoming N2K messages and encode/transmit outgoing messages
-- **⚡ Real-time Processing**: Stream-based processing for live data feeds
 - **🛠️ Command Line Tools**: Ready-to-use CLI utilities for data conversion and analysis
-- **🎯 Type Safety**: Built with TypeScript and includes comprehensive type definitions
-- **🌊 Marine Focus**: Specifically designed for marine electronics and navigation systems
+- **🎯 Type Safety**: Built with TypeScript and includes type definitions
 - **📊 JSON Output**: Standardized JSON format compatible with Signal K and other marine data systems
+
+## Architecture
+
+For an overview of how canboatjs integrates with n2k-signalk and signalk-server to create a complete marine data processing pipeline, see the [Architecture Diagram](./architecture-diagram.md).
+
+The diagram illustrates:
+- **Data Flow**: From NMEA 2000 hardware through parsing and conversion to Signal K format
+- **Device Support**: Various hardware interfaces and data formats
+- **Bidirectional Processing**: Both incoming data parsing and outgoing data generation
+- **Integration Points**: How canboatjs works with other components in the marine data ecosystem
 
 ## Installation
 
@@ -396,7 +405,7 @@ const {
 
 ## Usage Examples
 
-### Real-time Data Streaming
+### Data Streaming
 
 ```javascript
 const { FromPgn, serial } = require('@canboat/canboatjs')
