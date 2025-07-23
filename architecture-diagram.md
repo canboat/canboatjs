@@ -27,6 +27,8 @@ graph TB
 
     %% canboatjs Layer
     FROMPGN["@canboat/canboatjs<br>FromPGN Parser"]
+    TOPGN["@canboat/canboatjs<br>ToPGN Converter"]
+    JSON_N2K_OUT["Canboat JSON Format<br/>(for output)"]
 
     %% Parsed Data
     subgraph "Parsed N2K Data (JSON)"
@@ -60,21 +62,20 @@ graph TB
         SIGNALK_WS[Signal K WebSocket]
         SIGNALK_REST[Signal K REST API]
         SIGNALK_TCP[Signal K TCP]
-        NMEA2000_OUT[NMEA 2000 Output]
     end
 
     %% Connections - Hardware to canboatjs
-    N2K --> ACTISENSE
-    N2K --> YDWG
-    N2K --> IKON
-    N2K --> MINIPLEX
-    N2K --> SOCKETCAN
+    N2K <--> ACTISENSE
+    N2K <--> YDWG
+    N2K <--> IKON
+    N2K <--> MINIPLEX
+    N2K <--> SOCKETCAN
 
-    ACTISENSE --> ACT_FMT
-    YDWG --> YDWG_FMT
-    IKON --> IKON_FMT
-    SOCKETCAN --> CANDUMP_FMT
-    MINIPLEX --> MXPGN_FMT
+    ACTISENSE <--> ACT_FMT
+    YDWG <--> YDWG_FMT
+    IKON <--> IKON_FMT
+    SOCKETCAN <--> CANDUMP_FMT
+    MINIPLEX <--> MXPGN_FMT
 
     %% canboatjs parsing
     ACT_FMT --> FROMPGN
@@ -98,7 +99,6 @@ graph TB
     SIGNALK_SERVER --> SIGNALK_REST
     SIGNALK_SERVER --> SIGNALK_TCP
     SIGNALK_SERVER --> NMEA0183_OUT
-    SIGNALK_SERVER --> NMEA2000_OUT
 
     %% Client connections
     SIGNALK_WS --> APPS
@@ -106,6 +106,11 @@ graph TB
     NMEA0183_OUT --> APPS
     SIGNALK_TCP --> CUSTOM_CLIENTS
     SIGNALK_WS --> WILHELMSK
+
+    %% Reverse flow - Signal K to N2K
+    SIGNALK_SERVER --> JSON_N2K_OUT
+    JSON_N2K_OUT --> TOPGN
+    TOPGN --> ACT_FMT
 
     %% Styling
     classDef hardware fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
@@ -117,11 +122,12 @@ graph TB
     classDef clients fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
 
     class N2K,CAN,ACTISENSE,YDWG,IKON,MINIPLEX,SOCKETCAN hardware
-    class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT format
+    class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT,JSON_N2K_OUT format
     class FROMPGN canboatjs
+    class TOPGN canboatjs
     class N2K_MAPPER,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
     class SIGNALK_SERVER signalkserver
-    class NMEA0183_OUT,NMEA2000_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
+    class NMEA0183_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
     class APPS,WIDGETS,CUSTOM_CLIENTS,WILHELMSK clients
 ```
 
