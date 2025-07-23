@@ -26,48 +26,41 @@ graph TB
     end
 
     %% canboatjs Layer
-    subgraph "@canboat/canboatjs"
-        direction TB
-        FROMPGN[FromPgn Parser]
-    end
+    FROMPGN["@canboat/canboatjs<br>FromPGN Parser"]
 
     %% Parsed Data
     subgraph "Parsed N2K Data (JSON)"
-        JSON_N2K["Canboat JSON Format<br/>{<br/>  'pgn': 127245,<br/>  'src': 204,<br/>  'dst': 255,<br/>  'fields': {<br/>    'Instance': 252,<br/>    'Direction Order': 0<br/>  }<br/>}"]
+        JSON_N2K["Canboat JSON Format<br/><code>{<br/>  'pgn': 127245,<br/>  'src': 204,<br/>  'dst': 255,<br/>  'fields': {<br/>    'Instance': 252,<br/>    'Direction Order': 0,<br/>'Angle Order': 0.1745<br>  }<br/>}</code>"]
     end
+    style JSON_N2K text-align:left
 
     %% n2k-signalk Layer
-    subgraph "@signalk/n2k-signalk"
-        direction TB
-        N2K_MAPPER[N2kMapper]
-    end
+    N2K_MAPPER["@signalk/n2k-signalk<br>N2kMapper"]
 
     %% Signal K Delta
     subgraph "Signal K Delta Format"
-        SIGNALK_DELTA["Signal K Delta<br/>{<br/>  'context': 'vessels.self',<br/>  'updates': [{<br/>    'source': {<br/>      'pgn': 127245,<br/>      'src': '204'<br/>    },<br/>    'values': [{<br/>      'path': 'steering.rudderAngle',<br/>      'value': 0.1745<br/>    }]<br/>  }]<br/>}"]
+        SIGNALK_DELTA["Signal K Delta<br/><code>{<br/>  'context': 'vessels.self',<br/>  'updates': [{<br/>'values': [{<br/>      'path': 'steering.rudderAngle',<br/>      'value': 0.1745<br/>    }]<br/>  }]<br/>}</code>"]
     end
+    style SIGNALK_DELTA text-align:left
 
     %% signalk-server Layer
-    subgraph "signalk-server"
-        direction TB
-        SIGNALK_SERVER[Signal K Server]
-    end
+    SIGNALK_SERVER[Signal K Server]
 
     %% Client Applications
     subgraph "Client Applications"
         APPS[Navigation Apps<br/>Navionics, iSailor,<br/>iNavX, Aqua Map]
+        WILHELMSK[WilhelmSK]
         WIDGETS[Web Widgets]
         CUSTOM_CLIENTS[Custom Applications]
-        WILHELMSK[WilhelmSK]
     end
 
     %% Output Formats
     subgraph "Output Data Formats"
         NMEA0183_OUT[NMEA 0183 TCP :10110]
-        NMEA2000_OUT[NMEA 2000 Output]
         SIGNALK_WS[Signal K WebSocket]
         SIGNALK_REST[Signal K REST API]
         SIGNALK_TCP[Signal K TCP]
+        NMEA2000_OUT[NMEA 2000 Output]
     end
 
     %% Connections - Hardware to canboatjs
@@ -103,7 +96,6 @@ graph TB
     %% Output connections
     SIGNALK_SERVER --> SIGNALK_WS
     SIGNALK_SERVER --> SIGNALK_REST
-    SIGNALK_SERVER --> TCP_NMEA
     SIGNALK_SERVER --> SIGNALK_TCP
     SIGNALK_SERVER --> NMEA0183_OUT
     SIGNALK_SERVER --> NMEA2000_OUT
@@ -111,7 +103,7 @@ graph TB
     %% Client connections
     SIGNALK_WS --> APPS
     SIGNALK_REST --> WIDGETS
-    TCP_NMEA --> APPS
+    NMEA0183_OUT --> APPS
     SIGNALK_TCP --> CUSTOM_CLIENTS
     SIGNALK_WS --> WILHELMSK
 
