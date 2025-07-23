@@ -30,25 +30,7 @@ graph TB
     subgraph "canboatjs (@canboat/canboatjs)"
         direction TB
         FROMPGN[FromPgn Parser]
-        DEVICE_STREAMS[Device Streams]
         UTILS[Utility Functions]
-        
-        subgraph "Device Streams"
-            SERIAL_STREAM[serial - NGT-1]
-            YDWG_STREAM[Ydwg02 - YDWG-02]
-            IKON_STREAM[iKonvert - iKonvert]
-            W2K_STREAM[W2k01 - W2K-1]
-            CANBUS_STREAM[canbus - SocketCAN]
-            VENUS_STREAM[Venus - Victron]
-        end
-
-        subgraph "Core Functions"
-            PARSE_N2K[parseN2kString]
-            TO_ACTISENSE[pgnToActisenseSerialFormat]
-            TO_IKON[pgnToiKonvertSerialFormat]
-            TO_YDWG[pgnToYdgwRawFormat]
-            DETECT[isN2KString]
-        end
     end
 
     %% Parsed Data
@@ -162,13 +144,6 @@ graph TB
     PCDIN_FMT --> FROMPGN
     MXPGN_FMT --> FROMPGN
 
-    SERIAL_STREAM --> FROMPGN
-    YDWG_STREAM --> FROMPGN
-    IKON_STREAM --> FROMPGN
-    W2K_STREAM --> FROMPGN
-    CANBUS_STREAM --> FROMPGN
-    VENUS_STREAM --> FROMPGN
-
     FROMPGN --> JSON_N2K
 
     %% n2k-signalk conversion
@@ -214,7 +189,7 @@ graph TB
 
     class N2K,CAN,ACTISENSE,YDWG,IKON,MINIPLEX,SOCKETCAN hardware
     class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT format
-    class FROMPGN,DEVICE_STREAMS,UTILS,SERIAL_STREAM,YDWG_STREAM,IKON_STREAM,W2K_STREAM,CANBUS_STREAM,VENUS_STREAM,PARSE_N2K,TO_ACTISENSE,TO_IKON,TO_YDWG,DETECT canboatjs
+    class FROMPGN,UTILS canboatjs
     class N2K_MAPPER,PGN_MAPPINGS,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
     class SERVER_CORE,STREAM_PROCESSORS,PROVIDERS,INTERFACES,PLUGINS,WEBAPP,API,CANBOATJS_STREAM,N2K_SIGNALK_STREAM,NMEA0183_STREAM,AUTODETECT,SIMPLE_PROVIDER,EXECUTE_PROVIDER,SERIAL_PROVIDER,TCP_PROVIDER,UDP_PROVIDER,FILE_PROVIDER,HTTP_INTERFACE,WS_INTERFACE,TCP_NMEA,MDNS,TO_NMEA0183,N2KAIS_TO_NMEA0183,TO_NMEA2000,AUTOPILOT,VENUS_PLUGIN,CUSTOM_PLUGINS signalkserver
     class NMEA0183_OUT,NMEA2000_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
@@ -231,14 +206,13 @@ graph TB
 ### 2. **canboatjs (@canboat/canboatjs)**
 **Purpose**: Parse and encode NMEA 2000 data in various formats
 - **FromPgn Parser**: Core parser that converts various N2K formats to standardized JSON
-- **Device Streams**: Specialized stream handlers for different hardware devices
 - **Utility Functions**: Format conversion, detection, and encoding functions
 
 **Key Features**:
 - Multi-format input support (Actisense, YDWG, iKonvert, etc.)
 - Real-time stream processing
 - Bidirectional conversion (parse and generate)
-- Device-specific stream handlers
+- Hardware abstraction layer
 
 ### 3. **n2k-signalk (@signalk/n2k-signalk)**
 **Purpose**: Convert parsed NMEA 2000 JSON to Signal K delta format
