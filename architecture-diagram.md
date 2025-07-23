@@ -63,13 +63,7 @@ graph TB
     %% signalk-server Layer
     subgraph "signalk-server"
         direction TB
-        SERVER_CORE[Server Core]
-        STREAM_PROCESSORS[Stream Processors]
-        PROVIDERS[Data Providers]
-        INTERFACES[Network Interfaces]
-        PLUGINS[Plugin System]
-        WEBAPP[Web Application]
-        API[REST/WebSocket APIs]
+        SIGNALK_SERVER[Signal K Server]
     end
 
     %% Client Applications
@@ -118,22 +112,15 @@ graph TB
     N2K_MAPPER --> SIGNALK_DELTA
 
     %% signalk-server processing
-    SIGNALK_DELTA --> STREAM_PROCESSORS
-    STREAM_PROCESSORS --> SERVER_CORE
-
-    PROVIDERS --> STREAM_PROCESSORS
-    STREAM_PROCESSORS --> SERVER_CORE
-    SERVER_CORE --> API
-    SERVER_CORE --> INTERFACES
-    SERVER_CORE --> PLUGINS
+    SIGNALK_DELTA --> SIGNALK_SERVER
 
     %% Output connections
-    API --> SIGNALK_WS
-    API --> SIGNALK_REST
-    INTERFACES --> TCP_NMEA
-    INTERFACES --> SIGNALK_TCP
-    PLUGINS --> NMEA0183_OUT
-    PLUGINS --> NMEA2000_OUT
+    SIGNALK_SERVER --> SIGNALK_WS
+    SIGNALK_SERVER --> SIGNALK_REST
+    SIGNALK_SERVER --> TCP_NMEA
+    SIGNALK_SERVER --> SIGNALK_TCP
+    SIGNALK_SERVER --> NMEA0183_OUT
+    SIGNALK_SERVER --> NMEA2000_OUT
 
     %% Client connections
     SIGNALK_WS --> APPS
@@ -155,7 +142,7 @@ graph TB
     class ACT_FMT,YDWG_FMT,IKON_FMT,CANDUMP_FMT,PCDIN_FMT,MXPGN_FMT format
     class FROMPGN canboatjs
     class N2K_MAPPER,PGN_MAPPINGS,DELTA_CONV,STANDARD_PGNS,FUSION_PGNS,LOWRANCE_PGNS,RAYMARINE_PGNS,MARETRON_PGNS,ACTISENSE_PGNS,DIGITALYACHT_PGNS,SIMRAD_PGNS n2ksignalk
-    class SERVER_CORE,STREAM_PROCESSORS,PROVIDERS,INTERFACES,PLUGINS,WEBAPP,API signalkserver
+    class SIGNALK_SERVER signalkserver
     class NMEA0183_OUT,NMEA2000_OUT,SIGNALK_WS,SIGNALK_REST,SIGNALK_TCP output
     class APPS,WIDGETS,CUSTOM_CLIENTS,WILHELMSK clients
 ```
