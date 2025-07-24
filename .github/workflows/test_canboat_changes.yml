@@ -79,6 +79,7 @@ jobs:
       working-directory: ./canboatjs
 
     - name: Checkout n2k-signalk
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: SignalK/n2k-signalk
@@ -86,6 +87,7 @@ jobs:
 
     - name: Build & Test n2k-signalk
       id: test_n2k_signalk
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
