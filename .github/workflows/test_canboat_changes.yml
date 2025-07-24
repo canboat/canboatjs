@@ -97,6 +97,7 @@ jobs:
       working-directory: ./n2k-signalk
 
     - name: Checkout signalk-to-nmea2000
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: SignalK/signalk-to-nmea2000
@@ -105,6 +106,7 @@ jobs:
 
     - name: Build & Test signalk-to-nmea2000
       id: test_signalk_to_nmea2000
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -114,6 +116,7 @@ jobs:
       working-directory: ./signalk-to-nmea2000
 
     - name: Checkout signalk-n2k-switching
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-n2k-switching
@@ -121,6 +124,7 @@ jobs:
 
     - name: Build signalk-n2k-switching
       id: test_signalk_n2k_switching
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -129,6 +133,7 @@ jobs:
       working-directory: ./signalk-n2k-switching
 
     - name: Checkout signalk-n2k-displays
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-n2k-displays
@@ -137,6 +142,7 @@ jobs:
 
     - name: Build signalk-n2k-displays
       id: test_signalk_n2k_displays
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -145,6 +151,7 @@ jobs:
       working-directory: ./signalk-n2k-displays
 
     - name: Checkout signalk-n2k-switching-emulator
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-n2k-switching-emulator
@@ -153,6 +160,7 @@ jobs:
 
     - name: Build signalk-n2k-switching-emulator
       id: test_signalk_n2k_switching_emulator
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -161,6 +169,7 @@ jobs:
       working-directory: ./signalk-n2k-switching-emulator
 
     - name: Checkout signalk-alarm-silencer
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-alarm-silencer
@@ -169,6 +178,7 @@ jobs:
 
     - name: Build signalk-alarm-silencer
       id: test_signalk_alarm_silencer
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -177,6 +187,7 @@ jobs:
       working-directory: ./signalk-alarm-silencer
 
     - name: Checkout signalk-fusion-stereo
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-fusion-stereo
@@ -185,6 +196,7 @@ jobs:
 
     - name: Build signalk-fusion-stereo
       id: test_signalk_fusion_stereo
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -193,6 +205,7 @@ jobs:
       working-directory: ./signalk-fusion-stereo
 
     - name: Checkout signalk-yd-alarm-button
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-yd-alarm-button
@@ -201,6 +214,7 @@ jobs:
 
     - name: Build signalk-yd-alarm-button
       id: test_signalk_yd_alarm_button
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -209,6 +223,7 @@ jobs:
       working-directory: ./signalk-yd-alarm-button
 
     - name: Checkout signalk-n2kais-to-nmea0183
+      if: always()
       uses: actions/checkout@v4
       with:
         repository: sbender9/signalk-n2kais-to-nmea0183
@@ -216,6 +231,7 @@ jobs:
 
     - name: Build signalk-n2kais-to-nmea0183
       id: test_signalk_n2kais_to_nmea0183
+      if: always()
       run: |
         npm install
         npm link @canboat/canboatjs
