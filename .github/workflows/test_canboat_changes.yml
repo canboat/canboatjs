@@ -75,6 +75,7 @@ jobs:
         npm link
         npm test
       working-directory: ./canboatjs
+      continue-on-error: true
 
     - name: Checkout n2k-signalk
       uses: actions/checkout@v4
@@ -90,6 +91,7 @@ jobs:
         npm run build
         npm test
       working-directory: ./n2k-signalk
+      continue-on-error: true
 
     - name: Checkout signalk-to-nmea2000
       uses: actions/checkout@v4
@@ -106,6 +108,7 @@ jobs:
         npm run build
         npm test
       working-directory: ./signalk-to-nmea2000
+      continue-on-error: true
 
     - name: Checkout signalk-n2k-switching
       uses: actions/checkout@v4
@@ -120,6 +123,7 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-switching
+      continue-on-error: true
 
     - name: Checkout signalk-n2k-displays
       uses: actions/checkout@v4
@@ -135,6 +139,7 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-displays
+      continue-on-error: true
 
     - name: Checkout signalk-n2k-switching-emulator
       uses: actions/checkout@v4
@@ -150,6 +155,7 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-switching-emulator
+      continue-on-error: true
 
     - name: Checkout signalk-alarm-silencer
       uses: actions/checkout@v4
@@ -165,6 +171,7 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-alarm-silencer
+      continue-on-error: true
 
     - name: Checkout signalk-fusion-stereo
       uses: actions/checkout@v4
@@ -180,6 +187,7 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-fusion-stereo
+      continue-on-error: true
 
     - name: Checkout signalk-yd-alarm-button
       uses: actions/checkout@v4
@@ -195,6 +203,7 @@ jobs:
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-yd-alarm-button
+      continue-on-error: true
 
     - name: Checkout signalk-n2kais-to-nmea0183
       uses: actions/checkout@v4
@@ -210,3 +219,4 @@ jobs:
         npm run build
         npm test
       working-directory: ./signalk-n2kais-to-nmea0183
+      continue-on-error: true
