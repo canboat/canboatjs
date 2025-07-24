@@ -26,7 +26,6 @@ jobs:
   build_and_test:
     name: 'Build & Test'
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
     - name: Checkout canboatjs
