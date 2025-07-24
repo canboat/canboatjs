@@ -26,6 +26,7 @@ jobs:
   build_and_test:
     name: 'Build & Test'
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
     - name: Checkout canboatjs
@@ -68,6 +69,7 @@ jobs:
       working-directory: ./ts-pgns
 
     - name: Build & Test canboatjs
+      id: test_canboatjs
       run: |
         npm install
         npm link @canboat/ts-pgns
@@ -75,7 +77,6 @@ jobs:
         npm link
         npm test
       working-directory: ./canboatjs
-      continue-on-error: true
 
     - name: Checkout n2k-signalk
       uses: actions/checkout@v4
@@ -84,6 +85,7 @@ jobs:
         path: ./n2k-signalk
 
     - name: Build & Test n2k-signalk
+      id: test_n2k_signalk
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -91,7 +93,6 @@ jobs:
         npm run build
         npm test
       working-directory: ./n2k-signalk
-      continue-on-error: true
 
     - name: Checkout signalk-to-nmea2000
       uses: actions/checkout@v4
@@ -101,6 +102,7 @@ jobs:
         path: ./signalk-to-nmea2000
 
     - name: Build & Test signalk-to-nmea2000
+      id: test_signalk_to_nmea2000
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -108,7 +110,6 @@ jobs:
         npm run build
         npm test
       working-directory: ./signalk-to-nmea2000
-      continue-on-error: true
 
     - name: Checkout signalk-n2k-switching
       uses: actions/checkout@v4
@@ -117,13 +118,13 @@ jobs:
         path: ./signalk-n2k-switching
 
     - name: Build signalk-n2k-switching
+      id: test_signalk_n2k_switching
       run: |
         npm install
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-switching
-      continue-on-error: true
 
     - name: Checkout signalk-n2k-displays
       uses: actions/checkout@v4
@@ -133,13 +134,13 @@ jobs:
         path: ./signalk-n2k-displays
 
     - name: Build signalk-n2k-displays
+      id: test_signalk_n2k_displays
       run: |
         npm install
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-displays
-      continue-on-error: true
 
     - name: Checkout signalk-n2k-switching-emulator
       uses: actions/checkout@v4
@@ -149,13 +150,13 @@ jobs:
         path: ./signalk-n2k-switching-emulator
 
     - name: Build signalk-n2k-switching-emulator
+      id: test_signalk_n2k_switching_emulator
       run: |
         npm install
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-n2k-switching-emulator
-      continue-on-error: true
 
     - name: Checkout signalk-alarm-silencer
       uses: actions/checkout@v4
@@ -165,13 +166,13 @@ jobs:
         path: ./signalk-alarm-silencer
 
     - name: Build signalk-alarm-silencer
+      id: test_signalk_alarm_silencer
       run: |
         npm install
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-alarm-silencer
-      continue-on-error: true
 
     - name: Checkout signalk-fusion-stereo
       uses: actions/checkout@v4
@@ -181,13 +182,13 @@ jobs:
         path: ./signalk-fusion-stereo
 
     - name: Build signalk-fusion-stereo
+      id: test_signalk_fusion_stereo
       run: |
         npm install
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-fusion-stereo
-      continue-on-error: true
 
     - name: Checkout signalk-yd-alarm-button
       uses: actions/checkout@v4
@@ -197,13 +198,13 @@ jobs:
         path: ./signalk-yd-alarm-button
 
     - name: Build signalk-yd-alarm-button
+      id: test_signalk_yd_alarm_button
       run: |
         npm install
         npm link @canboat/canboatjs
         npm link @canboat/ts-pgns
         npm run build
       working-directory: ./signalk-yd-alarm-button
-      continue-on-error: true
 
     - name: Checkout signalk-n2kais-to-nmea0183
       uses: actions/checkout@v4
@@ -212,6 +213,7 @@ jobs:
         path: ./signalk-n2kais-to-nmea0183
 
     - name: Build signalk-n2kais-to-nmea0183
+      id: test_signalk_n2kais_to_nmea0183
       run: |
         npm install
         npm link @canboat/canboatjs
@@ -219,4 +221,4 @@ jobs:
         npm run build
         npm test
       working-directory: ./signalk-n2kais-to-nmea0183
-      continue-on-error: true
+
