@@ -158,3 +158,22 @@ jobs:
         npm run build
         npm test
       working-directory: ./signalk-n2kais-to-nmea0183
+
+    - name: Checkout signalk-autopilot
+      if: always()
+      uses: actions/checkout@v4
+      with:
+        repository: SignalK/signalk-autopilot
+        ref: use-ts-pgns
+        path: ./signalk-autopilot
+
+    - name: Build signalk-autopilot
+      id: test_signalk_autopilot
+      if: always()
+      run: |
+        npm install
+        npm link @canboat/ts-pgns
+        npm run build
+        npm test
+      working-directory: ./signalk-autopilot
+
