@@ -5,6 +5,7 @@ import { parseCanId } from '../canId'
 import minimist from 'minimist'
 import { binToActisense } from '../utilities'
 import { printVersion } from './utils'
+import util from 'util'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const socketcan = require('socketcan')
@@ -14,7 +15,16 @@ const argv = minimist(process.argv.slice(2), {
     h: 'help'
   },
   string: ['format', 'manufacturer', 'src', 'pgn', 'dst'],
-  boolean: ['n', 'r', 'camel', 'camel-compat', 'show-non-matches', 'pretty']
+  boolean: [
+    'n',
+    'r',
+    'camel',
+    'camel-compat',
+    'show-non-matches',
+    'pretty',
+    'js',
+    'js-colors'
+  ]
 })
 
 printVersion(argv)
@@ -27,7 +37,9 @@ Options:
   -c                   don't check for invalid values
   -n                   output null values
   -r                   parse $MXPGN as little endian
-  --pretty             pretty json 
+  --pretty             pretty json
+  --js                 output in JavaScript format
+  --js-colors          output in JavaScript format with colors
   --camel              output field names in camelCase
   --camel-compat       output field names in camelCase and regular
   --show-non-matches   show pgn data without any matches
@@ -93,7 +105,17 @@ parser.on('pgn', (pgn: any) => {
         return
       }
     }
-    console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
+    if (argv['js'] || argv['js-colors']) {
+      console.log(
+        util.inspect(pgn, {
+          depth: null,
+          colors: argv['js-colors'],
+          breakLength: 1
+        })
+      )
+    } else {
+      console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
+    }
   }
 })
 

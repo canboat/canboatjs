@@ -460,11 +460,22 @@ export class Parser extends EventEmitter {
       res.src = pgn.src
       res.dst = pgn.dst
       res.prio = pgn.prio
-      ;(res as any).canId = (pgn as any).canId
-      ;(res as any).time = (pgn as any).time
-      ;(res as any).timer = (pgn as any).timer
-      ;(res as any).direction = (pgn as any).direction
-      ;(res as any).input = (pgn as any).input
+      const apgn = pgn as any
+      if (apgn.canId !== undefined) {
+        ;(res as any).canId = apgn.canId
+      }
+      if (apgn.time !== undefined) {
+        ;(res as any).time = apgn.time
+      }
+      if (apgn.timer !== undefined) {
+        ;(res as any).timer = apgn.timer
+      }
+      if (apgn.direction !== undefined) {
+        ;(res as any).direction = apgn.direction
+      }
+      if (apgn.input !== undefined) {
+        ;(res as any).input = apgn.input
+      }
 
       // Stringify timestamp because SK Server needs it that way.
       const ts = _.get(pgn, 'timestamp', new Date())

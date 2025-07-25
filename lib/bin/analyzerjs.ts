@@ -6,6 +6,7 @@ import minimist from 'minimist'
 import readline from 'readline'
 import { printVersion } from './utils'
 import fs from 'fs'
+import util from 'util'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
@@ -19,7 +20,9 @@ const argv = minimist(process.argv.slice(2), {
     //'show-create-pgns',
     'pretty',
     'show-warnings',
-    'coalesced'
+    'coalesced',
+    'js',
+    'js-colors'
   ]
 })
 
@@ -33,7 +36,9 @@ Options:
   -n                    output null values
   -r                    parse $MXPGN as little endian
   --file <path>         read from the given file
-  --pretty              pretty json 
+  --pretty              output pretty json
+  --js                  output in JavaScript format
+  --js-colors           output in JavaScript format with colors
   --camel               output field names in camelCase
   --camel-compat        output field names in camelCase and regular
   --show-non-matches    show pgn data without any matches
@@ -141,6 +146,16 @@ rl.on('line', (line: string) => {
         return
       }
     }
-    console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
+    if (argv['js'] || argv['js-colors']) {
+      console.log(
+        util.inspect(pgn, {
+          depth: null,
+          colors: argv['js-colors'],
+          breakLength: 1
+        })
+      )
+    } else {
+      console.log(JSON.stringify(pgn, null, argv['pretty'] ? 2 : 0))
+    }
   }
 })
