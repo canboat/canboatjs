@@ -7,7 +7,13 @@ module.exports = [
       src: 0,
       timestamp: '2020-04-19T00:35:55.571Z',
       fields: {
-        list: [{ parameter: 2, value: 'YD:VOLUME 60' }],
+        list: [
+          {
+            parameter: 2,
+            value: 'YD:VOLUME 60',
+            parameterId: 'installationDescription2'
+          }
+        ],
         functionCode: 'Command',
         pgn: 126998,
         numberOfParameters: 1,
@@ -28,26 +34,106 @@ module.exports = [
       src: 0,
       fields: {
         list: [
-          { parameter: 1, value: 135 },
-          { parameter: 3, value: 4 },
-          { parameter: 4, value: 41 },
-          { parameter: 5, value: 8 },
-          { parameter: 6, value: 16 },
-          { parameter: 7, value: 51 },
-          { parameter: 8, value: 70 },
-          { parameter: 9, value: 102 },
-          { parameter: 10, value: 163 },
-          { parameter: 11, value: 205 },
-          { parameter: 12, value: 236 },
-          { parameter: 13, value: 308 },
-          { parameter: 14, value: 290 },
-          { parameter: 15, value: 411 },
-          { parameter: 16, value: 340 },
-          { parameter: 17, value: 617 },
-          { parameter: 18, value: 336 },
-          { parameter: 19, value: 7.2 },
-          { parameter: 20, value: 312 },
-          { parameter: 21, value: 8.23 }
+          {
+            parameter: 1,
+            parameterId: 'manufacturerCode',
+            value: 'Airmar'
+          },
+          {
+            parameter: 3,
+            parameterId: 'industryCode',
+            value: 'Marine Industry'
+          },
+          {
+            parameter: 4,
+            parameterId: 'proprietaryId',
+            value: 'Calibrate Speed'
+          },
+          {
+            parameter: 5,
+            parameterId: 'numberOfPairsOfDataPoints',
+            value: 8
+          },
+          {
+            parameter: 6,
+            parameterId: 'inputFrequency',
+            value: 16
+          },
+          {
+            parameter: 7,
+            parameterId: 'outputSpeed',
+            value: 51
+          },
+          {
+            parameter: 8,
+            parameterId: 'inputFrequency',
+            value: 70
+          },
+          {
+            parameter: 9,
+            parameterId: 'outputSpeed',
+            value: 102
+          },
+          {
+            parameter: 10,
+            parameterId: 'inputFrequency',
+            value: 163
+          },
+          {
+            parameter: 11,
+            parameterId: 'outputSpeed',
+            value: 205
+          },
+          {
+            parameter: 12,
+            parameterId: 'inputFrequency',
+            value: 236
+          },
+          {
+            parameter: 13,
+            parameterId: 'outputSpeed',
+            value: 308
+          },
+          {
+            parameter: 14,
+            parameterId: 'inputFrequency',
+            value: 290
+          },
+          {
+            parameter: 15,
+            parameterId: 'outputSpeed',
+            value: 411
+          },
+          {
+            parameter: 16,
+            parameterId: 'inputFrequency',
+            value: 340
+          },
+          {
+            parameter: 17,
+            parameterId: 'outputSpeed',
+            value: 617
+          },
+          {
+            parameter: 18,
+            parameterId: 'inputFrequency',
+            value: 336
+          },
+          {
+            parameter: 19,
+            parameterId: 'outputSpeed',
+            value: 7.2
+          },
+          {
+            parameter: 20,
+            parameterId: 'inputFrequency',
+            value: 312
+          },
+          {
+            parameter: 21,
+            parameterId: 'outputSpeed',
+            value: 8.23
+          }
         ],
         functionCode: 'Command',
         pgn: 126720,

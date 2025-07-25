@@ -1,13 +1,9 @@
-import chai, { expect } from 'chai'
-
-chai.should()
+const chai = require('chai')
+chai.Should()
 chai.use(require('chai-things'))
 chai.use(require('chai-json-equal'))
 
-import { PGN_127257 } from '@canboat/ts-pgns'
-
 const { FromPgn } = require('../dist/index')
-const opts = { useCamel: true }
 
 describe('from pcdin data converts', function () {
   it(`from 127257 converts`, function (done) {
@@ -15,7 +11,7 @@ describe('from pcdin data converts', function () {
     var expected = {
       pgn: 127257,
       timestamp: '2010-01-01T00:00:00.000Z',
-      //timer: 1262304000000,
+      timer: 1262304000000,
       src: 15,
       dst: 255,
       prio: 0,
@@ -28,23 +24,22 @@ describe('from pcdin data converts', function () {
       description: 'Attitude'
     }
 
-    var fromPgn = new FromPgn(opts)
+    var fromPgn = new FromPgn()
 
-    fromPgn.on('error', (pgn: any, error: any) => {
+    fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
       console.error(error.stack)
       done(error)
     })
 
-    fromPgn.on('warning', (pgn: any, warning: any) => {
+    fromPgn.on('warning', (pgn, warning) => {
       done(new Error(`${pgn.pgn} ${warning}`))
     })
 
-    fromPgn.on('pgn', (pgn: any) => {
+    fromPgn.on('pgn', (pgn) => {
       try {
         //console.log(JSON.stringify(pgn))
         delete pgn.input
-        delete pgn.timer
         pgn.should.jsonEqual(expected)
         done()
       } catch (e) {
@@ -61,7 +56,7 @@ describe('from pcdin data converts', function () {
     var expected = {
       pgn: 127257,
       timestamp: '2010-01-01T00:00:00.000Z',
-      //timer: 1262304000000,
+      timer: 1262304000000,
       src: 15,
       dst: 255,
       prio: 0,
@@ -74,23 +69,22 @@ describe('from pcdin data converts', function () {
       description: 'Attitude'
     }
 
-    var fromPgn = new FromPgn(opts)
+    var fromPgn = new FromPgn()
 
-    fromPgn.on('error', (pgn: any, error: any) => {
+    fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
       console.error(error.stack)
       done(error)
     })
 
-    fromPgn.on('warning', (pgn: any, warning: any) => {
+    fromPgn.on('warning', (pgn, warning) => {
       done(new Error(`${pgn.pgn} ${warning}`))
     })
 
-    fromPgn.on('pgn', (pgn: any) => {
+    fromPgn.on('pgn', (pgn) => {
       try {
         //console.log(JSON.stringify(pgn))
         delete pgn.input
-        delete pgn.timer
         pgn.should.jsonEqual(expected)
         done()
       } catch (e) {

@@ -316,7 +316,7 @@ export class Parser extends EventEmitter {
         const field = fields[i]
         const hasMatch = field.Match !== undefined
 
-        let value = readField(
+        let [value] = readField(
           pgnData!,
           this.options,
           !hasMatch,
@@ -409,10 +409,10 @@ export class Parser extends EventEmitter {
         }
 
         while (bs.bitsLeft > 0 && --count >= 0) {
-          const group = {}
+          const group: { [key: string]: any } = {}
           repeating.forEach((field) => {
             if (bs.bitsLeft > 0) {
-              const value = readField(
+              const [value, refField] = readField(
                 pgnData!,
                 this.options,
                 true,
@@ -421,13 +421,16 @@ export class Parser extends EventEmitter {
                 bs,
                 fields
               )
+              if (refField) {
+                group.parameterId = refField.Id
+              }
               if (value !== undefined && value != null) {
                 this.setField(group, field, value)
               }
             }
           })
           if (_.keys(group).length > 0) {
-            ;(pgn.fields as any).list.push(group)
+            fany.list.push(group)
           }
         }
       }
@@ -499,6 +502,14 @@ export class Parser extends EventEmitter {
       res[field.Id] = value
     } else {
       res[field.Name] = value
+    }
+  }
+
+  getField(res: any, field: Field) {
+    if (this.options.useCamelCompat || this.options.useCamel) {
+      return res[field.Id]
+    } else {
+      return res[field.Name]
     }
   }
 
@@ -767,10 +778,13 @@ export function getField(pgn_number: number, index: number, data: any) {
           })
 
           if (param) {
+            const value = param.value !== undefined ? param.value : param.Value
+
             pgnList = pgnList.filter((f) => {
-              const value =
-                param.value !== undefined ? param.value : param.Value
-              return f.Fields[idx].Match == value
+              return (
+                f.Fields[idx].Match == value ||
+                f.Fields[idx].Description == value
+              )
             })
             if (pgnList.length == 0) {
               throw new Error('unable to read: ' + JSON.stringify(data))
@@ -826,8 +840,9 @@ function readField(
   field: Field,
   bs: BitStream,
   fields: Field[] | undefined = undefined
-): any {
+): [any, Field | undefined] {
   let value
+  let refField: Field | undefined = undefined
 
   const reader = fieldTypeReaders[field.FieldType]
   if (reader) {
@@ -840,14 +855,25 @@ function readField(
     ) {
       //no more data
       bs.readBits(bs.bitsLeft, false)
-      return
+      return [null, undefined]
     }
-    value = readValue(definition, options, pgn, field, bs, fields)
+    ;[value, refField] = readValue(definition, options, pgn, field, bs, fields)
   }
 
-  //console.log(`${field.Name} ${value} ${field.Resolution}`)
+  if (refField === undefined) {
+    return [convertField(field, value, runPostProcessor, options), undefined]
+  } else {
+    return [value, refField]
+  }
+}
 
-  if (value != null && !_.isUndefined(value)) {
+function convertField(
+  field: Field,
+  value: any,
+  runPostProcessor: boolean,
+  options: any
+): any {
+  if (value != null && value !== undefined) {
     const type = field.FieldType //hack, missing type
     const postProcessor = fieldTypePostProcessors[type]
     if (postProcessor) {
@@ -932,7 +958,7 @@ function readValue(
   bs: BitStream,
   fields: Field[] | undefined,
   bitLength: number | undefined = undefined
-) {
+): [any, Field | undefined] {
   if (field.FieldType == 'VARIABLE') {
     return readVariableLengthField(definition, options, pgn, field, bs)
   } else {
@@ -949,13 +975,13 @@ function readValue(
 
       if (bitLength === undefined) {
         //FIXME?? error? mesg? should never happen
-        return
+        return [null, undefined]
       }
     }
     if (field.FieldType === FieldType.Binary && definition.Fallback === true) {
       bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
       const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
-      return byteString(Buffer.from(data), ' ')
+      return [byteString(Buffer.from(data), ' '), undefined]
     } else if (bitLength === 8) {
       if (field.Signed) {
         value = bs.readInt8()
@@ -1021,7 +1047,7 @@ function readValue(
       if (bs.bitsLeft < bitLength) {
         bitLength = bs.bitsLeft
         if (bitLength === undefined) {
-          return null
+          return [null, undefined]
         }
       }
 
@@ -1035,7 +1061,7 @@ function readValue(
         .map((x) => (x.length === 1 ? '0' + x : x))
         .join(' ')
 
-      return value
+      return [value, undefined]
     }
 
     if (
@@ -1046,7 +1072,7 @@ function readValue(
       value = Number(value)
     }
 
-    return value
+    return [value, undefined]
   }
 }
 
@@ -1070,7 +1096,7 @@ function readVariableLengthField(
   pgn: PGN,
   field: Field,
   bs: BitStream
-) {
+): [any, Field | undefined] {
   /* PGN 126208 contains variable field length.
    * The field length can be derived from the PGN mentioned earlier in the message,
    * plus the field number.
@@ -1089,7 +1115,7 @@ function readVariableLengthField(
     )
 
     if (refField) {
-      const res = readField(definition, options, false, pgn, refField, bs)
+      const [res] = readField(definition, options, true, pgn, refField, bs)
 
       if (refField.BitLength !== undefined) {
         const bits = (refField.BitLength + 7) & ~7 // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
@@ -1098,11 +1124,12 @@ function readVariableLengthField(
         }
       }
 
-      return res
+      return [res, refField]
     }
   } catch (error) {
     debug(error)
   }
+  return [null, undefined]
 }
 
 fieldTypeReaders[
