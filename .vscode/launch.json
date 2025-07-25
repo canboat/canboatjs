@@ -11,7 +11,9 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "args":["--file", "/tmp/rr.log" 
+            "console": "integratedTerminal",
+            "args":[ "--js-colors", "--camel"
+                //"--file", "/tmp/rr.log" 
         //    "--pgn", "65280"
         ],
             "program": "${workspaceFolder}/../canboatjs/dist/bin/analyzerjs.js",

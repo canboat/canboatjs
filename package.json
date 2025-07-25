@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "dev-test": "jest --watch",
-    "test": "jest && mocha --require ts-node/register --exit 'test/*.[jt]s'",
+    "test": "jest && mocha  --exit 'test/*.[jt]s'",
     "code-coverage": "jest --coverage && nyc mocha --exit",
     "build_ios": "webpack -c ./webpack.config.js --mode development ./ios.js -o ios_canboat.js",
     "build_prod_ios": "webpack -c ./webpack.config.js --mode production ./ios.js -o ios_canboat.js",
@@ -93,7 +93,7 @@
     "husky": "^8.0.0",
     "jest": "^30.0.3",
     "lint-staged": "^16.1.2",
-    "mocha": "^5.0.0",
+    "mocha": "^11.0.0",
     "nyc": "^15.1.0",
     "prettier": "^3.6.2",
     "ts-jest": "^29.4.0",
