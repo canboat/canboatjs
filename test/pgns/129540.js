@@ -15,7 +15,8 @@ module.exports = [
             azimuth: 5.3407,
             snr: 31,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 4,
@@ -23,7 +24,8 @@ module.exports = [
             azimuth: 3.002,
             snr: 28,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 10,
@@ -31,12 +33,17 @@ module.exports = [
             azimuth: 2.8972,
             snr: 28,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 14,
             elevation: 1.1519,
             azimuth: 1.5359,
+            snr: 30,
+            rangeResiduals: 0,
+            status: 'Used+Diff',
+            reserved11: null,
             snr: 30,
             rangeResiduals: 0,
             status: 'Used+Diff'
@@ -47,7 +54,8 @@ module.exports = [
             azimuth: 3.4383,
             snr: 33,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 22,
@@ -55,7 +63,8 @@ module.exports = [
             azimuth: 4.8346,
             snr: 31,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 25,
@@ -63,7 +72,8 @@ module.exports = [
             azimuth: 0.7679,
             snr: 33,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 26,
@@ -71,7 +81,8 @@ module.exports = [
             azimuth: 3.2463,
             snr: 26,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 31,
@@ -79,7 +90,8 @@ module.exports = [
             azimuth: 0.2269,
             snr: 31,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 67,
@@ -87,7 +99,8 @@ module.exports = [
             azimuth: 2.7751,
             snr: 32,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 68,
@@ -95,7 +108,8 @@ module.exports = [
             azimuth: 5.2709,
             snr: 34,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 69,
@@ -103,7 +117,8 @@ module.exports = [
             azimuth: 5.7072,
             snr: 26,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 77,
@@ -111,7 +126,8 @@ module.exports = [
             azimuth: 0.6109,
             snr: 29,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 78,
@@ -119,7 +135,8 @@ module.exports = [
             azimuth: 5.2011,
             snr: 27,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 79,
@@ -127,7 +144,8 @@ module.exports = [
             azimuth: 4.2761,
             snr: 35,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 46,
@@ -135,7 +153,8 @@ module.exports = [
             azimuth: 3.6826,
             snr: 30,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 48,
@@ -143,7 +162,8 @@ module.exports = [
             azimuth: 4.311,
             snr: 29,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           },
           {
             prn: 51,
@@ -151,7 +171,8 @@ module.exports = [
             azimuth: 3.9095,
             snr: 35,
             rangeResiduals: 0,
-            status: 'Used+Diff'
+            status: 'Used+Diff',
+            reserved11: null
           }
         ],
         sid: 184,
@@ -178,7 +199,8 @@ module.exports = [
             azimuth: 5.6199,
             snr: 33,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 10,
@@ -186,7 +208,8 @@ module.exports = [
             azimuth: 3.0543,
             snr: 35,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 13,
@@ -194,7 +217,8 @@ module.exports = [
             azimuth: 0.5934,
             snr: 37,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 15,
@@ -202,7 +226,8 @@ module.exports = [
             azimuth: 1.1693,
             snr: 39,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 16,
@@ -210,7 +235,8 @@ module.exports = [
             azimuth: 4.0142,
             snr: 31,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 18,
@@ -218,7 +244,8 @@ module.exports = [
             azimuth: 1.4311,
             snr: 32,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 20,
@@ -226,7 +253,8 @@ module.exports = [
             azimuth: 2.3038,
             snr: 36,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 21,
@@ -234,7 +262,8 @@ module.exports = [
             azimuth: 4.2935,
             snr: 28,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 26,
@@ -242,7 +271,8 @@ module.exports = [
             azimuth: 3.4557,
             snr: 35,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 27,
@@ -250,7 +280,8 @@ module.exports = [
             azimuth: 4.8869,
             snr: 35,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 8,
@@ -258,7 +289,8 @@ module.exports = [
             azimuth: 5.1661,
             snr: 24,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           },
           {
             prn: 87,
@@ -266,7 +298,8 @@ module.exports = [
             azimuth: 5.2359,
             snr: 28,
             rangeResiduals: 0,
-            status: 'Used'
+            status: 'Used',
+            reserved11: null
           }
         ],
         reserved: null,
