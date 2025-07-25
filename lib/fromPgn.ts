@@ -424,7 +424,10 @@ export class Parser extends EventEmitter {
               if (refField) {
                 group.parameterId = refField.Id
               }
-              if (value !== undefined && value != null) {
+              if (
+                value !== undefined &&
+                (value != null || this.options.returnNulls)
+              ) {
                 this.setField(group, field, value)
               }
             }
