@@ -12,14 +12,32 @@
                 "<node_internals>/**"
             ],
             "console": "integratedTerminal",
-            "args":[ "--js-colors", "--camel"
+            "args":[ "--js-colors", "--camel", "--show-non-matches"
                 //"--file", "/tmp/rr.log" 
         //    "--pgn", "65280"
-        ],
+            ],
             "program": "${workspaceFolder}/../canboatjs/dist/bin/analyzerjs.js",
             "outFiles": [
                 "${workspaceFolder}/../canboatjs/**/*.js"
             ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch to-pgn",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "console": "integratedTerminal",
+            "args":[ 
+                //"--file", "/tmp/rr.log" 
+        //    "--pgn", "65280"
+            ],
+            "program": "${workspaceFolder}/../canboatjs/dist/bin/to-pgn.js",
+            "outFiles": [
+                "${workspaceFolder}/../canboatjs/**/*.js"
+            ]
         }
+
     ]
 }
