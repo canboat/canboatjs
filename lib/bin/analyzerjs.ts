@@ -4,13 +4,13 @@ import { PGN } from '@canboat/ts-pgns'
 import { Parser } from '../fromPgn'
 import minimist from 'minimist'
 import readline from 'readline'
-import { printVersion } from './utils'
+import { printVersion, setupFilters, filterPGN } from './utils'
 import fs from 'fs'
 import util from 'util'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
-  string: ['pgn', 'manufacturer', 'src', 'file', 'dst'],
+  string: ['pgn', 'manufacturer', 'src', 'file', 'dst', 'filter'],
   boolean: [
     'n',
     'r',
@@ -49,6 +49,7 @@ Options:
   --src <number>        filter for the given source address
   --dst <number>        filter for the given destination address
   --manufacturer <str>  filter for pgns from the given manufacturer
+  --filter <js>         filter for the given JavaScript expression
   -h, --help            output usage information`)
   process.exit(1)
 }
@@ -59,22 +60,8 @@ if (argv['coalesced']) {
 } else if (argv['fast']) {
   format = 0
 }
-let pgn_filter: any = argv['pgn']
-const manufacturer_filter = argv['manufacturer']
 
-if (pgn_filter !== undefined && Array.isArray(pgn_filter) === false) {
-  pgn_filter = [pgn_filter]
-}
-
-let src_filter: any = argv['src']
-if (src_filter !== undefined && Array.isArray(src_filter) === false) {
-  src_filter = [src_filter]
-}
-
-let dst_filter: any = argv['dst']
-if (dst_filter !== undefined && Array.isArray(dst_filter) === false) {
-  dst_filter = [dst_filter]
-}
+const filter = setupFilters(argv)
 
 const parser = new Parser({
   returnNulls: argv['n'] === true,
@@ -129,23 +116,7 @@ rl.on('line', (line: string) => {
     pgn = parser.parseString(line.trim())
   }
 
-  if (
-    pgn &&
-    (pgn_filter === undefined ||
-      pgn_filter.find((p: string) => pgn.pgn === Number(p))) &&
-    (src_filter === undefined ||
-      src_filter.find((s: string) => pgn.src === Number(s))) &&
-    (dst_filter === undefined ||
-      dst_filter.find((d: string) => pgn.dst === Number(d)))
-  ) {
-    if (manufacturer_filter !== undefined) {
-      const manufacturer =
-        (pgn as any).fields.manufacturerCode ||
-        (pgn as any).fields['Manufacturer Code']
-      if (manufacturer !== manufacturer_filter) {
-        return
-      }
-    }
+  if (pgn && filterPGN(pgn, filter)) {
     if (argv['js'] || argv['js-colors']) {
       console.log(
         util.inspect(pgn, {
