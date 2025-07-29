@@ -8,11 +8,11 @@ module.exports = [
       pgn: 126720,
       description: 'Seatalk1: Device Identification',
       fields: {
-        command: '0x90',
+        command: 'Device Identification',
         device: 'S100',
         manufacturerCode: 'Raymarine',
         industryCode: 'Marine Industry',
-        proprietaryId: '0x81f0',
+        proprietaryId: 'Seatalk',
         reserved: null,
         reserved6: null
       }
