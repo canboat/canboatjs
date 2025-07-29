@@ -172,8 +172,14 @@ actisense-serialjs /dev/ttyUSB0 | analyzerjs --manufacturer "Garmin"
 # Combine multiple filters
 actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --src 15 --dst 255
 
+# Filter using a JavaScript expression
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --filter "pgn.fields.proprietaryId === 'Pilot Configuration'"
+
 # Pretty print JSON output
 actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --pretty
+
+# Pretty print using JavaScript output with colors
+actisense-serialjs /dev/ttyUSB0 | analyzerjs --pgn 129025 --js-colors
 
 # Process log files with filtering
 analyzerjs --file my_log.txt --pgn 129025 --pgn 127245 --src 15
