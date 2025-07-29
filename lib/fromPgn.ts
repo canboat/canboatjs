@@ -341,6 +341,11 @@ export class Parser extends EventEmitter {
                 pgnList = [nonMatch]
                 pgnData = pgnList[0]
                 fields = pgnData.Fields
+
+                const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+                if (data.length > 0) {
+                  ;(pgn.fields as any).data = byteString(Buffer.from(data), ' ')
+                }
               } else {
                 if (pgn.pgn >= 0xff00 && pgn.pgn <= 0xffff) {
                   pgnData = getPGNWithId(
@@ -981,90 +986,100 @@ function readValue(
         return [null, undefined]
       }
     }
-    if (field.FieldType === FieldType.Binary && definition.Fallback === true) {
-      bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
-      const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
-      return [byteString(Buffer.from(data), ' '), undefined]
-    } else if (bitLength === 8) {
-      if (field.Signed) {
-        value = bs.readInt8()
-        value = value === 0x7f ? null : value
-      } else {
-        value = bs.readUint8()
-        value = value === 0xff ? null : value
-      }
-    } else if (bitLength == 16) {
-      if (field.Signed) {
-        value = bs.readInt16()
-        value = value === 0x7fff ? null : value
-      } else {
-        value = bs.readUint16()
-        value = value === 0xffff ? null : value
-      }
-    } else if (bitLength == 24) {
-      const b1 = bs.readUint8()
-      const b2 = bs.readUint8()
-      const b3 = bs.readUint8()
-
-      //debug(`24 bit ${b1.toString(16)} ${b2.toString(16)} ${b3.toString(16)}`)
-      value = (b3 << 16) + (b2 << 8) + b1
-      //debug(`value ${value.toString(16)}`)
-    } else if (bitLength == 32) {
-      if (field.Signed) {
-        value = bs.readInt32()
-        value = value === 0x7fffffff ? null : value
-      } else {
-        value = bs.readUint32()
-        value = value === 0xffffffff ? null : value
-      }
-    } else if (bitLength == 48) {
-      const a = bs.readUint32()
-      const b = bs.readUint16()
-
-      if (field.Signed) {
-        value = a == 0xffffffff && b == 0x7fff ? null : new Int64LE(b, a)
-      } else {
-        value = a == 0xffffffff && b == 0xffff ? null : new Int64LE(b, a)
-      }
-    } else if (bitLength == 64) {
-      const x = bs.readUint32()
-      const y = bs.readUint32()
-
-      if (field.Signed) {
-        value =
-          (x === 0xffffffff || x === 0xfffffffe) && y == 0x7fffffff
-            ? null
-            : new Int64LE(y, x)
-      } else {
-        value =
-          (x === 0xffffffff || x === 0xfffffffe) && y == 0xffffffff
-            ? null
-            : new Uint64LE(y, x)
-      }
-    } else if (bitLength <= 64) {
-      value = bs.readBits(bitLength, field.Signed)
-      if (bitLength > 1 && isMax(bitLength, value, field.Signed as boolean)) {
-        value = null
-      }
-    } else {
-      if (bs.bitsLeft < bitLength) {
-        bitLength = bs.bitsLeft
-        if (bitLength === undefined) {
-          return [null, undefined]
+    try {
+      if (
+        field.FieldType === FieldType.Binary &&
+        definition.Fallback === true
+      ) {
+        bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
+        const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
+        return [byteString(Buffer.from(data), ' '), undefined]
+      } else if (bitLength === 8) {
+        if (field.Signed) {
+          value = bs.readInt8()
+          value = value === 0x7f ? null : value
+        } else {
+          value = bs.readUint8()
+          value = value === 0xff ? null : value
         }
+      } else if (bitLength == 16) {
+        if (field.Signed) {
+          value = bs.readInt16()
+          value = value === 0x7fff ? null : value
+        } else {
+          value = bs.readUint16()
+          value = value === 0xffff ? null : value
+        }
+      } else if (bitLength == 24) {
+        const b1 = bs.readUint8()
+        const b2 = bs.readUint8()
+        const b3 = bs.readUint8()
+
+        //debug(`24 bit ${b1.toString(16)} ${b2.toString(16)} ${b3.toString(16)}`)
+        value = (b3 << 16) + (b2 << 8) + b1
+        //debug(`value ${value.toString(16)}`)
+      } else if (bitLength == 32) {
+        if (field.Signed) {
+          value = bs.readInt32()
+          value = value === 0x7fffffff ? null : value
+        } else {
+          value = bs.readUint32()
+          value = value === 0xffffffff ? null : value
+        }
+      } else if (bitLength == 48) {
+        const a = bs.readUint32()
+        const b = bs.readUint16()
+
+        if (field.Signed) {
+          value = a == 0xffffffff && b == 0x7fff ? null : new Int64LE(b, a)
+        } else {
+          value = a == 0xffffffff && b == 0xffff ? null : new Int64LE(b, a)
+        }
+      } else if (bitLength == 64) {
+        const x = bs.readUint32()
+        const y = bs.readUint32()
+
+        if (field.Signed) {
+          value =
+            (x === 0xffffffff || x === 0xfffffffe) && y == 0x7fffffff
+              ? null
+              : new Int64LE(y, x)
+        } else {
+          value =
+            (x === 0xffffffff || x === 0xfffffffe) && y == 0xffffffff
+              ? null
+              : new Uint64LE(y, x)
+        }
+      } else if (bitLength <= 64) {
+        value = bs.readBits(bitLength, field.Signed)
+        if (bitLength > 1 && isMax(bitLength, value, field.Signed as boolean)) {
+          value = null
+        }
+      } else {
+        if (bs.bitsLeft < bitLength) {
+          bitLength = bs.bitsLeft
+          if (bitLength === undefined) {
+            return [null, undefined]
+          }
+        }
+
+        value = bs.readArrayBuffer(bitLength / 8) //, field.Signed)
+        const arr: string[] = []
+        value = new Uint32Array(value)
+          .reduce(function (acc, i) {
+            acc.push(i.toString(16))
+            return acc
+          }, arr)
+          .map((x) => (x.length === 1 ? '0' + x : x))
+          .join(' ')
+
+        return [value, undefined]
       }
-
-      value = bs.readArrayBuffer(bitLength / 8) //, field.Signed)
-      const arr: string[] = []
-      value = new Uint32Array(value)
-        .reduce(function (acc, i) {
-          acc.push(i.toString(16))
-          return acc
-        }, arr)
-        .map((x) => (x.length === 1 ? '0' + x : x))
-        .join(' ')
-
-      return [value, undefined]
+    } catch (error) {
+      debug(
+        `Error reading field ${field.Name} of type ${field.FieldType} with bit length ${bitLength} from PGN ${pgn.pgn}: ${error}`
+      )
+      return [null, undefined]
     }
 
     if (
