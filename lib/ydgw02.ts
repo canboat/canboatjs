@@ -182,6 +182,8 @@ Ydgw02Stream.prototype._transform = function (
     }
   }
 
+  this.options.app.emit('canboatjs:rawoutput', line)
+
   const pgn = this.fromPgn.parseYDGW02(line)
   if (pgn !== undefined) {
     this.push(pgn)

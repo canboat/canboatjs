@@ -123,3 +123,6 @@ export const hexByte = (x: number) =>
 export const byteString = (data: Buffer, separator = ',') =>
   // Uint32Array map method doesn't work as expect. _.map does.
   map(exports.hexByte, new Uint32Array(data)).join(separator)
+export const byteStringArray = (data: Buffer) =>
+  // Uint32Array map method doesn't work as expect. _.map does.
+  map(exports.hexByte, new Uint8Array(data))

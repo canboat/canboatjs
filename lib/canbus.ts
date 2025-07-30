@@ -15,7 +15,7 @@
  */
 
 import { PGN } from '@canboat/ts-pgns'
-import { createDebug } from './utilities'
+import { createDebug, byteStringArray } from './utilities'
 import { Transform } from 'stream'
 import { toPgn } from './toPgn'
 import _ from 'lodash'
@@ -154,10 +154,26 @@ CanbusStream.prototype.connect = function () {
       }
 
       const timestamp = new Date().toISOString()
+      let data: any
       if (that.plainText) {
-        this.push(binToActisense(pgn, timestamp, msg.data, msg.data.length))
+        data = binToActisense(pgn, timestamp, msg.data, msg.data.length)
+        this.push(data)
+        this.options.app.emit('canboatjs:rawoutput', data)
       } else {
-        that.push({ pgn, length: msg.data.length, data: msg.data })
+        data = {
+          pgn,
+          length: msg.data.length,
+          data: msg.data
+        }
+
+        that.options.app.emit('canboatjs:rawoutput', {
+          pgn,
+          length: msg.data.length,
+          //data: Array.from(new Int8Array(msg.data)),
+          data: byteStringArray(msg.data)
+        })
+
+        that.push(data)
       }
     })
     this.channel.start()

@@ -3,6 +3,7 @@
   "version": "3.7.0",
   "description": "Native javascript version of canboat",
   "main": "dist/index.js",
+  "browser": "dist/browser.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "dev-test": "jest --watch",
