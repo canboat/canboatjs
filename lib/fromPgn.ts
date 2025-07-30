@@ -571,7 +571,7 @@ export class Parser extends EventEmitter {
           array[index] = parseInt(num, 16)
         })
         buffer = Buffer.from(array)
-        if (sourceString === undefined) {
+        if (sourceString === undefined && this.options.includeInputData) {
           sourceString = strings.join(' ')
         }
       }
