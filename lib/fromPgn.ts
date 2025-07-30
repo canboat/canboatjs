@@ -105,6 +105,10 @@ export class Parser extends EventEmitter {
       this.options.createPGNObjects = false
     }
 
+    if (this.options.includeInputData === undefined) {
+      this.options.includeInputData = false
+    }
+
     this.name = pkg.name
     this.version = pkg.version
     this.author = pkg.author
@@ -205,7 +209,7 @@ export class Parser extends EventEmitter {
       (this.format == FORMAT_COALESCED && !this.mixedFormat)
     ) {
       this.format = FORMAT_COALESCED
-      if (sourceString) {
+      if (sourceString && this.options.includeInputData) {
         pgn.input = [sourceString]
       }
       //} else if ( pgnData.Length > 0x8 || (len == 0x8 && (pgnData.RepeatingFields || couldBeMulti))) {
@@ -289,9 +293,11 @@ export class Parser extends EventEmitter {
       const view = new BitView(packet.buffer)
       bs = new BitStream(view)
       trace(`${pgn.pgn} done`)
-      pgn.input = packet.src
+      if (this.options.includeInputData) {
+        pgn.input = packet.src
+      }
       delete this.devices[pgn.src][pgn.pgn]
-    } else if (sourceString) {
+    } else if (sourceString && this.options.includeInputData) {
       pgn.input = [sourceString]
     }
 
