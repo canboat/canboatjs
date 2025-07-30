@@ -16,7 +16,7 @@
 
 import { PGN } from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
-import util from 'util'
+import { inherits } from 'util'
 import { Transform } from 'stream'
 import { BitStream, BitView } from 'bit-buffer'
 import { toPgn } from './toPgn'
@@ -90,7 +90,7 @@ export function ActisenseStream(this: any, options: any) {
   this.start()
 }
 
-util.inherits(ActisenseStream, Transform)
+inherits(ActisenseStream, Transform)
 
 ActisenseStream.prototype.start = function (this: any) {
   if (this.serial !== null) {

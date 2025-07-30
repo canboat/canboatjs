@@ -120,6 +120,7 @@ W2K01Stream.prototype._transform = function (
     if (this.debugData.enabled) {
       this.debugData('Received: ' + chunk)
     }
+    this.options.app.emit('canboatjs:rawoutput', chunk)
     this.push(chunk)
   } else {
     readN2KActisense(chunk, this.plainText, this, (data: any) => {

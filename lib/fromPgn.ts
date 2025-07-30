@@ -29,9 +29,7 @@ import {
   getFieldTypeEnumerationBits
 } from '@canboat/ts-pgns'
 import { createDebug, byteString } from './utilities'
-//import { EventEmitter } from 'node:events'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const EventEmitter = require('events')
+import { EventEmitter } from 'events'
 import pkg from '../package.json'
 import _ from 'lodash'
 import { getPgn, getCustomPgn, addCustomPgns } from './pgns'
@@ -567,6 +565,9 @@ export class Parser extends EventEmitter {
           array[index] = parseInt(num, 16)
         })
         buffer = Buffer.from(array)
+        if (sourceString === undefined) {
+          sourceString = strings.join(' ')
+        }
       }
 
       const bv = new BitView(buffer as Buffer)
