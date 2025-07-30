@@ -70,6 +70,7 @@ const parser = new Parser({
   useCamel: argv['camel'],
   useCamelCompat: argv['camel-compat'],
   returnNonMatches: argv['show-non-matches'],
+  includeInputData: true,
   format
 })
 

@@ -65,7 +65,8 @@ const parser = new FromPgn({
   checkForInvalidFields: argv['c'] !== true,
   useCamel: argv['camel'],
   useCamelCompat: argv['camel-compat'],
-  returnNonMatches: argv['show-non-matches']
+  returnNonMatches: argv['show-non-matches'],
+  includeInputData: true
 })
 
 const format = argv['format'] || 'json'
