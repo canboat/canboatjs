@@ -32,6 +32,7 @@ export {
   pgnToPCDIN,
   pgnToMXPGN
 } from './toPgn'
+export { setupFilters, filterPGN } from './utilities'
 
 import { getEnumerationValue, getEnumerationName } from '@canboat/ts-pgns'
 
