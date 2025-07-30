@@ -126,3 +126,124 @@ export const byteString = (data: Buffer, separator = ',') =>
 export const byteStringArray = (data: Buffer) =>
   // Uint32Array map method doesn't work as expect. _.map does.
   map(exports.hexByte, new Uint8Array(data))
+
+export type FilterOptions = {
+  pgn: number | number[] | string | string[] | undefined
+  manufacturer: string | string[] | undefined
+  src: number | number[] | string | string[] | undefined
+  dst: number | number[] | string | string[] | undefined
+  filter: string | undefined
+}
+
+export type FilterConfig = {
+  pgn_filter?: number[]
+  manufacturer_filter?: string[]
+  src_filter?: number[]
+  dst_filter?: number[]
+  js_filter?: (pgn: any) => boolean
+}
+
+export const setupFilters = (filterOptions: FilterOptions): FilterConfig => {
+  let pgn_filter: number[] | undefined = undefined
+
+  if (filterOptions.pgn !== undefined) {
+    if (Array.isArray(filterOptions.pgn)) {
+      pgn_filter = filterOptions.pgn.map((p) =>
+        typeof p === 'string' ? Number(p) : p
+      )
+    } else {
+      pgn_filter = [
+        typeof filterOptions.pgn === 'string'
+          ? Number(filterOptions.pgn)
+          : filterOptions.pgn
+      ]
+    }
+  }
+
+  let src_filter: number[] | undefined = undefined
+  if (filterOptions.src !== undefined) {
+    if (Array.isArray(filterOptions.src)) {
+      src_filter = filterOptions.src.map((s) =>
+        typeof s === 'string' ? Number(s) : s
+      )
+    } else {
+      src_filter = [
+        typeof filterOptions.src === 'string'
+          ? Number(filterOptions.src)
+          : filterOptions.src
+      ]
+    }
+  }
+
+  let dst_filter: number[] | undefined = undefined
+  if (filterOptions.dst !== undefined) {
+    if (Array.isArray(filterOptions.dst)) {
+      dst_filter = filterOptions.dst.map((d) =>
+        typeof d === 'string' ? Number(d) : d
+      )
+    } else {
+      dst_filter = [
+        typeof filterOptions.dst === 'string'
+          ? Number(filterOptions.dst)
+          : filterOptions.dst
+      ]
+    }
+  }
+
+  let manufacturer_filter: string[] | undefined = undefined
+  if (filterOptions.manufacturer !== undefined) {
+    if (Array.isArray(filterOptions.manufacturer)) {
+      manufacturer_filter = filterOptions.manufacturer
+    } else {
+      manufacturer_filter = [filterOptions.manufacturer]
+    }
+  }
+
+  let js_filter: ((pgn: any) => boolean) | undefined = undefined
+
+  const filter = filterOptions.filter
+
+  if (filter !== undefined && filter.length > 0) {
+    try {
+      js_filter = new Function('pgn', `return ${filter}`) as (
+        pgn: any
+      ) => boolean
+    } catch (e: any) {
+      console.error(`Invalid filter expression: ${e.message}`)
+      //process.exit(1)
+    }
+  }
+
+  return { pgn_filter, manufacturer_filter, src_filter, dst_filter, js_filter }
+}
+
+export const filterPGN = (pgn: any, filter: FilterConfig): boolean => {
+  if (
+    (filter.pgn_filter === undefined ||
+      filter.pgn_filter.length === 0 ||
+      filter.pgn_filter.find((p: number) => pgn.pgn === p)) &&
+    (filter.src_filter === undefined ||
+      filter.src_filter.length === 0 ||
+      filter.src_filter.find((s: number) => pgn.src === s)) &&
+    (filter.dst_filter === undefined ||
+      filter.dst_filter.length === 0 ||
+      filter.dst_filter.find((d: number) => pgn.dst === d)) &&
+    (filter.manufacturer_filter === undefined ||
+      filter.manufacturer_filter.length === 0 ||
+      filter.manufacturer_filter.find(
+        (m: string) => pgn.fields?.manufacturerCode === m
+      ))
+  ) {
+    if (filter.js_filter !== undefined) {
+      try {
+        return filter.js_filter(pgn)
+      } catch (e: any) {
+        console.error(`Error evaluating filter on PGN ${pgn.pgn}: ${e.message}`)
+        return false
+      }
+    }
+    return true
+  }
+
+  return false
+}

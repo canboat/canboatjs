@@ -3,8 +3,13 @@
 import { FromPgn } from '../index'
 import { parseCanId } from '../canId'
 import minimist from 'minimist'
-import { binToActisense } from '../utilities'
-import { printVersion, setupFilters, filterPGN } from './utils'
+import {
+  binToActisense,
+  setupFilters,
+  filterPGN,
+  FilterOptions
+} from '../utilities'
+import { printVersion } from './utils'
 import util from 'util'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -57,7 +62,7 @@ if (argv['_'].length === 0) {
   process.exit(1)
 }
 
-const filter = setupFilters(argv)
+const filter = setupFilters(argv as unknown as FilterOptions)
 
 const parser = new FromPgn({
   returnNulls: argv['n'] === true,
