@@ -4,7 +4,8 @@ import { PGN } from '@canboat/ts-pgns'
 import { Parser } from '../fromPgn'
 import minimist from 'minimist'
 import readline from 'readline'
-import { printVersion, setupFilters, filterPGN } from './utils'
+import { printVersion } from './utils'
+import { setupFilters, filterPGN, FilterOptions } from '../utilities'
 import fs from 'fs'
 import util from 'util'
 
@@ -61,7 +62,7 @@ if (argv['coalesced']) {
   format = 0
 }
 
-const filter = setupFilters(argv)
+const filter = setupFilters(argv as unknown as FilterOptions)
 
 const parser = new Parser({
   returnNulls: argv['n'] === true,
