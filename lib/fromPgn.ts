@@ -35,6 +35,7 @@ import _ from 'lodash'
 import { getPgn, getCustomPgn, addCustomPgns } from './pgns'
 import { BitStream, BitView } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
+import { encodeCandump2 } from './stringMsg'
 
 import {
   parseN2kString,
@@ -582,7 +583,16 @@ export class Parser extends EventEmitter {
         })
         buffer = Buffer.from(array)
         if (sourceString === undefined && this.options.includeInputData) {
-          sourceString = strings.join(' ')
+          //sourceString = strings.join(' ')
+          sourceString = encodeCandump2({ pgn, data: buffer })
+          /*
+          sourceString = binToActisense(
+            pgn as CanID,
+            new Date().toISOString(),
+            buffer,
+            buffer.length
+          )
+            */
         }
       }
 

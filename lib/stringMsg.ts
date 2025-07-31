@@ -389,6 +389,10 @@ export const parseCandump1 = (input: string) => {
     len: Number(trimWrap(len))
   })
 }
+export const encodeCandump1 = ({ data, ...canIdInfo }: any) => {
+  const canId = encodeCanIdString(canIdInfo)
+  return `<0x${canId}> [${data.length}] ${byteString(data, ' ')}`
+}
 
 // candump2 Debian
 // can0  09F8027F   [8]  00 FC FF FF 00 00 FF FF
@@ -399,6 +403,10 @@ export const parseCandump2 = (input: string) => {
     bus,
     len: Number(trimWrap(len))
   })
+}
+export const encodeCandump2 = ({ pgn, data, bus = 'can0' }: any) => {
+  const canId = encodeCanIdString(pgn)
+  return `${bus}  ${canId}   [${data.length}]  ${byteString(data, ' ')}`
 }
 
 // candump3 log
