@@ -128,15 +128,17 @@ export const byteStringArray = (data: Buffer) =>
   map(exports.hexByte, new Uint8Array(data))
 
 export type FilterOptions = {
-  pgn: number | number[] | string | string[] | undefined
-  manufacturer: string | string[] | undefined
-  src: number | number[] | string | string[] | undefined
-  dst: number | number[] | string | string[] | undefined
-  filter: string | undefined
+  pgn?: number | string | (number | string)[] | undefined
+  id?: string | string[] | undefined
+  manufacturer?: string | string[] | undefined
+  src?: number | string | (number | string)[] | undefined
+  dst?: number | string | (number | string)[] | undefined
+  filter?: string | undefined
 }
 
 export type FilterConfig = {
   pgn_filter?: number[]
+  id_filter?: string[]
   manufacturer_filter?: string[]
   src_filter?: number[]
   dst_filter?: number[]
@@ -199,6 +201,15 @@ export const setupFilters = (filterOptions: FilterOptions): FilterConfig => {
     }
   }
 
+  let id_filter: string[] | undefined = undefined
+  if (filterOptions.id !== undefined) {
+    if (Array.isArray(filterOptions.id)) {
+      id_filter = filterOptions.id
+    } else {
+      id_filter = [filterOptions.id]
+    }
+  }
+
   let js_filter: ((pgn: any) => boolean) | undefined = undefined
 
   const filter = filterOptions.filter
@@ -214,14 +225,18 @@ export const setupFilters = (filterOptions: FilterOptions): FilterConfig => {
     }
   }
 
-  return { pgn_filter, manufacturer_filter, src_filter, dst_filter, js_filter }
+  return {
+    pgn_filter,
+    manufacturer_filter,
+    src_filter,
+    dst_filter,
+    js_filter,
+    id_filter
+  }
 }
 
 export const filterPGN = (pgn: any, filter: FilterConfig): boolean => {
   if (
-    (filter.pgn_filter === undefined ||
-      filter.pgn_filter.length === 0 ||
-      filter.pgn_filter.find((p: number) => pgn.pgn === p)) &&
     (filter.src_filter === undefined ||
       filter.src_filter.length === 0 ||
       filter.src_filter.find((s: number) => pgn.src === s)) &&
@@ -234,6 +249,22 @@ export const filterPGN = (pgn: any, filter: FilterConfig): boolean => {
         (m: string) => pgn.fields?.manufacturerCode === m
       ))
   ) {
+    // Check if PGN passes either filter (when filters are defined)
+    const hasPgnFilter =
+      filter.pgn_filter !== undefined && filter.pgn_filter.length > 0
+    const hasIdFilter =
+      filter.id_filter !== undefined && filter.id_filter.length > 0
+
+    if (hasPgnFilter || hasIdFilter) {
+      const passesNumberFilter =
+        hasPgnFilter && filter.pgn_filter!.includes(pgn.pgn)
+      const passesIdFilter = hasIdFilter && filter.id_filter!.includes(pgn.id)
+
+      if (!passesNumberFilter && !passesIdFilter) {
+        return false
+      }
+    }
+
     if (filter.js_filter !== undefined) {
       try {
         return filter.js_filter(pgn)

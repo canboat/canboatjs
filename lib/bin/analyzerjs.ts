@@ -11,7 +11,7 @@ import util from 'util'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
-  string: ['pgn', 'manufacturer', 'src', 'file', 'dst', 'filter'],
+  string: ['pgn', 'manufacturer', 'src', 'file', 'dst', 'filter', 'id'],
   boolean: [
     'n',
     'r',
@@ -47,6 +47,7 @@ Options:
   --coalesced           force coalesced format
   --fast                force fast format
   --pgn <number>        filter for the given pgn number
+  --id <camelCaseId>    filter for the given pgn id
   --src <number>        filter for the given source address
   --dst <number>        filter for the given destination address
   --manufacturer <str>  filter for pgns from the given manufacturer
@@ -72,6 +73,7 @@ const parser = new Parser({
   useCamelCompat: argv['camel-compat'],
   returnNonMatches: argv['show-non-matches'],
   includeInputData: true,
+  createPGNObjects: true,
   format
 })
 
