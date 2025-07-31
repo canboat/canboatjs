@@ -355,10 +355,12 @@ export class Parser extends EventEmitter {
                   pgnData = getPGNWithId(
                     '0xff000xffffManufacturerProprietarySingleFrameNonAddressed'
                   )!
+                  fields = pgnData.Fields
                 } else if (pgn.pgn >= 0x1ed00 && pgn.pgn <= 0x1ee00) {
                   pgnData = getPGNWithId(
                     '0x1ed000x1ee00StandardizedFastPacketAddressed'
                   )!
+                  fields = pgnData.Fields
                 } else {
                   unknownPGN = true
                 }
@@ -468,10 +470,10 @@ export class Parser extends EventEmitter {
 
       if (unknownPGN) {
         res.description = 'Unknown PGN'
-        res.pgn = pgn.pgn
       } else {
         res.description = pgnData.Description
       }
+      res.pgn = pgn.pgn
       res.src = pgn.src
       res.dst = pgn.dst
       res.prio = pgn.prio
