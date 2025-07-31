@@ -16,6 +16,7 @@
 
 export { Parser as FromPgn } from './fromPgn'
 export { setupFilters, filterPGN } from './utilities'
+export type { FilterConfig, FilterOptions } from './utilities'
 export { CanbusStream as canbus } from './canbus'
 export { addCustomPgns } from './pgns'
 export {
