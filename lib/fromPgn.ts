@@ -363,6 +363,14 @@ export class Parser extends EventEmitter {
                   fields = pgnData.Fields
                 } else {
                   unknownPGN = true
+                  fields = []
+                  const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+                  if (data.length > 0) {
+                    ;(pgn.fields as any).data = byteString(
+                      Buffer.from(data),
+                      ' '
+                    )
+                  }
                 }
               }
 
