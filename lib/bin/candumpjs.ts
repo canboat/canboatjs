@@ -19,7 +19,7 @@ const argv = minimist(process.argv.slice(2), {
   alias: {
     h: 'help'
   },
-  string: ['format', 'manufacturer', 'src', 'pgn', 'dst', 'filter'],
+  string: ['format', 'manufacturer', 'src', 'pgn', 'dst', 'filter', 'id'],
   boolean: [
     'n',
     'r',
@@ -49,6 +49,7 @@ Options:
   --camel-compat       output field names in camelCase and regular
   --show-non-matches   show pgn data without any matches
   --pgn <number>       filter for the given pgn number
+  --id <camelCaseId>    filter for the given pgn id
   --src <number>       filter for the given source address
   --dst <number>       filter for the given destination address
   --manufacturer <str> filter for pgns from the given manufacturer
@@ -71,7 +72,8 @@ const parser = new FromPgn({
   useCamel: argv['camel'],
   useCamelCompat: argv['camel-compat'],
   returnNonMatches: argv['show-non-matches'],
-  includeInputData: true
+  includeInputData: true,
+  createPGNObjects: true
 })
 
 const format = argv['format'] || 'json'

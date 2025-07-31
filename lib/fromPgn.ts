@@ -479,13 +479,17 @@ export class Parser extends EventEmitter {
 
       if (unknownPGN) {
         res.description = 'Unknown PGN'
+        ;(res as any).id = 'unknown'
       } else {
         res.description = pgnData.Description
+        ;(res as any).id = pgnData.Id
       }
+
       res.pgn = pgn.pgn
       res.src = pgn.src
       res.dst = pgn.dst
       res.prio = pgn.prio
+
       const apgn = pgn as any
       if (apgn.canId !== undefined) {
         ;(res as any).canId = apgn.canId

@@ -12,9 +12,10 @@
                 "<node_internals>/**"
             ],
             "console": "integratedTerminal",
-            "args":[ "--js-colors", "--camel", "--show-non-matches"
+            "args":[ "--js-colors", "--camel", "--show-non-matches",
                 //"--file", "/tmp/rr.log" 
-        //    "--pgn", "65280"
+            //"--pgn", "a127237",
+            "--id", "rateOfTurn"
             ],
             "program": "${workspaceFolder}/../canboatjs/dist/bin/analyzerjs.js",
             "outFiles": [
@@ -31,7 +32,7 @@
             "console": "integratedTerminal",
             "args":[ 
                 //"--file", "/tmp/rr.log" 
-        //    "--pgn", "65280"
+            //"--pgn", "65280"
             ],
             "program": "${workspaceFolder}/../canboatjs/dist/bin/to-pgn.js",
             "outFiles": [
