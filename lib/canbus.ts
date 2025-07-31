@@ -153,12 +153,14 @@ CanbusStream.prototype.connect = function () {
         return
       }
 
-      const timestamp = new Date().toISOString()
       let data: any
       if (that.plainText) {
+        const timestamp = new Date().toISOString()
         data = binToActisense(pgn, timestamp, msg.data, msg.data.length)
         this.push(data)
-        this.options.app.emit('canboatjs:rawoutput', data)
+        if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+          this.options.app.emit('canboatjs:rawoutput', data)
+        }
       } else {
         data = {
           pgn,
@@ -166,12 +168,14 @@ CanbusStream.prototype.connect = function () {
           data: msg.data
         }
 
-        that.options.app.emit('canboatjs:rawoutput', {
-          pgn,
-          length: msg.data.length,
-          //data: Array.from(new Int8Array(msg.data)),
-          data: byteStringArray(msg.data)
-        })
+        if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+          that.options.app.emit('canboatjs:rawoutput', {
+            pgn,
+            length: msg.data.length,
+            //data: Array.from(new Int8Array(msg.data)),
+            data: byteStringArray(msg.data)
+          })
+        }
 
         that.push(data)
       }
