@@ -243,13 +243,15 @@ ActisenseStream.prototype.start = function (this: any) {
 }
 
 ActisenseStream.prototype.scheduleReconnect = function () {
-  this.reconnectDelay *= this.reconnectDelay < 60 * 1000 ? 1.5 : 1
-  const msg = `Not connected (retry delay ${(
-    this.reconnectDelay / 1000
-  ).toFixed(0)} s)`
-  this.debug(msg)
-  this.setProviderStatus(msg)
-  setTimeout(this.start.bind(this), this.reconnectDelay)
+  if (this.options.reconnect === undefined || this.options.reconnect === true) {
+    this.reconnectDelay *= this.reconnectDelay < 60 * 1000 ? 1.5 : 1
+    const msg = `Not connected (retry delay ${(
+      this.reconnectDelay / 1000
+    ).toFixed(0)} s)`
+    this.debug(msg)
+    this.setProviderStatus(msg)
+    setTimeout(this.start.bind(this), this.reconnectDelay)
+  }
 }
 
 function readData(that: any, data: Buffer) {
@@ -473,9 +475,17 @@ function processN2KMessage(that: any, buffer: Buffer, len: number) {
   }
 
   if (that.options.plainText) {
-    that.push(binToActisense(buffer.slice(2, len)))
+    const data = binToActisense(buffer.slice(2, len))
+    that.push(data)
+    if (that.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+      that.options.app.emit('canboatjs:rawoutput', data)
+    }
   } else {
     that.push(buffer.slice(2, len))
+    if (that.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+      const data = binToActisense(buffer.slice(2, len))
+      that.options.app.emit('canboatjs:rawoutput', data)
+    }
   }
 }
 
