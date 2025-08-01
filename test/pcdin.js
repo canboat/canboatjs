@@ -40,6 +40,7 @@ describe('from pcdin data converts', function () {
       try {
         //console.log(JSON.stringify(pgn))
         delete pgn.input
+        delete pgn.id
         pgn.should.jsonEqual(expected)
         done()
       } catch (e) {
@@ -85,6 +86,7 @@ describe('from pcdin data converts', function () {
       try {
         //console.log(JSON.stringify(pgn))
         delete pgn.input
+        delete pgn.id
         pgn.should.jsonEqual(expected)
         done()
       } catch (e) {

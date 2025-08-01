@@ -61,6 +61,7 @@ describe('from pgn test data converts', function () {
                 delete pgn.timestamp
               }
               delete pgn.input
+              delete pgn.id
               if (data.ignoreTimestamp) {
                 delete data.expected.timestamp
                 delete pgn.timestamp

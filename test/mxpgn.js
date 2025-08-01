@@ -37,6 +37,7 @@ describe('from mxpgn data converts', function () {
         //console.log(JSON.stringify(pgn))
         delete pgn.input
         delete pgn.timestamp
+        delete pgn.id
         pgn.should.jsonEqual(expected)
         done()
       } catch (e) {
@@ -79,6 +80,7 @@ describe('from mxpgn data converts', function () {
         //console.log(JSON.stringify(pgn))
         delete pgn.input
         delete pgn.timestamp
+        delete pgn.id
         pgn.should.jsonEqual(expected)
         done()
       } catch (e) {
@@ -120,6 +122,7 @@ describe('from mxpgn data converts', function () {
         //console.log(JSON.stringify(pgn))
         delete pgn.input
         delete pgn.timestamp
+        delete pgn.id
         pgn.should.jsonEqual(expected)
         done()
       } catch (e) {
