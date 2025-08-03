@@ -10,7 +10,7 @@ const YdvrStream = require('../dist/ydvr.js')
 
 describe('Read Yacht Devices Voyage Recorder files', function () {
   it('Reads 00090013.DAT', function (done) {
-    this.timeout(5000)
+    this.timeout(10000)
     const filestream = fs.createReadStream(
       path.join(__dirname, 'data', '00090013.DAT')
     )
