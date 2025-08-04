@@ -13,7 +13,7 @@ module.exports = [
         manufacturerCode: 'Raymarine',
         industryCode: 'Marine Industry',
         proprietaryId: 'Seatalk 1 Encoded',
-        "seatalk1Command": "Device Indentification",
+        seatalk1Command: 'Device Indentification',
         reserved: null,
         reserved7: null
       }
