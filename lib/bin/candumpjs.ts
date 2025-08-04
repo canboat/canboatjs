@@ -28,7 +28,8 @@ const argv = minimist(process.argv.slice(2), {
     'show-non-matches',
     'pretty',
     'js',
-    'js-colors'
+    'js-colors',
+    'no-enums'
   ]
 })
 
@@ -42,6 +43,7 @@ Options:
   -c                   don't check for invalid values
   -n                   output null values
   -r                   parse $MXPGN as little endian
+  --no-enums           don't output enum values
   --pretty             pretty json
   --js                 output in JavaScript format
   --js-colors          output in JavaScript format with colors
@@ -73,7 +75,8 @@ const parser = new FromPgn({
   useCamelCompat: argv['camel-compat'],
   returnNonMatches: argv['show-non-matches'],
   includeInputData: true,
-  createPGNObjects: true
+  createPGNObjects: true,
+  resolveEnums: argv['enums'] === undefined || argv['enums'] === true
 })
 
 const format = argv['format'] || 'json'

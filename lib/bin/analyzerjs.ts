@@ -23,7 +23,8 @@ const argv = minimist(process.argv.slice(2), {
     'show-warnings',
     'coalesced',
     'js',
-    'js-colors'
+    'js-colors',
+    'no-enums'
   ]
 })
 
@@ -36,6 +37,7 @@ Options:
   -c                    don't check for invalid values
   -n                    output null values
   -r                    parse $MXPGN as little endian
+  --no-enums            don't output enum values
   --file <path>         read from the given file
   --pretty              output pretty json
   --js                  output in JavaScript format
@@ -74,7 +76,8 @@ const parser = new Parser({
   returnNonMatches: argv['show-non-matches'],
   includeInputData: true,
   createPGNObjects: true,
-  format
+  format,
+  resolveEnums: argv['enums'] === undefined || argv['enums'] === true
 })
 
 parser.on('error', (pgn: PGN, error: any) => {
