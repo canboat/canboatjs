@@ -32,7 +32,10 @@ export {
   pgnToYdgwRawFormat,
   pgnToYdgwFullRawFormat,
   pgnToPCDIN,
-  pgnToMXPGN
+  pgnToMXPGN,
+  pgnToCandump1,
+  pgnToCandump2,
+  pgnToCandump3
 } from './toPgn'
 export { Ydgw02Stream as Ydwg02 } from './ydgw02'
 export { Ydgw02Stream as Ydgw02 } from './ydgw02'
