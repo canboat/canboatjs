@@ -421,6 +421,17 @@ export const parseCandump3 = (input: string) => {
   })
 }
 
+export const encodeCandump3 = ({
+  data,
+  timestamp,
+  bus = 'slcan0',
+  ...canIdInfo
+}: any) => {
+  const canId = encodeCanIdString(canIdInfo)
+  const timestampStr = timestamp || Date.now() / 1000
+  return `(${timestampStr}) ${bus} ${canId}#${byteString(data, '').toUpperCase()}`
+}
+
 const hasErr = overSome([negate(isString), isEmpty])
 export const parseN2kString = (str: string, options: any): any => {
   if (hasErr(str)) {

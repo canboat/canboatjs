@@ -35,7 +35,10 @@ import {
   parseActisense,
   encodePCDIN,
   encodeMXPGN,
-  encodePDGY
+  encodePDGY,
+  encodeCandump1,
+  encodeCandump2,
+  encodeCandump3
 } from './stringMsg'
 import { encodeN2KActisense } from './n2k-actisense'
 import { createDebug } from './utilities'
@@ -437,6 +440,18 @@ export function pgnToPCDIN(info: any) {
 
 export function pgnToMXPGN(info: any) {
   return encodeMXPGN({ ...info, data: toPgn(info) })
+}
+
+export function pgnToCandump1(info: any) {
+  return encodeCandump1({ ...info, data: toPgn(info) })
+}
+
+export function pgnToCandump2(info: any) {
+  return encodeCandump2({ ...info, data: toPgn(info) })
+}
+
+export function pgnToCandump3(info: any) {
+  return encodeCandump3({ ...info, data: toPgn(info) })
 }
 
 export const actisenseToYdgwRawFormat = _.flow(parseActisense, encodeYDRAW)
