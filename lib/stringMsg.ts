@@ -391,7 +391,11 @@ export const parseCandump1 = (input: string) => {
 }
 export const encodeCandump1 = ({ data, ...canIdInfo }: any) => {
   const canId = encodeCanIdString(canIdInfo)
-  return `<0x${canId}> [${data.length}] ${byteString(data, ' ')}`
+  const pgns =
+    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+  return pgns.map(
+    (buffer) => `<0x${canId}> [${buffer.length}] ${byteString(buffer, ' ')}`
+  )
 }
 
 // candump2 Debian
@@ -404,9 +408,14 @@ export const parseCandump2 = (input: string) => {
     len: Number(trimWrap(len))
   })
 }
-export const encodeCandump2 = ({ pgn, data, bus = 'can0' }: any) => {
-  const canId = encodeCanIdString(pgn)
-  return `${bus}  ${canId}   [${data.length}]  ${byteString(data, ' ')}`
+export const encodeCandump2 = ({ data, bus = 'can0', ...canIdInfo }: any) => {
+  const canId = encodeCanIdString(canIdInfo)
+  const pgns =
+    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+  return pgns.map(
+    (buffer) =>
+      `${bus}  ${canId}   [${buffer.length}]  ${byteString(buffer, ' ')}`
+  )
 }
 
 // candump3 log
@@ -429,7 +438,12 @@ export const encodeCandump3 = ({
 }: any) => {
   const canId = encodeCanIdString(canIdInfo)
   const timestampStr = timestamp || Date.now() / 1000
-  return `(${timestampStr}) ${bus} ${canId}#${byteString(data, '').toUpperCase()}`
+  const pgns =
+    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+  return pgns.map(
+    (buffer) =>
+      `(${timestampStr}) ${bus} ${canId}#${byteString(buffer, '').toUpperCase()}`
+  )
 }
 
 const hasErr = overSome([negate(isString), isEmpty])

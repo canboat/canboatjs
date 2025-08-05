@@ -588,7 +588,7 @@ export class Parser extends EventEmitter {
         buffer = Buffer.from(array)
         if (sourceString === undefined && this.options.includeInputData) {
           //sourceString = strings.join(' ')
-          sourceString = encodeCandump2({ pgn, data: buffer })
+          sourceString = encodeCandump2({ pgn, data: buffer })[0]
           /*
           sourceString = binToActisense(
             pgn as CanID,
