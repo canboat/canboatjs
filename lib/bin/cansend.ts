@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { parseActisense } from '../stringMsg'
+import { parseN2kString } from '../stringMsg'
 import { toPgn } from '../toPgn'
 import { getPlainPGNs, binToActisense } from '../utilities'
 import { encodeCanId } from '../canId'
@@ -62,15 +62,9 @@ rl.on('line', function (line) {
     return
   }
 
-  let msg = line[0] === '{' ? JSON.parse(line) : line
+  const msg = line[0] === '{' ? JSON.parse(line) : line
 
-  if (typeof msg === 'string') {
-    const split = msg.split(',')
-    if (srcArg !== undefined) {
-      split[3] = srcArg
-    }
-    msg = split.join(',')
-  } else {
+  if (typeof msg !== 'string') {
     if (msg.prio === undefined) {
       msg.prio = 3
     }
@@ -95,11 +89,15 @@ rl.on('line', function (line) {
     }
     pgn = msg
   } else {
-    pgn = parseActisense(msg)
+    pgn = parseN2kString(msg)
 
     if (isNaN(pgn.prio) || isNaN(pgn.pgn) || isNaN(pgn.dst) || isNaN(pgn.src)) {
       console.error('invalid input: ' + line)
       return
+    }
+
+    if (srcArg !== undefined) {
+      pgn.src = srcArg
     }
 
     canid = encodeCanId(pgn)
