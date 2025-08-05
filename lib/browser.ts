@@ -30,7 +30,10 @@ export {
   pgnToYdgwRawFormat,
   pgnToYdgwFullRawFormat,
   pgnToPCDIN,
-  pgnToMXPGN
+  pgnToMXPGN,
+  pgnToCandump1,
+  pgnToCandump2,
+  pgnToCandump3
 } from './toPgn'
 export { setupFilters, filterPGN } from './utilities'
 export type { FilterConfig, FilterOptions } from './utilities'
