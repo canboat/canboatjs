@@ -422,7 +422,7 @@ export const parseCandump3 = (input: string) => {
 }
 
 const hasErr = overSome([negate(isString), isEmpty])
-export const parseN2kString = (str: string, options: any): any => {
+export const parseN2kString = (str: string, options?: any): any => {
   if (hasErr(str)) {
     return buildErr('INVALID', 'Input not string or empty.', str)
   }
