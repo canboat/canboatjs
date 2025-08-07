@@ -28,8 +28,8 @@ import {
   PgnListFunction,
   PgnErrorCode,
   TransmissionInterval,
-  ControllerState,
-  IsoControl
+  IsoControl,
+  EquipmentStatus
 } from '@canboat/ts-pgns'
 import { EventEmitter } from 'node:events'
 import _ from 'lodash'
@@ -405,7 +405,7 @@ function sendHeartbeat(device: N2kDevice) {
   const hb = new PGN_126993({
     dataTransmitOffset: 60,
     sequenceCounter: device.heartbeatCounter,
-    controller1State: ControllerState.ErrorActive
+    equipmentStatus: EquipmentStatus.Operational
   })
 
   device.sendPGN(hb)
