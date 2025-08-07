@@ -16,6 +16,7 @@
 
 // Browser-safe exports only - no Node.js dependencies
 export { Parser as FromPgn } from './fromPgn'
+export type { ByteMapping, ByteMap, RepeatingByteMapping } from './fromPgn'
 export { addCustomPgns } from './pgns'
 export {
   parseN2kString,

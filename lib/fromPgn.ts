@@ -72,6 +72,20 @@ const FASTPACKET_BUCKET_0_OFFSET = 2
 const FASTPACKET_BUCKET_N_OFFSET = 1
 const FASTPACKET_MAX_INDEX = 0x1f
 
+export type ByteMapping = {
+  bytes: number[]
+  value?: number | string | null
+  bits?: string
+}
+
+export type RepeatingByteMapping = {
+  [key: string]: ByteMapping
+}
+
+export type ByteMap = {
+  [key: string]: ByteMapping | RepeatingByteMapping[]
+}
+
 export class Parser extends EventEmitter {
   options: any
   name: string
@@ -108,6 +122,14 @@ export class Parser extends EventEmitter {
 
     if (this.options.includeInputData === undefined) {
       this.options.includeInputData = false
+    }
+
+    if (this.options.includeRawData === undefined) {
+      this.options.includeRawData = false
+    }
+
+    if (this.options.includeByteMapping === undefined) {
+      this.options.includeByteMapping = false
     }
 
     this.name = pkg.name
@@ -308,6 +330,9 @@ export class Parser extends EventEmitter {
 
     pgn.fields = {}
 
+    if (this.options.includeByteMapping) {
+      ;(pgn as any).byteMapping = {}
+    }
     try {
       let fields = pgnData.Fields
 
@@ -321,7 +346,7 @@ export class Parser extends EventEmitter {
         const field = fields[i]
         const hasMatch = field.Match !== undefined
 
-        let [value] = readField(
+        const [valueRes, _refField, byteMapping] = readField(
           pgnData!,
           this.options,
           !hasMatch,
@@ -330,6 +355,11 @@ export class Parser extends EventEmitter {
           bs,
           fields
         )
+        let value = valueRes
+
+        if (this.options.includeByteMapping) {
+          ;(pgn as any).byteMapping[field.Id] = byteMapping
+        }
 
         if (hasMatch) {
           //console.log(`looking for ${field.Name} == ${value}`)
@@ -342,6 +372,16 @@ export class Parser extends EventEmitter {
               //continueReading = false
 
               const nonMatch = this.findNonMatchPgn(origPGNList)
+
+              const setByteMapping = (data: Buffer) => {
+                if (this.options.includeByteMapping) {
+                  const mapping: ByteMapping = {
+                    bytes: Array.from(data)
+                  }
+                  ;(pgn as any).byteMapping.data = mapping
+                }
+              }
+
               if (nonMatch) {
                 pgnList = [nonMatch]
                 pgnData = pgnList[0]
@@ -349,7 +389,9 @@ export class Parser extends EventEmitter {
 
                 const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
                 if (data.length > 0) {
-                  ;(pgn.fields as any).data = byteString(Buffer.from(data), ' ')
+                  const buf = Buffer.from(data)
+                  ;(pgn.fields as any).data = byteString(buf, ' ')
+                  setByteMapping(buf)
                 }
               } else {
                 if (pgn.pgn >= 0xff00 && pgn.pgn <= 0xffff) {
@@ -367,10 +409,9 @@ export class Parser extends EventEmitter {
                   fields = []
                   const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
                   if (data.length > 0) {
-                    ;(pgn.fields as any).data = byteString(
-                      Buffer.from(data),
-                      ' '
-                    )
+                    const buf = Buffer.from(data)
+                    ;(pgn.fields as any).data = byteString(buf, ' ')
+                    setByteMapping(buf)
                   }
                 }
               }
@@ -417,6 +458,10 @@ export class Parser extends EventEmitter {
         const fany = pgn.fields as any
         fany.list = []
 
+        if (this.options.includeByteMapping) {
+          ;(pgn as any).byteMapping['list'] = []
+        }
+
         let count
 
         if (pgnData.RepeatingFieldSet1CountField !== undefined) {
@@ -430,9 +475,15 @@ export class Parser extends EventEmitter {
 
         while (bs.bitsLeft > 0 && --count >= 0) {
           const group: { [key: string]: any } = {}
+          let repeatingMap: RepeatingByteMapping
+          if (this.options.includeByteMapping) {
+            repeatingMap = {}
+            ;(pgn as any).byteMapping['list'].push(repeatingMap)
+          }
+
           repeating.forEach((field) => {
             if (bs.bitsLeft > 0) {
-              const [value, refField] = readField(
+              const [value, refField, byteMapping] = readField(
                 pgnData!,
                 this.options,
                 true,
@@ -449,6 +500,9 @@ export class Parser extends EventEmitter {
                 (value != null || this.options.returnNulls)
               ) {
                 this.setField(group, field, value)
+              }
+              if (this.options.includeByteMapping && byteMapping) {
+                repeatingMap[field.Id] = byteMapping
               }
             }
           })
@@ -507,6 +561,15 @@ export class Parser extends EventEmitter {
       */
       if (apgn.input !== undefined) {
         ;(res as any).input = apgn.input
+      }
+
+      if (this.options.includeRawData) {
+        ;(res as any).rawData = Array.from(
+          bs.view.buffer.subarray(0, bs.byteIndex)
+        )
+      }
+      if (this.options.includeByteMapping) {
+        ;(res as any).byteMapping = (pgn as any).byteMapping
       }
 
       // Stringify timestamp because SK Server needs it that way.
@@ -881,9 +944,12 @@ function readField(
   field: Field,
   bs: BitStream,
   fields: Field[] | undefined = undefined
-): [any, Field | undefined] {
+): [any, Field | undefined, ByteMapping | undefined] {
   let value
   let refField: Field | undefined = undefined
+  let bm: ByteMapping | undefined = undefined
+
+  const start = bs.index
 
   const reader = fieldTypeReaders[field.FieldType]
   if (reader) {
@@ -896,15 +962,37 @@ function readField(
     ) {
       //no more data
       bs.readBits(bs.bitsLeft, false)
-      return [null, undefined]
+
+      if (options.includeByteMapping) {
+        bm = {
+          bytes: Array.from(
+            bs.view.buffer.subarray(start / 8, Math.ceil(bs.index / 8))
+          )
+        }
+      }
+
+      return [null, undefined, bm]
     }
     ;[value, refField] = readValue(definition, options, pgn, field, bs, fields)
   }
 
+  if (options.includeByteMapping) {
+    bm = {
+      bytes: Array.from(
+        bs.view.buffer.subarray(start / 8, Math.ceil(bs.index / 8))
+      ),
+      value: value
+    }
+  }
+
   if (refField === undefined) {
-    return [convertField(field, value, runPostProcessor, options), undefined]
+    return [
+      convertField(field, value, runPostProcessor, options),
+      undefined,
+      bm
+    ]
   } else {
-    return [value, refField]
+    return [value, refField, bm]
   }
 }
 

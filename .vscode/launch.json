@@ -15,7 +15,7 @@
             "args":[ "--js-colors", "--camel", "--show-non-matches",
                 //"--file", "/tmp/rr.log" 
             //"--pgn", "a127237",
-            "--id", "rateOfTurn"
+            //"--id", "rateOfTurn"
             ],
             "program": "${workspaceFolder}/../canboatjs/dist/bin/analyzerjs.js",
             "outFiles": [
