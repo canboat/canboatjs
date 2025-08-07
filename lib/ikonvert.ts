@@ -242,6 +242,10 @@ iKonvertStream.prototype._transform = function (
     }
   } else {
     this.push(line)
+
+    if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+      this.options.app.emit('canboatjs:rawoutput', line)
+    }
   }
 
   done()
