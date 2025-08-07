@@ -24,7 +24,9 @@ const argv = minimist(process.argv.slice(2), {
     'coalesced',
     'js',
     'js-colors',
-    'no-enums'
+    'no-enums',
+    'include-raw-data',
+    'include-byte-mapping'
   ]
 })
 
@@ -34,27 +36,29 @@ if (argv['help']) {
   console.error(`Usage: ${process.argv[1]} [options]
 
 Options:
-  -c                    don't check for invalid values
-  -n                    output null values
-  -r                    parse $MXPGN as little endian
-  --no-enums            don't output enum values
-  --file <path>         read from the given file
-  --pretty              output pretty json
-  --js                  output in JavaScript format
-  --js-colors           output in JavaScript format with colors
-  --camel               output field names in camelCase
-  --camel-compat        output field names in camelCase and regular
-  --show-non-matches    show pgn data without any matches
-  --show-warnings       show warning messages
-  --coalesced           force coalesced format
-  --fast                force fast format
-  --pgn <number>        filter for the given pgn number
-  --id <camelCaseId>    filter for the given pgn id
-  --src <number>        filter for the given source address
-  --dst <number>        filter for the given destination address
-  --manufacturer <str>  filter for pgns from the given manufacturer
-  --filter <js>         filter for the given JavaScript expression
-  -h, --help            output usage information`)
+  -c                        don't check for invalid values
+  -n                        output null values
+  -r                        parse $MXPGN as little endian
+  --no-enums                don't output enum values
+  --include-raw-data        include raw data in output
+  --include-byte-mapping    include byte mapping in output
+  --file <path>             read from the given file
+  --pretty                  output pretty json
+  --js                      output in JavaScript format
+  --js-colors               output in JavaScript format with colors
+  --camel                   output field names in camelCase
+  --camel-compat            output field names in camelCase and regular
+  --show-non-matches        show pgn data without any matches
+  --show-warnings           show warning messages
+  --coalesced               force coalesced format
+  --fast                    force fast format
+  --pgn <number>            filter for the given pgn number
+  --id <camelCaseId>        filter for the given pgn id
+  --src <number>            filter for the given source address
+  --dst <number>            filter for the given destination address
+  --manufacturer <str>      filter for pgns from the given manufacturer
+  --filter <js>             filter for the given JavaScript expression
+  -h, --help                output usage information`)
   process.exit(1)
 }
 
@@ -77,7 +81,9 @@ const parser = new Parser({
   includeInputData: true,
   createPGNObjects: true,
   format,
-  resolveEnums: argv['enums'] === undefined || argv['enums'] === true
+  resolveEnums: argv['enums'] === undefined || argv['enums'] === true,
+  includeRawData: argv['include-raw-data'],
+  includeByteMapping: argv['include-byte-mapping']
 })
 
 parser.on('error', (pgn: PGN, error: any) => {

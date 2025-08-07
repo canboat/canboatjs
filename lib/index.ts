@@ -15,6 +15,7 @@
  */
 
 export { Parser as FromPgn } from './fromPgn'
+export type { ByteMapping, ByteMap, RepeatingByteMapping } from './fromPgn'
 export { setupFilters, filterPGN } from './utilities'
 export type { FilterConfig, FilterOptions } from './utilities'
 export { CanbusStream as canbus } from './canbus'
