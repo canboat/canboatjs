@@ -491,6 +491,7 @@ export class Parser extends EventEmitter {
       res.prio = pgn.prio
 
       const apgn = pgn as any
+      /*
       if (apgn.canId !== undefined) {
         ;(res as any).canId = apgn.canId
       }
@@ -503,6 +504,7 @@ export class Parser extends EventEmitter {
       if (apgn.direction !== undefined) {
         ;(res as any).direction = apgn.direction
       }
+      */
       if (apgn.input !== undefined) {
         ;(res as any).input = apgn.input
       }
