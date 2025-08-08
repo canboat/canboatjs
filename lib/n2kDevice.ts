@@ -198,13 +198,13 @@ export class N2kDevice extends EventEmitter {
   }
 
   setStatus(msg: string) {
-    if (this.options.app && this.options.app.setPluginStatus) {
+    if (this.options.app && this.options.app.setProviderStatus) {
       this.options.app.setProviderStatus(this.options.providerId, msg)
     }
   }
 
   setError(msg: string) {
-    if (this.options.app && this.options.app.setPluginStatus) {
+    if (this.options.app && this.options.app.setProviderError) {
       this.options.app.setProviderError(this.options.providerId, msg)
     }
   }
