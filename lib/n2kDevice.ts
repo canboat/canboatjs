@@ -21,7 +21,7 @@ import {
   PGN_126208_NmeaRequestGroupFunction,
   PGN_126208_NmeaCommandGroupFunction,
   PGN_126208_NmeaAcknowledgeGroupFunction,
-  PGN_126996,
+  //PGN_126996,
   PGN_126993,
   PGN_59392,
   PGN_126464,
@@ -100,7 +100,9 @@ export class N2kDevice extends EventEmitter {
         Reserved1: 1,
         Reserved2: 2
       }
+    }
 
+    if (this.addressClaim['Unique Number'] === undefined) {
       this.addressClaim['Unique Number'] = uniqueNumber
     }
 
@@ -208,17 +210,17 @@ export class N2kDevice extends EventEmitter {
   }
 
   n2kMessage(pgn: PGN) {
-    if (pgn.dst == 255 || pgn.dst == this.address) {
+    if (pgn.dst == 255 || (this.cansend && pgn.dst == this.address)) {
       try {
-        if (pgn.pgn == 59904) {
+        if (pgn.pgn == 59904 && this.cansend) {
           handleISORequest(this, pgn)
-        } else if (pgn.pgn == 126208) {
+        } else if (pgn.pgn == 126208 && this.cansend) {
           handleGroupFunction(this, pgn as PGN_126208_NmeaRequestGroupFunction)
         } else if (pgn.pgn == 60928) {
           handleISOAddressClaim(this, pgn as PGN_60928)
-        } else if (pgn.pgn == 126996) {
+        } /*else if (pgn.pgn == 126996 && this.cansend) {
           handleProductInformation(this, pgn)
-        }
+        }*/
       } catch (err) {
         console.error(err)
       }
@@ -259,7 +261,7 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
       sendConfigInformation(device)
       break
     case 60928: // ISO address claim request
-      device.debug('sending address claim %j', device.addressClaim)
+      device.debug('sending address claim')
       device.sendPGN(device.addressClaim as PGN)
       break
     case 126464:
@@ -348,7 +350,7 @@ function handleGroupFunction(
 }
 
 function handleISOAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
-  if (n2kMsg.src != device.address) {
+  if (device.cansend == false || n2kMsg.src != device.address) {
     if (!device.devices[n2kMsg.src!]) {
       device.debug(`registering device ${n2kMsg.src}`)
       device.devices[n2kMsg.src!] = { addressClaim: n2kMsg }
@@ -388,6 +390,7 @@ function increaseOwnAddress(device: N2kDevice) {
   } while (device.address != start && device.devices[device.address])
 }
 
+/*
 function handleProductInformation(device: N2kDevice, n2kMsg: PGN_126996) {
   if (!device.devices[n2kMsg.src!]) {
     device.devices[n2kMsg.src!] = {}
@@ -395,6 +398,7 @@ function handleProductInformation(device: N2kDevice, n2kMsg: PGN_126996) {
   device.debug('got product information %j', n2kMsg)
   device.devices[n2kMsg.src!].productInformation = n2kMsg
 }
+*/
 
 function sendHeartbeat(device: N2kDevice) {
   device.heartbeatCounter = device.heartbeatCounter + 1
@@ -439,7 +443,7 @@ function sendAddressClaim(device: N2kDevice) {
       device.emit('nmea2000OutAvailable')
       device.sentAvailable = true
     }
-    sendISORequest(device, 126996)
+    //sendISORequest(device, 126996)
     if (!device.heartbeatInterval) {
       device.heartbeatInterval = setInterval(() => {
         sendHeartbeat(device)
@@ -463,7 +467,7 @@ function sendISORequest(
 }
 
 function sendProductInformation(device: N2kDevice) {
-  device.debug('Sending product info %j', device.productInfo)
+  device.debug('Sending product info')
 
   device.sendPGN(device.productInfo)
 }

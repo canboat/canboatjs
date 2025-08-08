@@ -47,6 +47,8 @@ export { VenusMQTT } from './venus-mqtt'
 export { discover } from './discovery'
 export { SimpleCan } from './simpleCan'
 export { YdDevice } from './yddevice'
+export { CanDevice } from './candevice'
+export { N2kDevice } from './n2kDevice'
 export { ActisenseStream as serial } from './actisense-serial'
 
 import { getEnumerationValue, getEnumerationName } from '@canboat/ts-pgns'

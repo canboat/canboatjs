@@ -172,7 +172,6 @@ CanbusStream.prototype.connect = function () {
           that.options.app.emit('canboatjs:rawoutput', {
             pgn,
             length: msg.data.length,
-            //data: Array.from(new Int8Array(msg.data)),
             data: byteStringArray(msg.data)
           })
         }

@@ -25,6 +25,7 @@ import {
   actisenseToYdgwRawFormat,
   actisenseToYdgwFullRawFormat
 } from './toPgn'
+import { parseCanIdStr } from './canId'
 import util from 'util'
 
 //const pgnsSent = {}
@@ -104,7 +105,9 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN) {
     //let lastSent = pgnsSent[pgn.pgn]
     let msgs
     if ((pgn as any).ydFullFormat === true || this.device !== undefined) {
-      pgn.src = this.device.address
+      if (pgn.src !== 254) {
+        pgn.src = this.device.address
+      }
       msgs = pgnToYdgwFullRawFormat(pgn)
     } else {
       msgs = pgnToYdgwRawFormat(pgn)
@@ -134,31 +137,6 @@ Ydgw02Stream.prototype.sendYdgwPGN = function (msg: string) {
   msgs.forEach((raw) => {
     this.sendString(raw + '\r\n')
   })
-
-  /*
-  if ( !this.parser ) {
-    this.parser = new Parser()
-
-    let that = this
-    this.parser.on('error', (pgn, error) => {
-      console.error(`Error parsing ${pgn.pgn} ${error}`)
-      console.error(error.stack)
-    })
-
-
-    this.parser.on('pgn', (pgn) => {
-      let now = Date.now()
-      let lastSent = pgnsSent[pgn.pgn]
-      if ( !lastSent || now - lastSent > rateLimit ) {
-        pgnToYdwgRawFormat(pgn).forEach(raw => {
-          this.sendString(raw)
-        })
-        pgnsSent[pgn.pgn] = now
-      }
-    })
-  }
-  this.parser.parseString(msg)
-  */
 }
 
 util.inherits(Ydgw02Stream, Transform)
@@ -169,22 +147,44 @@ Ydgw02Stream.prototype._transform = function (
   done: any
 ) {
   const line = chunk.toString().trim()
-  //line = line.substring(0, line.length) // take off the \r
 
-  if (this.device === undefined && !this.sentAvailable) {
-    this.debug('emit nmea2000OutAvailable')
-    this.options.app.emit('nmea2000OutAvailable')
-    this.sentAvailable = true
+  if (line.length < 23) {
+    //bad data
+    done()
+    return
+  }
 
-    if (this.options.createDevice === true) {
+  if (this.options.createDevice === true) {
+    if (this.device === undefined) {
       this.device = new YdDevice(this.options)
       this.device.start()
     }
+    if (this.cansend() && line.charAt(13) === 'T') {
+      //11:54:07.833 R 18eafffe 00 ee 00
+      const canId = parseCanIdStr(line.slice(15, 23))
+      if (canId.src === this.device.address) {
+        //ignore pgn we're transmitting
+        done()
+        return
+      }
+    }
+  } else {
+    if (this.sentAvailable === false) {
+      this.sentAvailable = true
+      this.debug('emit nmea2000OutAvailable')
+      this.options.app.emit('nmea2000OutAvailable')
+    }
+    if (line.charAt(13) === 'T') {
+      //ignore pgns we're transmitting
+      done()
+      return
+    }
   }
+
+  const pgn = this.fromPgn.parseYDGW02(line)
 
   this.options.app.emit('canboatjs:rawoutput', line)
 
-  const pgn = this.fromPgn.parseYDGW02(line)
   if (pgn !== undefined) {
     this.push(pgn)
     this.options.app.emit(

@@ -86,6 +86,7 @@ describe('Convert Yacht Devices RAW format data', function () {
           delete pgn.timestamp
           delete pgn.input
           delete pgn.id
+          delete pgn.direction
           pgn.should.jsonEqual(test.expected)
           done()
         } catch (e) {
