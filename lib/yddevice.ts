@@ -37,6 +37,7 @@ export class YdDevice extends N2kDevice {
 
     const ppgn = pgn as any //FIXME??
     ppgn.ydFullFormat = true
+    ppgn.forceSend = true
 
     this.debug('Sending PGN %j', pgn)
     this.app.emit(this.n2kOutEvent, pgn)

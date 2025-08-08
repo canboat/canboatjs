@@ -708,8 +708,8 @@ export class Parser extends EventEmitter {
   //Yacht Devices NMEA2000 Wifi gateway
   parseYDGW02(pgn_data: any, cb: FromPgnCallback) {
     try {
-      const { data, direction, error, ...pgn } = parseYDRAW(pgn_data)
-      if (!error && direction === 'R') {
+      const { data, error, ...pgn } = parseYDRAW(pgn_data)
+      if (!error) {
         const bs = new BitStream(data)
         delete pgn.format
         const res = this._parse(pgn, bs, data.length, false, cb, pgn_data)
