@@ -27,7 +27,7 @@ export const getPersistedData = (options: any, id: string, key: string) => {
   if (path !== undefined) {
     const content = fs.readFileSync(path)
     const data = JSON.parse(content.toString())
-    return data[id] !== undefined && data[id][key]
+    return data[id] !== undefined ? data[id][key] : undefined
   }
 }
 
