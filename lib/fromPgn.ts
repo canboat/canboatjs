@@ -386,13 +386,6 @@ export class Parser extends EventEmitter {
                 pgnList = [nonMatch]
                 pgnData = pgnList[0]
                 fields = pgnData.Fields
-
-                const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
-                if (data.length > 0) {
-                  const buf = Buffer.from(data)
-                  ;(pgn.fields as any).data = byteString(buf, ' ')
-                  setByteMapping(buf)
-                }
               } else {
                 if (pgn.pgn >= 0xff00 && pgn.pgn <= 0xffff) {
                   pgnData = getPGNWithId(
