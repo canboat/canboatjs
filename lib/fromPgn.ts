@@ -338,6 +338,7 @@ export class Parser extends EventEmitter {
 
       const continueReading = true
       let unknownPGN = false
+      //let previousMatch: Definition | undefined
       for (
         let i = 0;
         i < fields.length - RepeatingFields && continueReading;
@@ -382,6 +383,17 @@ export class Parser extends EventEmitter {
                 }
               }
 
+              /*
+              if ( previousMatch ) {
+                pgnData = previousMatch
+                continueReading = false
+                const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+                if (data.length > 0) {
+                  const buf = Buffer.from(data)
+                    ; (pgn.fields as any).data = byteString(buf, ' ')
+                  setByteMapping(buf)
+                }
+              } else */
               if (nonMatch) {
                 pgnList = [nonMatch]
                 pgnData = pgnList[0]
@@ -395,6 +407,11 @@ export class Parser extends EventEmitter {
                 } else if (pgn.pgn >= 0x1ed00 && pgn.pgn <= 0x1ee00) {
                   pgnData = getPGNWithId(
                     '0x1ed000x1ee00StandardizedFastPacketAddressed'
+                  )!
+                  fields = pgnData.Fields
+                } else if (pgn.pgn > 0x1ff00 && pgn.pgn <= 0x1ffff) {
+                  pgnData = getPGNWithId(
+                    '0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed'
                   )!
                   fields = pgnData.Fields
                 } else {
@@ -423,6 +440,7 @@ export class Parser extends EventEmitter {
               return undefined
             }
           } else {
+            //previousMatch = pgnData
             pgnData = pgnList[0]
             fields = pgnData.Fields
             //console.log(`using ${JSON.stringify(pgnData, null, 2)}`)
@@ -511,17 +529,18 @@ export class Parser extends EventEmitter {
         }
       */
 
-      const res =
+      let res =
         this.options.createPGNObjects === false
           ? pgn
           : unknownPGN === false
             ? createPGN(pgnData.Id, pgn.fields)
-            : new PGN_Uknown(pgn.fields)
+            : new PGN_Unknown(pgn.fields, unknownDef(pgn.pgn))
 
       if (res === undefined) {
-        this.emit('error', pgn, 'no class')
-        cb && cb('no class', undefined)
-        return
+        //this.emit('error', pgn, 'no class')
+        //cb && cb('no class', undefined)
+        //console.log('No class found for PGN:', pgnData, pgn)
+        res = new PGN_Unknown(pgn.fields, pgnData)
       }
 
       if (unknownPGN) {
@@ -1457,21 +1476,27 @@ fieldTypePostProcessors[RES_BINARY] = (field, value) => {
   return value.toString()
 }
 
-class PGN_Uknown extends PGN {
-  constructor(fields: any) {
+const unknownDef = (pgn: number) => {
+  return {
+    PGN: pgn,
+    Id: 'unknown',
+    Description: 'Unknown PGN',
+    Type: Type.Single,
+    Complete: false,
+    Priority: 3,
+    Fields: []
+  }
+}
+
+class PGN_Unknown extends PGN {
+  private definition: Definition
+  constructor(fields: any, definition: Definition) {
     super({})
     this.fields = fields
+    this.definition = definition
   }
 
   getDefinition(): Definition {
-    return {
-      PGN: this.pgn,
-      Id: 'unknown',
-      Description: 'Unknown PGN',
-      Type: Type.Single,
-      Complete: false,
-      Priority: 3,
-      Fields: []
-    }
+    return this.definition
   }
 }

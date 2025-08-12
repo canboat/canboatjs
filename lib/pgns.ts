@@ -1,12 +1,13 @@
 import { getPGNWithNumber } from '@canboat/ts-pgns'
 import _ from 'lodash'
-import { createDebug } from './utilities'
 
-const debug = createDebug('canboatjs:pgns')
+//import { createDebug } from './utilities'
+//const debug = createDebug('canboatjs:pgns')
+
 export const getPgn = getPGNWithNumber
 export const customPgns: any = {}
 
-export const addCustomPgns = (pgns: any, setter: any) => {
+export const addCustomPgns = (pgns: any, _setter: any) => {
   pgns.PGNs.forEach((pgn: any) => {
     if (!customPgns[pgn.PGN]) {
       customPgns[pgn.PGN] = {
@@ -23,7 +24,7 @@ export const addCustomPgns = (pgns: any, setter: any) => {
       }
     */
 
-    debug('registered custom pgn %d by %s', pgn.PGN, setter)
+    //debug('registered custom pgn %d by %s', pgn.PGN, setter)
   })
 
   /*
