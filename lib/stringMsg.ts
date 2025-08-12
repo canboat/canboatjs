@@ -389,10 +389,9 @@ export const parseCandump1 = (input: string) => {
     len: Number(trimWrap(len))
   })
 }
-export const encodeCandump1 = ({ data, ...canIdInfo }: any) => {
-  const canId = encodeCanIdString(canIdInfo)
-  const pgns =
-    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+export const encodeCandump1 = ({ data, pgn, src, dst, prio }: any) => {
+  const canId = encodeCanIdString({ pgn, src, dst, prio })
+  const pgns = data.length > 8 || pgn == 126720 ? getPlainPGNs(data) : [data]
   return pgns.map(
     (buffer) => `<0x${canId}> [${buffer.length}] ${byteString(buffer, ' ')}`
   )
@@ -408,10 +407,17 @@ export const parseCandump2 = (input: string) => {
     len: Number(trimWrap(len))
   })
 }
-export const encodeCandump2 = ({ data, bus = 'can0', ...canIdInfo }: any) => {
-  const canId = encodeCanIdString(canIdInfo)
+export const encodeCandump2 = ({
+  data,
+  bus = 'can0',
+  pgn,
+  src,
+  dst,
+  prio
+}: any) => {
+  const canId = encodeCanIdString({ pgn, src, dst, prio })
   const pgns =
-    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+    data.length > 8 || pgn.pgn == 126720 ? getPlainPGNs(data) : [data]
   return pgns.map(
     (buffer) =>
       `${bus}  ${canId}   [${buffer.length}]  ${byteString(buffer, ' ')}`
@@ -434,12 +440,14 @@ export const encodeCandump3 = ({
   data,
   timestamp,
   bus = 'slcan0',
-  ...canIdInfo
+  pgn,
+  src,
+  dst,
+  prio
 }: any) => {
-  const canId = encodeCanIdString(canIdInfo)
+  const canId = encodeCanIdString({ pgn, src, dst, prio })
   const timestampStr = timestamp || Date.now() / 1000
-  const pgns =
-    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+  const pgns = data.length > 8 || pgn == 126720 ? getPlainPGNs(data) : [data]
   return pgns.map(
     (buffer) =>
       `(${timestampStr}) ${bus} ${canId}#${byteString(buffer, '').toUpperCase()}`
