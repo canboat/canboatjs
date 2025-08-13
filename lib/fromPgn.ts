@@ -20,13 +20,13 @@ import {
   PGN,
   FieldType,
   createPGN,
-  getPGNWithId,
   Type,
   getEnumerationName,
   getBitEnumerationName,
   getFieldTypeEnumerationName,
   getFieldTypeEnumerationValue,
-  getFieldTypeEnumerationBits
+  getFieldTypeEnumerationBits,
+  findFallBackPGN
 } from '@canboat/ts-pgns'
 import { createDebug, byteString } from './utilities'
 import { EventEmitter } from 'events'
@@ -199,7 +199,6 @@ export class Parser extends EventEmitter {
     }
 
     let pgnData: Definition | undefined
-    const origPGNList = pgnList
 
     if (pgnList.length > 1) {
       pgnData = this.findMatchPgn(pgnList)
@@ -338,7 +337,7 @@ export class Parser extends EventEmitter {
 
       const continueReading = true
       let unknownPGN = false
-      //let previousMatch: Definition | undefined
+      let previousMatch: Definition | undefined
       for (
         let i = 0;
         i < fields.length - RepeatingFields && continueReading;
@@ -367,12 +366,14 @@ export class Parser extends EventEmitter {
           //console.log(JSON.stringify(pgnList, null, 2))
           pgnList = pgnList.filter((f) => f.Fields[i].Match == value)
           if (pgnList.length == 0) {
-            if (this.options.returnNonMatches) {
+            if (!this.options.returnNonMatches) {
+              return undefined
+            } else {
               //this.emit('warning', pgn, `no conversion found for pgn`)
               trace('warning no conversion found for pgn %j', pgn)
               //continueReading = false
 
-              const nonMatch = this.findNonMatchPgn(origPGNList)
+              //const nonMatch = this.findNonMatchPgn(origPGNList)
 
               const setByteMapping = (data: Buffer) => {
                 if (this.options.includeByteMapping) {
@@ -384,46 +385,59 @@ export class Parser extends EventEmitter {
               }
 
               /*
-              if ( previousMatch ) {
-                pgnData = previousMatch
-                continueReading = false
+              if (pgn.pgn >= 0xff00 && pgn.pgn <= 0xffff) {
+                pgnData = getPGNWithId(
+                  '0xff000xffffManufacturerProprietarySingleFrameNonAddressed'
+                )!
+              } else if (pgn.pgn >= 0x1ed00 && pgn.pgn <= 0x1ee00) {
+                pgnData = getPGNWithId(
+                  '0x1ed000x1ee00StandardizedFastPacketAddressed'
+                )!
+              } else if (pgn.pgn >= 0x1ff00 && pgn.pgn <= 0x1ffff) {
+                pgnData = getPGNWithId(
+                  '0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed'
+                )!
+              } else if ( pgn.pgn >= 0xF000 && pgn.pgn <= 0xFEFF) {
+                pgnData = getPGNWithId(
+                  '0xf0000xfeffStandardizedSingleFrameNonAddressed'
+                )!
+              } else if (pgn.pgn >= 0xE800 && pgn.pgn <= 0xEE00) {
+                pgnData = getPGNWithId(
+                  '0xE8000xEE00ManufacturerProprietaryFastPacketAddressed'
+                )!
+              } else if (pgn.pgn == 0x1ef00) {
+                pgnData = getPGNWithId(
+                  '0x1ef00ManufacturerProprietaryFastPacketAddressed'
+                )!
+              } else if (pgn.pgn == 0xef00) {
+                pgnData = getPGNWithId(
+                  '0xef00ManufacturerProprietarySingleFrameAddressed'
+                )!
+              } else {
+                unknownPGN = true
+              }
+                */
+
+              pgnData = findFallBackPGN(pgn.pgn)
+
+              if (pgnData === undefined) {
+                unknownPGN = true
+                fields = []
+              } else {
+                fields = pgnData.Fields
+              }
+
+              if (unknownPGN || i >= fields.length) {
                 const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
                 if (data.length > 0) {
                   const buf = Buffer.from(data)
-                    ; (pgn.fields as any).data = byteString(buf, ' ')
+                  ;(pgn.fields as any).data = byteString(buf, ' ')
                   setByteMapping(buf)
                 }
-              } else */
-              if (nonMatch) {
-                pgnList = [nonMatch]
-                pgnData = pgnList[0]
-                fields = pgnData.Fields
-              } else {
-                if (pgn.pgn >= 0xff00 && pgn.pgn <= 0xffff) {
-                  pgnData = getPGNWithId(
-                    '0xff000xffffManufacturerProprietarySingleFrameNonAddressed'
-                  )!
-                  fields = pgnData.Fields
-                } else if (pgn.pgn >= 0x1ed00 && pgn.pgn <= 0x1ee00) {
-                  pgnData = getPGNWithId(
-                    '0x1ed000x1ee00StandardizedFastPacketAddressed'
-                  )!
-                  fields = pgnData.Fields
-                } else if (pgn.pgn > 0x1ff00 && pgn.pgn <= 0x1ffff) {
-                  pgnData = getPGNWithId(
-                    '0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed'
-                  )!
-                  fields = pgnData.Fields
-                } else {
-                  unknownPGN = true
-                  fields = []
-                  const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
-                  if (data.length > 0) {
-                    const buf = Buffer.from(data)
-                    ;(pgn.fields as any).data = byteString(buf, ' ')
-                    setByteMapping(buf)
-                  }
-                }
+              }
+
+              if (previousMatch) {
+                ;(pgn as any).partialMatch = previousMatch.Id
               }
 
               const postProcessor = fieldTypePostProcessors[field.FieldType]
@@ -436,11 +450,9 @@ export class Parser extends EventEmitter {
               ) {
                 value = lookup(field, value)
               }
-            } else {
-              return undefined
             }
           } else {
-            //previousMatch = pgnData
+            previousMatch = pgnData
             pgnData = pgnList[0]
             fields = pgnData.Fields
             //console.log(`using ${JSON.stringify(pgnData, null, 2)}`)
@@ -575,9 +587,13 @@ export class Parser extends EventEmitter {
         ;(res as any).input = apgn.input
       }
 
+      if (apgn.partialMatch !== undefined) {
+        ;(res as any).partialMatch = apgn.partialMatch
+      }
+
       if (this.options.includeRawData) {
         ;(res as any).rawData = Array.from(
-          bs.view.buffer.subarray(0, bs.byteIndex)
+          bs.view.buffer.subarray(0, bs.length)
         )
       }
       if (this.options.includeByteMapping) {
