@@ -637,18 +637,14 @@ export class Parser extends EventEmitter {
           array[index] = parseInt(num, 16)
         })
         buffer = Buffer.from(array)
-        if (sourceString === undefined && this.options.includeInputData) {
-          //sourceString = strings.join(' ')
-          sourceString = encodeCandump2({ ...pgn, data: buffer })[0]
-          /*
-          sourceString = binToActisense(
-            pgn as CanID,
-            new Date().toISOString(),
-            buffer,
-            buffer.length
-          )
-            */
-        }
+      }
+
+      if (sourceString === undefined && this.options.includeInputData) {
+        sourceString = encodeCandump2({
+          ...pgn,
+          data: buffer,
+          bus: this.options.canBus || 'can0'
+        })[0]
       }
 
       const bv = new BitView(buffer as Buffer)
