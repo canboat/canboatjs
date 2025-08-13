@@ -384,40 +384,6 @@ export class Parser extends EventEmitter {
                 }
               }
 
-              /*
-              if (pgn.pgn >= 0xff00 && pgn.pgn <= 0xffff) {
-                pgnData = getPGNWithId(
-                  '0xff000xffffManufacturerProprietarySingleFrameNonAddressed'
-                )!
-              } else if (pgn.pgn >= 0x1ed00 && pgn.pgn <= 0x1ee00) {
-                pgnData = getPGNWithId(
-                  '0x1ed000x1ee00StandardizedFastPacketAddressed'
-                )!
-              } else if (pgn.pgn >= 0x1ff00 && pgn.pgn <= 0x1ffff) {
-                pgnData = getPGNWithId(
-                  '0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed'
-                )!
-              } else if ( pgn.pgn >= 0xF000 && pgn.pgn <= 0xFEFF) {
-                pgnData = getPGNWithId(
-                  '0xf0000xfeffStandardizedSingleFrameNonAddressed'
-                )!
-              } else if (pgn.pgn >= 0xE800 && pgn.pgn <= 0xEE00) {
-                pgnData = getPGNWithId(
-                  '0xE8000xEE00ManufacturerProprietaryFastPacketAddressed'
-                )!
-              } else if (pgn.pgn == 0x1ef00) {
-                pgnData = getPGNWithId(
-                  '0x1ef00ManufacturerProprietaryFastPacketAddressed'
-                )!
-              } else if (pgn.pgn == 0xef00) {
-                pgnData = getPGNWithId(
-                  '0xef00ManufacturerProprietarySingleFrameAddressed'
-                )!
-              } else {
-                unknownPGN = true
-              }
-                */
-
               pgnData = findFallBackPGN(pgn.pgn)
 
               if (pgnData === undefined) {
@@ -473,7 +439,7 @@ export class Parser extends EventEmitter {
           this.setField(pgn.fields, field, value)
         }
       }
-      if (RepeatingFields > 0 && continueReading) {
+      if (RepeatingFields > 0 && continueReading && pgnData !== undefined) {
         const repeating: Field[] = (fields as any).slice(
           fields.length - RepeatingFields
         )
@@ -535,30 +501,22 @@ export class Parser extends EventEmitter {
         }
       }
 
-      /*
-      if ( pgnData.callback ) {
-        pgnData.callback(pgn)
-        }
-      */
-
-      let res =
-        this.options.createPGNObjects === false
-          ? pgn
-          : unknownPGN === false
-            ? createPGN(pgnData.Id, pgn.fields)
-            : new PGN_Unknown(pgn.fields, unknownDef(pgn.pgn))
-
-      if (res === undefined) {
-        //this.emit('error', pgn, 'no class')
-        //cb && cb('no class', undefined)
-        //console.log('No class found for PGN:', pgnData, pgn)
-        res = new PGN_Unknown(pgn.fields, pgnData)
-      }
-
-      if (unknownPGN) {
+      let res
+      if (unknownPGN || pgnData === undefined) {
+        res = new PGN_Unknown(pgn.fields, unknownDef(pgn.pgn))
         res.description = 'Unknown PGN'
         ;(res as any).id = 'unknown'
       } else {
+        res =
+          this.options.createPGNObjects === false
+            ? pgn
+            : createPGN(pgnData.Id, pgn.fields)
+
+        if (res === undefined) {
+          //this can happen in visual-analyer since there are no classe for new PGNs
+          res = new PGN_Unknown(pgn.fields, pgnData)
+        }
+
         res.description = pgnData.Description
         ;(res as any).id = pgnData.Id
       }
