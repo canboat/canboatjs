@@ -151,18 +151,7 @@ export class Parser extends EventEmitter {
     }
   }
 
-  _parse(
-    pgn: PGN,
-    bs: BitStream,
-    len: number,
-    coalesced: boolean,
-    cb: FromPgnCallback | undefined,
-    sourceString: string | undefined = undefined
-  ) {
-    if (pgn.src === undefined) {
-      throw new Error('invalid pgn, missing src')
-    }
-
+  private getPGNDefinitionList(pgn: PGN): Definition[] | undefined {
     const customPgns = getCustomPgn(pgn.pgn)
     let pgnList = getPgn(pgn.pgn)
 
@@ -188,43 +177,25 @@ export class Parser extends EventEmitter {
       return undefined
     }
 
-    if (pgnList === undefined) {
-      return
-    }
-
     if (pgn.pgn === 59392) {
+      // I don't think I need this anymore??
       pgnList = pgnList.filter(
         (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
       )
     }
 
-    let pgnData: Definition | undefined
+    return pgnList
+  }
 
-    if (pgnList.length > 1) {
-      pgnData = this.findMatchPgn(pgnList)
-
-      if (pgnData === null) {
-        pgnData = pgnList[0]
-      }
-    } else {
-      pgnData = pgnList[0]
-    }
-
-    if (pgnData === undefined) {
-      return
-    }
-
-    let couldBeMulti = false
-
-    if (pgnList.length > 0 && len == 8) {
-      pgnList.forEach((pgnD) => {
-        if (pgnD.Length && pgnD.Length > 8) {
-          couldBeMulti = true
-        }
-      })
-    }
-
-    trace(`${pgn.pgn} ${len} ${pgnData.Length} ${couldBeMulti}`)
+  private readPacket(
+    pgn: PGN,
+    pgnData: Definition,
+    bs: BitStream,
+    len: number,
+    coalesced: boolean,
+    cb: FromPgnCallback | undefined,
+    sourceString: string | undefined = undefined
+  ): BitStream | undefined {
     if (
       coalesced ||
       len > 0x8 ||
@@ -234,19 +205,19 @@ export class Parser extends EventEmitter {
       if (sourceString && this.options.includeInputData) {
         pgn.input = [sourceString]
       }
-      //} else if ( pgnData.Length > 0x8 || (len == 0x8 && (pgnData.RepeatingFields || couldBeMulti))) {
+      return bs
     } else if (pgnData.Type === 'Fast') {
       //partial packet
       this.format = FORMAT_PLAIN
 
-      if (this.devices[pgn.src] === undefined) {
-        this.devices[pgn.src] = {}
+      if (this.devices[pgn.src!] === undefined) {
+        this.devices[pgn.src!] = {}
       }
-      let packet = this.devices[pgn.src][pgn.pgn]
+      let packet = this.devices[pgn.src!][pgn.pgn]
 
       if (!packet) {
         packet = { bufferSize: 0, lastPacket: 0, src: [] }
-        this.devices[pgn.src][pgn.pgn] = packet
+        this.devices[pgn.src!][pgn.pgn] = packet
       }
       if (sourceString) {
         packet.src.push(sourceString)
@@ -280,7 +251,7 @@ export class Parser extends EventEmitter {
         )
         cb && cb(`Could not parse ${JSON.stringify(pgn)}`, undefined)
         bs.byteIndex = start
-        delete this.devices[pgn.src][pgn.pgn]
+        delete this.devices[pgn.src!][pgn.pgn]
         return
       } else {
         if (packet.lastPacket + 1 != packetIndex) {
@@ -289,7 +260,7 @@ export class Parser extends EventEmitter {
           )
           cb && cb(`Could not parse ${JSON.stringify(pgn)}`, undefined)
           bs.byteIndex = start
-          delete this.devices[pgn.src][pgn.pgn]
+          delete this.devices[pgn.src!][pgn.pgn]
           return
         } else {
           trace(
@@ -318,10 +289,88 @@ export class Parser extends EventEmitter {
       if (this.options.includeInputData) {
         pgn.input = packet.src
       }
-      delete this.devices[pgn.src][pgn.pgn]
+      delete this.devices[pgn.src!][pgn.pgn]
+      return bs
     } else if (sourceString && this.options.includeInputData) {
       pgn.input = [sourceString]
     }
+    return bs
+  }
+
+  private readRepeatingFields(pgn: PGN, pgnData: Definition, bs: BitStream) {
+    const RepeatingFields = pgnData.RepeatingFieldSet1Size
+      ? pgnData.RepeatingFieldSet1Size
+      : 0
+
+    const fields = pgnData.Fields
+
+    const repeating: Field[] = (fields as any).slice(
+      fields.length - RepeatingFields
+    )
+
+    const fany = pgn.fields as any
+    fany.list = []
+
+    if (this.options.includeByteMapping) {
+      ;(pgn as any).byteMapping['list'] = []
+    }
+
+    let count
+
+    if (pgnData.RepeatingFieldSet1CountField !== undefined) {
+      const rfield = pgnData.Fields[pgnData.RepeatingFieldSet1CountField - 1]
+      const dataKey = this.options.useCamel ? rfield.Id : rfield.Name
+      count = (pgn.fields as any)[dataKey]
+    } else {
+      count = 2048
+    }
+
+    while (bs.bitsLeft > 0 && --count >= 0) {
+      const group: { [key: string]: any } = {}
+      let repeatingMap: RepeatingByteMapping
+      if (this.options.includeByteMapping) {
+        repeatingMap = {}
+        ;(pgn as any).byteMapping['list'].push(repeatingMap)
+      }
+
+      repeating.forEach((field) => {
+        if (bs.bitsLeft > 0) {
+          const [value, refField, byteMapping] = readField(
+            pgnData!,
+            this.options,
+            true,
+            pgn,
+            field,
+            bs,
+            fields
+          )
+          if (refField) {
+            group.parameterId = refField.Id
+          }
+          if (
+            value !== undefined &&
+            (value != null || this.options.returnNulls)
+          ) {
+            this.setField(group, field, value)
+          }
+          if (this.options.includeByteMapping && byteMapping) {
+            repeatingMap[field.Id] = byteMapping
+          }
+        }
+      })
+      if (_.keys(group).length > 0) {
+        fany.list.push(group)
+      }
+    }
+  }
+
+  private readFields(
+    pgn: PGN,
+    pgnList: Definition[],
+    startDef: Definition,
+    bs: BitStream
+  ): [boolean, Definition | undefined] {
+    let pgnData: Definition | undefined = startDef
 
     let RepeatingFields = pgnData.RepeatingFieldSet1Size
       ? pgnData.RepeatingFieldSet1Size
@@ -332,180 +381,207 @@ export class Parser extends EventEmitter {
     if (this.options.includeByteMapping) {
       ;(pgn as any).byteMapping = {}
     }
-    try {
-      let fields = pgnData.Fields
 
-      const continueReading = true
-      let unknownPGN = false
-      let previousMatch: Definition | undefined
-      for (
-        let i = 0;
-        i < fields.length - RepeatingFields && continueReading;
-        i++
-      ) {
-        const field = fields[i]
-        const hasMatch = field.Match !== undefined
+    let fields = pgnData.Fields
 
-        const [valueRes, _refField, byteMapping] = readField(
-          pgnData!,
-          this.options,
-          !hasMatch,
-          pgn,
-          field,
-          bs,
-          fields
-        )
-        let value = valueRes
+    let unknownPGN = false
+    let previousMatch: Definition | undefined
+    for (let i = 0; i < fields.length - RepeatingFields; i++) {
+      const field = fields[i]
+      const hasMatch = field.Match !== undefined
 
-        if (this.options.includeByteMapping) {
-          ;(pgn as any).byteMapping[field.Id] = byteMapping
-        }
+      const [valueRes, _refField, byteMapping] = readField(
+        pgnData!,
+        this.options,
+        !hasMatch,
+        pgn,
+        field,
+        bs,
+        fields
+      )
+      let value = valueRes
 
-        if (hasMatch) {
-          //console.log(`looking for ${field.Name} == ${value}`)
-          //console.log(JSON.stringify(pgnList, null, 2))
-          pgnList = pgnList.filter((f) => f.Fields[i].Match == value)
-          if (pgnList.length == 0) {
-            if (!this.options.returnNonMatches) {
-              return undefined
-            } else {
-              //this.emit('warning', pgn, `no conversion found for pgn`)
-              trace('warning no conversion found for pgn %j', pgn)
-              //continueReading = false
+      if (this.options.includeByteMapping) {
+        ;(pgn as any).byteMapping[field.Id] = byteMapping
+      }
 
-              //const nonMatch = this.findNonMatchPgn(origPGNList)
-
-              const setByteMapping = (data: Buffer) => {
-                if (this.options.includeByteMapping) {
-                  const mapping: ByteMapping = {
-                    bytes: Array.from(data)
-                  }
-                  ;(pgn as any).byteMapping.data = mapping
-                }
-              }
-
-              pgnData = findFallBackPGN(pgn.pgn)
-
-              if (pgnData === undefined) {
-                unknownPGN = true
-                fields = []
-              } else {
-                fields = pgnData.Fields
-              }
-
-              if (unknownPGN || i >= fields.length) {
-                const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
-                if (data.length > 0) {
-                  const buf = Buffer.from(data)
-                  ;(pgn.fields as any).data = byteString(buf, ' ')
-                  setByteMapping(buf)
-                }
-              }
-
-              if (previousMatch) {
-                ;(pgn as any).partialMatch = previousMatch.Id
-              }
-
-              const postProcessor = fieldTypePostProcessors[field.FieldType]
-              if (postProcessor) {
-                value = postProcessor(field, value)
-              } else if (
-                field.FieldType === 'LOOKUP' &&
-                (_.isUndefined(this.options.resolveEnums) ||
-                  this.options.resolveEnums)
-              ) {
-                value = lookup(field, value)
-              }
-            }
+      if (hasMatch) {
+        pgnList = pgnList.filter((f) => f.Fields[i].Match == value)
+        if (pgnList.length == 0) {
+          if (!this.options.returnNonMatches) {
+            return [false, undefined]
           } else {
-            previousMatch = pgnData
-            pgnData = pgnList[0]
-            fields = pgnData.Fields
-            //console.log(`using ${JSON.stringify(pgnData, null, 2)}`)
-            value = pgnData.Fields[i].Description
-            if (value == null) {
-              value = pgnData.Fields[i].Match
-            }
-            RepeatingFields = pgnData.RepeatingFieldSet1Size
-              ? pgnData.RepeatingFieldSet1Size
-              : 0
-          }
-        }
+            //this.emit('warning', pgn, `no conversion found for pgn`)
+            trace('warning no conversion found for pgn %j', pgn)
 
-        if (
-          value !== undefined &&
-          (value != null || this.options.returnNulls)
-        ) {
-          this.setField(pgn.fields, field, value)
+            const setByteMapping = (data: Buffer) => {
+              if (this.options.includeByteMapping) {
+                const mapping: ByteMapping = {
+                  bytes: Array.from(data)
+                }
+                ;(pgn as any).byteMapping.data = mapping
+              }
+            }
+
+            pgnData = findFallBackPGN(pgn.pgn)
+
+            if (pgnData === undefined) {
+              unknownPGN = true
+              fields = []
+            } else {
+              fields = pgnData.Fields
+            }
+
+            if (unknownPGN || i >= fields.length) {
+              const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+              if (data.length > 0) {
+                const buf = Buffer.from(data)
+                ;(pgn.fields as any).data = byteString(buf, ' ')
+                setByteMapping(buf)
+              }
+            }
+
+            if (previousMatch) {
+              ;(pgn as any).partialMatch = previousMatch.Id
+            }
+
+            const postProcessor = fieldTypePostProcessors[field.FieldType]
+            if (postProcessor) {
+              value = postProcessor(field, value)
+            } else if (
+              field.FieldType === 'LOOKUP' &&
+              (_.isUndefined(this.options.resolveEnums) ||
+                this.options.resolveEnums)
+            ) {
+              value = lookup(field, value)
+            }
+          }
+        } else {
+          previousMatch = pgnData
+          pgnData = pgnList[0]
+          fields = pgnData.Fields
+          //console.log(`using ${JSON.stringify(pgnData, null, 2)}`)
+          value = pgnData.Fields[i].Description
+          if (value == null) {
+            value = pgnData.Fields[i].Match
+          }
+          RepeatingFields = pgnData.RepeatingFieldSet1Size
+            ? pgnData.RepeatingFieldSet1Size
+            : 0
         }
       }
-      if (RepeatingFields > 0 && continueReading && pgnData !== undefined) {
-        const repeating: Field[] = (fields as any).slice(
-          fields.length - RepeatingFields
-        )
 
-        const fany = pgn.fields as any
-        fany.list = []
+      if (value !== undefined && (value != null || this.options.returnNulls)) {
+        this.setField(pgn.fields, field, value)
+      }
+    }
 
-        if (this.options.includeByteMapping) {
-          ;(pgn as any).byteMapping['list'] = []
+    if (RepeatingFields > 0 && pgnData !== undefined) {
+      this.readRepeatingFields(pgn, pgnData, bs)
+    }
+
+    return [unknownPGN, pgnData]
+  }
+
+  private readPGN(
+    pgn: PGN,
+    pgnList: Definition[] | undefined,
+    inBs: BitStream,
+    len: number,
+    coalesced: boolean,
+    cb: FromPgnCallback | undefined,
+    sourceString: string | undefined = undefined
+  ): [boolean, Definition | undefined] {
+    let pgnData: Definition | undefined
+
+    if (pgnList) {
+      if (pgnList.length > 1) {
+        pgnData = this.findMatchPgn(pgnList)
+
+        if (pgnData === null) {
+          pgnData = pgnList[0]
         }
+      } else {
+        pgnData = pgnList[0]
+      }
+    } else if (this.options.returnNonMatches) {
+      pgnData = findFallBackPGN(pgn.pgn)
+      if (pgnData) {
+        pgnList = [pgnData]
+      }
+    }
 
-        let count
+    if (pgnList === undefined || pgnData === undefined) {
+      if (this.options.includeInputData && sourceString) {
+        pgn.input = [sourceString]
+      }
+      return [true, undefined]
+    }
 
-        if (pgnData.RepeatingFieldSet1CountField !== undefined) {
-          const rfield =
-            pgnData.Fields[pgnData.RepeatingFieldSet1CountField - 1]
-          const dataKey = this.options.useCamel ? rfield.Id : rfield.Name
-          count = (pgn.fields as any)[dataKey]
-        } else {
-          count = 2048
-        }
+    const bs = this.readPacket(
+      pgn,
+      pgnData,
+      inBs,
+      len,
+      coalesced,
+      cb,
+      sourceString
+    )
 
-        while (bs.bitsLeft > 0 && --count >= 0) {
-          const group: { [key: string]: any } = {}
-          let repeatingMap: RepeatingByteMapping
-          if (this.options.includeByteMapping) {
-            repeatingMap = {}
-            ;(pgn as any).byteMapping['list'].push(repeatingMap)
-          }
+    if (!bs) {
+      return [false, undefined]
+    }
 
-          repeating.forEach((field) => {
-            if (bs.bitsLeft > 0) {
-              const [value, refField, byteMapping] = readField(
-                pgnData!,
-                this.options,
-                true,
-                pgn,
-                field,
-                bs,
-                fields
-              )
-              if (refField) {
-                group.parameterId = refField.Id
-              }
-              if (
-                value !== undefined &&
-                (value != null || this.options.returnNulls)
-              ) {
-                this.setField(group, field, value)
-              }
-              if (this.options.includeByteMapping && byteMapping) {
-                repeatingMap[field.Id] = byteMapping
-              }
-            }
-          })
-          if (_.keys(group).length > 0) {
-            fany.list.push(group)
-          }
-        }
+    return this.readFields(pgn, pgnList, pgnData, bs)
+  }
+
+  private _parse(
+    pgn: PGN,
+    bs: BitStream,
+    len: number,
+    coalesced: boolean,
+    cb: FromPgnCallback | undefined,
+    sourceString: string | undefined = undefined
+  ) {
+    if (pgn.src === undefined) {
+      throw new Error('invalid pgn, missing src')
+    }
+
+    try {
+      const pgnList = this.getPGNDefinitionList(pgn)
+
+      const [unknownPGN, pgnData] = this.readPGN(
+        pgn,
+        pgnList,
+        bs,
+        len,
+        coalesced,
+        cb,
+        sourceString
+      )
+
+      if (unknownPGN == false && pgnData === undefined) {
+        //not done reading yet (multi-frame)
+        return
       }
 
       let res
       if (unknownPGN || pgnData === undefined) {
-        res = new PGN_Unknown(pgn.fields, unknownDef(pgn.pgn))
+        if (this.options.returnNonMatches !== true) {
+          return
+        }
+        res = new PGN_Unknown(pgn.fields || [], unknownDef(pgn.pgn))
         res.description = 'Unknown PGN'
         ;(res as any).id = 'unknown'
+
+        if (bs.bitsLeft > 0) {
+          const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+          if (data.length > 0) {
+            const buf = Buffer.from(data)
+            ;(res.fields as any).data = byteString(buf, ' ')
+            //setByteMapping(buf)
+          }
+        }
       } else {
         res =
           this.options.createPGNObjects === false
