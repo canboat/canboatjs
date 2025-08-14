@@ -222,8 +222,7 @@ const definitions = {
   ]
 }
 
-describe('custom pgns', function () {
-  /*
+describe.skip('custom pgns', function () {
   const propertyValues = new PropertyValues()
 
   propertyValues.emitPropertyValue({
@@ -259,26 +258,24 @@ describe('custom pgns', function () {
         ',2,127999,172,255,21,3c,c2,3f,f1,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,7f,ff,7f,ff,7f,ff,ff'
       )
       done()
-    } catch ( err ) {
+    } catch (err) {
       done(err)
     }
-    })
-    */
-  /*
+  })
+
   it(`custom pgn callback works`, function (done) {
     definitions.callback = (pgn) => {
       try {
         delete pgn.input
         pgn.should.jsonEqual(expected)
         done()
-      } catch ( e ) {
+      } catch (e) {
         done(e)
       }
     }
 
     fromPgn.parseString(input)
   })
-  */
 })
 
 const input =
