@@ -3,12 +3,8 @@
 import { FromPgn } from '../index'
 import { parseCanId } from '../canId'
 import minimist from 'minimist'
-import {
-  binToActisense,
-  setupFilters,
-  filterPGN,
-  FilterOptions
-} from '../utilities'
+import { setupFilters, filterPGN, FilterOptions } from '../utilities'
+import { encodeCandump2 } from '../stringMsg'
 import { printVersion } from './utils'
 import util from 'util'
 
@@ -41,7 +37,7 @@ if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options] candevice
 
 Options:
-  --format <format>         json, actisense
+  --format <format>         json, candump
   -c                        don't check for invalid values
   -n                        output null values
   -r                        parse $MXPGN as little endian
@@ -69,6 +65,8 @@ if (argv['_'].length === 0) {
   process.exit(1)
 }
 
+const canDevice = argv['_'][0]
+
 const filter = setupFilters(argv as unknown as FilterOptions)
 
 const parser = new FromPgn({
@@ -82,7 +80,8 @@ const parser = new FromPgn({
   createPGNObjects: true,
   resolveEnums: argv['enums'] === undefined || argv['enums'] === true,
   includeRawData: argv['include-raw-data'],
-  includeByteMapping: argv['include-byte-mapping']
+  includeByteMapping: argv['include-byte-mapping'],
+  canBus: canDevice
 })
 
 const format = argv['format'] || 'json'
@@ -108,8 +107,6 @@ parser.on('pgn', (pgn: any) => {
   }
 })
 
-const canDevice = argv['_'][0]
-
 const channel = socketcan.createRawChannel(canDevice)
 
 channel.addListener('onStopped', (msg: any) => {
@@ -119,13 +116,14 @@ channel.addListener('onStopped', (msg: any) => {
 channel.addListener('onMessage', (msg: any) => {
   const pgn = parseCanId(msg.id)
 
-  const timestamp = new Date().toISOString()
-
-  const sourceString = binToActisense(pgn, timestamp, msg.data, msg.data.length)
-
   if (format === 'json') {
-    parser.parse({ pgn, length: msg.data.length, data: msg.data, sourceString })
+    parser.parse({ pgn, length: msg.data.length, data: msg.data })
   } else {
+    const sourceString = encodeCandump2({
+      ...pgn,
+      data: msg.data,
+      bus: canDevice
+    })[0]
     console.log(sourceString)
   }
 })
