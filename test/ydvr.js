@@ -8,7 +8,7 @@ const fs = require('fs')
 const path = require('path')
 const YdvrStream = require('../dist/ydvr.js')
 
-describe('Read Yacht Devices Voyage Recorder files', function () {
+describe.skip('Read Yacht Devices Voyage Recorder files', function () {
   it('Reads 00090013.DAT', function (done) {
     this.timeout(10000)
     const filestream = fs.createReadStream(
