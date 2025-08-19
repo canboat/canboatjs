@@ -21,7 +21,8 @@ export { addCustomPgns } from './pgns'
 export {
   parseN2kString,
   isN2KString,
-  toActisenseSerialFormat
+  toActisenseSerialFormat,
+  encodeCandump2
 } from './stringMsg'
 export {
   toPgn,
