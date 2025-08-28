@@ -242,7 +242,7 @@ ydvr-file recording.ydvr | analyzerjs
 ### Additional Tools
 - `actisense-file` - Process Actisense log files
 - `actisense-n2k-tcp` - TCP server for Actisense data
-- `cansend` - Send CAN messages
+- `cansendjs` - Send CAN messages
 - `ikonvert-serial` - iKonvert serial interface
 
 ### Message Filtering
