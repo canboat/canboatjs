@@ -516,7 +516,18 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
         }
       }
     }
-
+    if (pgn == 129038 ||
+        pgn == 129039 ||
+        pgn == 129040 ||
+        pgn == 192041 ||
+        pgn == 129794 ||
+        pgn == 129798 ||
+        pgn == 129802 ||
+        pgn == 129809 ||
+        pgn == 129810)
+    {
+        fill = 0x40;
+    }
     if (value === undefined) {
       value = ''
     }
