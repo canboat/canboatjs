@@ -18,13 +18,7 @@
     "lint": "eslint --fix --format compact",
     "ci-lint": "eslint && prettier --check lib test",
     "ci-test": "npm run build && npm run test && npm run ci-lint",
-    "format": "npm run prettier && npm run lint",
-    "prepare": "husky install"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+    "format": "npm run prettier && npm run lint"
   },
   "lint-staged": {
     "lib/**/*.{js,ts}": [
@@ -91,7 +85,6 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-formatter-compact": "^8.40.0",
     "eslint-plugin-prettier": "^5.5.1",
-    "husky": "^8.0.0",
     "jest": "^30.0.3",
     "lint-staged": "^16.1.2",
     "mocha": "^11.0.0",
