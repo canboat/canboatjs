@@ -243,7 +243,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: SignalK/signalk-autopilot
-        ref: use-ts-pgns
         path: ./signalk-autopilot
 
     - name: Build signalk-autopilot
