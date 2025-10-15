@@ -54,6 +54,7 @@ describe('from pgn test data converts', function () {
             gotResult = true
             try {
               //console.log(JSON.stringify(data.expected))
+              //console.log(JSON.stringify(pgn, null, 2))
               delete pgn.bus
               if (data.expected.timestamp) {
                 pgn.timestamp.should.be.a('string')
