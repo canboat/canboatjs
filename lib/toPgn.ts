@@ -118,9 +118,19 @@ export function toPgn(data: any): Buffer | undefined {
     if (!_.isUndefined(field.Match)) {
       //console.log(`matching ${field.Name} ${field.Match} ${value} ${_.isString(value)}`)
       if (_.isString(value)) {
-        pgnList = pgnList.filter((f) => f.Fields[index].Description == value)
+        pgnList = pgnList.filter(
+          (f) =>
+            (f.Fields[index].Description == value ||
+              f.Fields[index].Description === undefined) &&
+            f.Fallback !== true
+        )
       } else {
-        pgnList = pgnList.filter((f) => f.Fields[index].Match == value)
+        pgnList = pgnList.filter(
+          (f) =>
+            (f.Fields[index].Match == value ||
+              f.Fields[index].Match === undefined) &&
+            f.Fallback !== true
+        )
       }
       if (pgnList.length > 0) {
         //console.log(`matched ${field.Name} ${pgnList[0].Fields[index].Match}`)

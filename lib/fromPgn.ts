@@ -406,7 +406,14 @@ export class Parser extends EventEmitter {
       }
 
       if (hasMatch) {
-        pgnList = pgnList.filter((f) => f.Fields[i].Match == value)
+        if (field.BitLength === 8 && field.Match === 255) {
+          value = 255
+        }
+        pgnList = pgnList.filter(
+          (f) =>
+            (f.Fields[i].Match == value || f.Fields[i].Match === undefined) &&
+            f.Fallback !== true
+        )
         if (pgnList.length == 0) {
           if (!this.options.returnNonMatches) {
             return [false, undefined]
