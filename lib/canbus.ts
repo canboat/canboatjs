@@ -213,7 +213,9 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
     }
 
     const src =
-      msg.pgn === 59904 || msg.forceSrc ? msg.src : this.candevice.address
+      _.isString(msg) === false && (msg.pgn === 59904 || msg.forceSrc)
+        ? msg.src
+        : this.candevice.address
     if (_.isString(msg)) {
       const split = msg.split(',')
       split[3] = src
@@ -270,9 +272,23 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
         const pgns = getPlainPGNs(buffer)
         pgns.forEach((pbuffer) => {
           this.channel.send({ id: canid, ext: true, data: pbuffer })
+          if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+            this.options.app.emit('canboatjs:rawoutput', {
+              pgn,
+              length: buffer.length,
+              data: byteStringArray(buffer)
+            })
+          }
         })
       } else {
         this.channel.send({ id: canid, ext: true, data: buffer })
+        if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+          this.options.app.emit('canboatjs:rawoutput', {
+            pgn,
+            length: buffer.length,
+            data: byteStringArray(buffer)
+          })
+        }
       }
     }
   }
