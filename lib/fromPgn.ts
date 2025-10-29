@@ -369,7 +369,7 @@ export class Parser extends EventEmitter {
     pgnList: Definition[],
     startDef: Definition,
     bs: BitStream
-  ): [boolean, Definition | undefined] {
+  ): [boolean, Definition | undefined, BitStream] {
     let pgnData: Definition | undefined = startDef
 
     let RepeatingFields = pgnData.RepeatingFieldSet1Size
@@ -416,7 +416,7 @@ export class Parser extends EventEmitter {
         )
         if (pgnList.length == 0) {
           if (!this.options.returnNonMatches) {
-            return [false, undefined]
+            return [false, undefined, bs]
           } else {
             //this.emit('warning', pgn, `no conversion found for pgn`)
             trace('warning no conversion found for pgn %j', pgn)
@@ -487,7 +487,7 @@ export class Parser extends EventEmitter {
       this.readRepeatingFields(pgn, pgnData, bs)
     }
 
-    return [unknownPGN, pgnData]
+    return [unknownPGN, pgnData, bs]
   }
 
   private readPGN(
@@ -498,7 +498,7 @@ export class Parser extends EventEmitter {
     coalesced: boolean,
     cb: FromPgnCallback | undefined,
     sourceString: string | undefined = undefined
-  ): [boolean, Definition | undefined] {
+  ): [boolean, Definition | undefined, BitStream | undefined] {
     let pgnData: Definition | undefined
 
     if (pgnList) {
@@ -522,7 +522,7 @@ export class Parser extends EventEmitter {
       if (this.options.includeInputData && sourceString) {
         pgn.input = [sourceString]
       }
-      return [true, undefined]
+      return [true, undefined, undefined]
     }
 
     const bs = this.readPacket(
@@ -536,7 +536,7 @@ export class Parser extends EventEmitter {
     )
 
     if (!bs) {
-      return [false, undefined]
+      return [false, undefined, undefined]
     }
 
     return this.readFields(pgn, pgnList, pgnData, bs)
@@ -544,7 +544,7 @@ export class Parser extends EventEmitter {
 
   private _parse(
     pgn: PGN,
-    bs: BitStream,
+    packetBs: BitStream,
     len: number,
     coalesced: boolean,
     cb: FromPgnCallback | undefined,
@@ -557,10 +557,10 @@ export class Parser extends EventEmitter {
     try {
       const pgnList = this.getPGNDefinitionList(pgn)
 
-      const [unknownPGN, pgnData] = this.readPGN(
+      const [unknownPGN, pgnData, bs] = this.readPGN(
         pgn,
         pgnList,
-        bs,
+        packetBs,
         len,
         coalesced,
         cb,
@@ -568,6 +568,11 @@ export class Parser extends EventEmitter {
       )
 
       if (unknownPGN == false && pgnData === undefined) {
+        //not done reading yet (multi-frame)
+        return
+      }
+
+      if (bs === undefined) {
         //not done reading yet (multi-frame)
         return
       }
