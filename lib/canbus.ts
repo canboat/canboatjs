@@ -275,8 +275,8 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
           if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
             this.options.app.emit('canboatjs:rawoutput', {
               pgn,
-              length: buffer.length,
-              data: byteStringArray(buffer)
+              length: pbuffer.length,
+              data: byteStringArray(pbuffer)
             })
           }
         })
