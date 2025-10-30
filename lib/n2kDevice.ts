@@ -422,7 +422,8 @@ function sendAddressClaim(device: N2kDevice) {
   }
   device.debug(`Sending address claim ${device.address}`)
   device.sendPGN(device.addressClaim)
-  device.setStatus(`Claimed address ${device.address}`)
+  const version = packageJson ? packageJson.version : 'unknown'
+  device.setStatus(`Claimed address ${device.address} (canboatjs v${version})`)
   device.addressClaimSentAt = Date.now()
   if (device.addressClaimChecker) {
     clearTimeout(device.addressClaimChecker)
@@ -486,7 +487,7 @@ function sendNAKAcknowledgement(
 ) {
   const acknowledgement = new PGN_59392(
     {
-      control: IsoControl.Ack,
+      control: IsoControl.Nak,
       groupFunction: 255,
       pgn: requestedPGN
     },
