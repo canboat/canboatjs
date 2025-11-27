@@ -26,7 +26,7 @@ import {
   actisenseToYdgwFullRawFormat
 } from './toPgn'
 import { parseCanIdStr } from './canId'
-import util from 'util'
+import * as util from 'util'
 
 //const pgnsSent = {}
 
@@ -112,6 +112,20 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN) {
     } else {
       msgs = pgnToYdgwRawFormat(pgn)
     }
+
+    // Emit rawoutput for sent PGNs so visual analyzer can see them
+    if (this.options.app && this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+      // Always emit in full format with timestamp for visual analyzer
+      const fullMsgs = (pgn as any).ydFullFormat === true || this.device !== undefined
+        ? msgs
+        : pgnToYdgwFullRawFormat(pgn)
+      fullMsgs.forEach((raw: string) => {
+        // Mark as transmitted by changing 'R' to 'T'
+        const transmitted = raw.replace(' R ', ' T ')
+        this.options.app.emit('canboatjs:rawoutput', transmitted)
+      })
+    }
+
     msgs.forEach((raw) => {
       this.sendString(raw + '\r\n', (pgn as any).forceSend)
     })
