@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
 import { Transform } from 'stream'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { SerialPort } = require('serialport')
-const { ReadlineParser } = require('@serialport/parser-readline')
+import { SerialPort } from 'serialport'
+import { ReadlineParser } from '@serialport/parser-readline'
 
 if (process.argv.length < 3) {
   console.error('Please specify a device')
