@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { Transform } from 'stream'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { SerialPort } = require('serialport')
+import { SerialPort } from 'serialport'
+import { ReadlineParser } from '@serialport/parser-readline'
 
 if (process.argv.length < 3) {
   console.error('Please specify a device')
@@ -35,7 +35,7 @@ const toStringTr = new Transform({
 })
 
 serial.on('open', function () {
-  const parser = new SerialPort.parsers.Readline()
+  const parser = new ReadlineParser()
   serial.pipe(parser).pipe(toStringTr)
 })
 

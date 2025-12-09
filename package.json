@@ -98,6 +98,7 @@
   },
   "optionalDependencies": {
     "serialport": "11.x.x",
+    "@serialport/parser-readline": "11.x.x",
     "socketcan": "^4.0.3"
   },
   "repository": {
