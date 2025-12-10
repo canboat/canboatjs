@@ -40,6 +40,7 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   })
 
   this.debug = createDebug('canboatjs:ydgw02', options)
+  this.debugOut = createDebug('canboatjs:n2k-out', options)
   this.sentAvailable = false
   this.options = options
   this.outEvent = options.ydgwOutEvent || 'ydwg02-out'
@@ -94,7 +95,10 @@ Ydgw02Stream.prototype.cansend = function (_msg: any) {
 
 Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
   if (this.cansend() || forceSend === true) {
-    this.debug('sending %s', msg)
+    this.debugOut('sending %s', msg)
+    if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+      this.options.app.emit('canboatjs:rawsend', msg)
+    }
     this.options.app.emit(this.outEvent, msg)
   }
 }

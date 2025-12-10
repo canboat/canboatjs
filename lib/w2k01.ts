@@ -47,6 +47,7 @@ export function W2K01Stream(
 
   this.debug = createDebug('canboatjs:w2k01', options)
   this.debugData = createDebug('canboatjs:w2k01-data', options)
+  this.debugOut = createDebug('canboatjs:n2k-out', options)
 
   this.sentAvailable = false
   this.options = options
@@ -76,7 +77,7 @@ export function W2K01Stream(
 }
 
 W2K01Stream.prototype.send = function (msg: string | Buffer) {
-  this.debug('sending %s', msg)
+  this.debugOut('sending %s', msg)
   this.options.app.emit(this.outEvent, msg)
 }
 
@@ -85,9 +86,15 @@ W2K01Stream.prototype.sendPGN = function (pgn: PGN) {
   //let lastSent = pgnsSent[pgn.pgn]
   if (this.format === N2K_ASCII) {
     const ascii = pgnToActisenseN2KAsciiFormat(pgn)
+    if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+      this.options.app.emit('canboatjs:rawsend', ascii)
+    }
     this.send(ascii + '\r\n')
   } else {
     const buf = pgnToN2KActisenseFormat(pgn)
+    if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+      this.options.app.emit('canboatjs:rawsend', buf)
+    }
     this.send(buf)
   }
   //pgnsSent[pgn.pgn] = now

@@ -30,7 +30,7 @@ export function CanbusStream(this: any, options: any) {
     return new (CanbusStream as any)(options)
   }
 
-  this.debug = createDebug('canboatjs:canbus', options)
+  this.debug = createDebug('canboatjs:n2k-out', options)
 
   Transform.call(this, {
     objectMode: true
@@ -272,8 +272,8 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
         const pgns = getPlainPGNs(buffer)
         pgns.forEach((pbuffer) => {
           this.channel.send({ id: canid, ext: true, data: pbuffer })
-          if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
-            this.options.app.emit('canboatjs:rawoutput', {
+          if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+            this.options.app.emit('canboatjs:rawsend', {
               pgn,
               length: pbuffer.length,
               data: byteStringArray(pbuffer)
@@ -282,8 +282,8 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
         })
       } else {
         this.channel.send({ id: canid, ext: true, data: buffer })
-        if (this.options.app.listenerCount('canboatjs:rawoutput') > 0) {
-          this.options.app.emit('canboatjs:rawoutput', {
+        if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+          this.options.app.emit('canboatjs:rawsend', {
             pgn,
             length: buffer.length,
             data: byteStringArray(buffer)

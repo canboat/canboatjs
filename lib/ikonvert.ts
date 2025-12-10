@@ -31,6 +31,7 @@ export function iKonvertStream(this: any, options: any) {
   }
 
   this.debug = createDebug('canboatjs:ikonvert', options)
+  this.debugOut = createDebug('canboatjs:n2k-out', options)
 
   Transform.call(this, {
     objectMode: true
@@ -98,7 +99,7 @@ util.inherits(iKonvertStream, Transform)
 iKonvertStream.prototype.start = function () {}
 
 iKonvertStream.prototype.sendString = function (msg: string) {
-  this.debug('sending %s', msg)
+  this.debugOut('sending %s', msg)
   if (this.isTcp) {
     msg = msg + '\n\r'
   }
@@ -110,6 +111,9 @@ iKonvertStream.prototype.sendPGN = function (pgn: PGN) {
     //let now = Date.now()
     //let lastSent = pgnsSent[pgn.pgn]
     const msg = pgnToiKonvertSerialFormat(pgn)
+    if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+      this.options.app.emit('canboatjs:rawsend', msg)
+    }
     this.sendString(msg)
     //pgnsSent[pgn.pgn] = now
   }
@@ -131,6 +135,9 @@ iKonvertStream.prototype.sendActisensePGN = function (msg: string) {
         //let now = Date.now()
         //let lastSent = pgnsSent[pgn.pgn]
         const msg = pgnToiKonvertSerialFormat(pgn)
+        if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+          this.options.app.emit('canboatjs:rawsend', msg)
+        }
         that.sendString(msg)
         //pgnsSent[pgn.pgn] = now
       })
