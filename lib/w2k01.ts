@@ -103,9 +103,15 @@ W2K01Stream.prototype.sendPGN = function (pgn: PGN) {
 W2K01Stream.prototype.sendW2KPGN = function (msg: string) {
   if (this.format === N2K_ASCII) {
     const ascii = actisenseToN2KAsciiFormat(msg)
+    if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+      this.options.app.emit('canboatjs:rawsend', ascii)
+    }
     this.send(ascii + '\r\n')
   } else {
     const buf = actisenseToN2KActisenseFormat
+    if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+      this.options.app.emit('canboatjs:rawsend', buf)
+    }
     this.send(buf)
   }
 }
