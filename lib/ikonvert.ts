@@ -112,7 +112,7 @@ iKonvertStream.prototype.sendPGN = function (pgn: PGN) {
     //let lastSent = pgnsSent[pgn.pgn]
     const msg = pgnToiKonvertSerialFormat(pgn)
     if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-      this.options.app.emit('canboatjs:rawsend', msg)
+      this.options.app.emit('canboatjs:rawsend', { data: msg })
     }
     this.sendString(msg)
     //pgnsSent[pgn.pgn] = now
@@ -136,7 +136,7 @@ iKonvertStream.prototype.sendActisensePGN = function (msg: string) {
         //let lastSent = pgnsSent[pgn.pgn]
         const msg = pgnToiKonvertSerialFormat(pgn)
         if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-          this.options.app.emit('canboatjs:rawsend', msg)
+          this.options.app.emit('canboatjs:rawsend', { data: msg })
         }
         that.sendString(msg)
         //pgnsSent[pgn.pgn] = now

@@ -274,9 +274,12 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
           this.channel.send({ id: canid, ext: true, data: pbuffer })
           if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
             this.options.app.emit('canboatjs:rawsend', {
-              pgn,
-              length: pbuffer.length,
-              data: byteStringArray(pbuffer)
+              knownSrc: true,
+              data: {
+                pgn,
+                length: pbuffer.length,
+                data: byteStringArray(pbuffer)
+              }
             })
           }
         })
@@ -284,9 +287,12 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
         this.channel.send({ id: canid, ext: true, data: buffer })
         if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
           this.options.app.emit('canboatjs:rawsend', {
-            pgn,
-            length: buffer.length,
-            data: byteStringArray(buffer)
+            knownSrc: true,
+            data: {
+              pgn,
+              length: buffer.length,
+              data: byteStringArray(buffer)
+            }
           })
         }
       }

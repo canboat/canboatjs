@@ -97,7 +97,10 @@ Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
   if (this.cansend() || forceSend === true) {
     this.debugOut('sending %s', msg)
     if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-      this.options.app.emit('canboatjs:rawsend', msg)
+      this.options.app.emit('canboatjs:rawsend', {
+        knownSrc: this.device !== undefined,
+        data: msg
+      })
     }
     this.options.app.emit(this.outEvent, msg)
   }

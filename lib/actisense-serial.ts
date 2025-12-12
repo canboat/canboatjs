@@ -157,7 +157,7 @@ ActisenseStream.prototype.start = function (this: any) {
         this.debugOut(buf)
         this.serial.write(buf)
         if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-          this.options.app.emit('canboatjs:rawsend', msg)
+          this.options.app.emit('canboatjs:rawsend', { data: msg })
         }
         this.options.app.emit('connectionwrite', {
           providerId: this.options.providerId
@@ -173,7 +173,7 @@ ActisenseStream.prototype.start = function (this: any) {
         this.debugOut(buf)
         this.serial.write(buf)
         if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-          this.options.app.emit('canboatjs:rawsend', actisense)
+          this.options.app.emit('canboatjs:rawsend', { data: actisense })
         }
         this.options.app.emit('connectionwrite', {
           providerId: this.options.providerId

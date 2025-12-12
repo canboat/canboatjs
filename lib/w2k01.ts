@@ -87,13 +87,13 @@ W2K01Stream.prototype.sendPGN = function (pgn: PGN) {
   if (this.format === N2K_ASCII) {
     const ascii = pgnToActisenseN2KAsciiFormat(pgn)
     if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-      this.options.app.emit('canboatjs:rawsend', ascii)
+      this.options.app.emit('canboatjs:rawsend', { data: ascii })
     }
     this.send(ascii + '\r\n')
   } else {
     const buf = pgnToN2KActisenseFormat(pgn)
     if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-      this.options.app.emit('canboatjs:rawsend', buf)
+      this.options.app.emit('canboatjs:rawsend', { data: buf })
     }
     this.send(buf)
   }
@@ -104,13 +104,13 @@ W2K01Stream.prototype.sendW2KPGN = function (msg: string) {
   if (this.format === N2K_ASCII) {
     const ascii = actisenseToN2KAsciiFormat(msg)
     if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-      this.options.app.emit('canboatjs:rawsend', ascii)
+      this.options.app.emit('canboatjs:rawsend', { data: ascii })
     }
     this.send(ascii + '\r\n')
   } else {
     const buf = actisenseToN2KActisenseFormat
     if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-      this.options.app.emit('canboatjs:rawsend', buf)
+      this.options.app.emit('canboatjs:rawsend', { data: buf })
     }
     this.send(buf)
   }
