@@ -59,7 +59,7 @@ export function ActisenseStream(this: any, options: any) {
     return new (ActisenseStream as any)(options)
   }
 
-  this.debugOut = createDebug('canboatjs:actisense-out', options)
+  this.debugOut = createDebug('canboatjs:n2k-out', options)
   this.debug = createDebug('canboatjs:actisense-serial', options)
 
   Transform.call(this, {
@@ -156,6 +156,9 @@ ActisenseStream.prototype.start = function (this: any) {
         buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
         this.debugOut(buf)
         this.serial.write(buf)
+        if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+          this.options.app.emit('canboatjs:rawsend', { data: msg })
+        }
         this.options.app.emit('connectionwrite', {
           providerId: this.options.providerId
         })
@@ -169,6 +172,9 @@ ActisenseStream.prototype.start = function (this: any) {
         buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
         this.debugOut(buf)
         this.serial.write(buf)
+        if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+          this.options.app.emit('canboatjs:rawsend', { data: actisense })
+        }
         this.options.app.emit('connectionwrite', {
           providerId: this.options.providerId
         })

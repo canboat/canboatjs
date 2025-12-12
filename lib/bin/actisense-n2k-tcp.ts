@@ -38,7 +38,7 @@ client.connect(Number(argv['_'][1]), argv['_'][0], function () {
 
 const context = {}
 client.on('data', function (data) {
-  readN2KActisense(data, true, context, (result) => {
+  readN2KActisense(data as Buffer, true, context, (result) => {
     console.log(result)
   })
 })
