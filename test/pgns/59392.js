@@ -10,7 +10,7 @@ module.exports = [
       fields: {
         control: 'NAK',
         pgn: 126998,
-        reserved: 16777215,
+        reserved: null,
         groupFunction: null
       }
     },
