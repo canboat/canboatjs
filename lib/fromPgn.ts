@@ -1208,6 +1208,18 @@ function readValue(
 
         //debug(`24 bit ${b1.toString(16)} ${b2.toString(16)} ${b3.toString(16)}`)
         value = (b3 << 16) + (b2 << 8) + b1
+
+        if (field.Signed) {
+          // Check if the sign bit (bit 23) is set
+          if (value & 0x800000) {
+            // Convert to signed 24-bit value by sign extending
+            value = value - 0x1000000
+          }
+          value = value === 0x7fffff ? null : value
+        } else {
+          value = value === 0xffffff ? null : value
+        }
+
         //debug(`value ${value.toString(16)}`)
       } else if (bitLength == 32) {
         if (field.Signed) {
