@@ -38,6 +38,8 @@ export function CanbusStream(this: any, options: any) {
 
   this.plainText = false
   this.options = options
+  this.reconnecting = false // Guard flag to prevent concurrent reconnections
+  this.stoppingChannel = false // Flag to track intentional stops
   this.start()
 
   this.setProviderStatus =
@@ -78,44 +80,94 @@ export function CanbusStream(this: any, options: any) {
     })
   }
 
+  // Store timeout value for timer recreation during reconnects
+  this.noDataReceivedTimeout =
+    typeof options.noDataReceivedTimeout !== 'undefined'
+      ? options.noDataReceivedTimeout
+      : -1
+
   if (this.connect() == false) {
     return
   }
 
-  const noDataReceivedTimeout =
-    typeof options.noDataReceivedTimeout !== 'undefined'
-      ? options.noDataReceivedTimeout
-      : -1
-  if (noDataReceivedTimeout > 0) {
+  // Initial timer setup (will be recreated on each reconnect in connect())
+  this._setupNoDataTimer()
+}
+
+// Setup or recreate the no-data monitoring timer
+CanbusStream.prototype._setupNoDataTimer = function () {
+  // Clear existing timer if present
+  if (this.noDataInterval) {
+    clearInterval(this.noDataInterval)
+    this.noDataInterval = null
+  }
+
+  if (this.noDataReceivedTimeout > 0) {
     this.noDataInterval = setInterval(() => {
       if (
         this.channel &&
         this.lastDataReceived &&
-        Date.now() - this.lastDataReceived > noDataReceivedTimeout * 1000
+        Date.now() - this.lastDataReceived > this.noDataReceivedTimeout * 1000
       ) {
+        if (this.options.app) {
+          console.error(
+            `No data received for ${this.noDataReceivedTimeout}s, retrying...`
+          )
+        }
+        this.setProviderError('No data received, retrying...')
+
+        // Mark as intentional stop before stopping channel
+        this.stoppingChannel = true
         const channel = this.channel
         delete this.channel
         try {
           channel.stop()
-        } catch (_error) {}
-        this.setProviderError('No data received, retrying...')
-        if (this.options.app) {
-          console.error('No data received, retrying...')
+        } catch (_error) {
+          console.error('Error stopping channel:', _error)
         }
+
+        // Attempt reconnection
         this.connect()
       }
-    }, noDataReceivedTimeout * 1000)
+    }, this.noDataReceivedTimeout * 1000)
   }
 }
 
 CanbusStream.prototype.connect = function () {
+  // Prevent concurrent reconnection attempts
+  if (this.reconnecting) {
+    if (this.options.app) {
+      console.log('Reconnection already in progress, skipping...')
+    }
+    return false
+  }
+
+  this.reconnecting = true
   const canDevice = this.options.canDevice || 'can0'
 
   try {
     if (this.socketcan === undefined) {
       this.setProviderError('unable to load native socketcan interface')
+      this.reconnecting = false
       return false
     }
+
+    // Clean up old channel if it exists
+    if (this.channel) {
+      try {
+        this.channel.removeAllListeners('onStopped')
+        this.channel.removeAllListeners('onMessage')
+        if (!this.stoppingChannel) {
+          this.channel.stop()
+        }
+      } catch (e) {
+        console.error('Error cleaning up old channel:', e)
+      }
+      delete this.channel
+    }
+
+    // Reset stopping flag
+    this.stoppingChannel = false
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const that = this
@@ -123,18 +175,35 @@ CanbusStream.prototype.connect = function () {
       non_block_send: true
     })
     this.channel.addListener('onStopped', () => {
-      if (this.channel) {
-        // stoped by us?
-        delete this.channel
-        this.setProviderError('Stopped, Retrying...')
-        if (this.options.app) {
-          console.error('socketcan stopped, retrying...')
-        }
-        setTimeout(() => {
-          this.setProviderError('Reconnecting...')
-          this.connect()
-        }, 2000)
+      // Check if we still have a channel reference (not already handled)
+      if (!this.channel) {
+        return // Already handled by timeout or manual stop
       }
+
+      // Check if this was an intentional stop by us
+      const wasOurStop = this.stoppingChannel
+
+      if (wasOurStop) {
+        // We stopped it intentionally (e.g., from timeout handler), don't auto-reconnect
+        if (this.options.app) {
+          console.log(
+            'Channel stopped intentionally, reconnection handled elsewhere'
+          )
+        }
+        return
+      }
+
+      // External/unexpected stop - need to reconnect
+      delete this.channel
+      this.setProviderError('Stopped unexpectedly, Retrying...')
+      if (this.options.app) {
+        console.error('socketcan stopped unexpectedly, retrying...')
+      }
+
+      setTimeout(() => {
+        this.setProviderError('Reconnecting...')
+        this.connect()
+      }, 2000)
     })
     this.channel.addListener('onMessage', (msg: any) => {
       const pgn = parseCanId(msg.id)
@@ -183,11 +252,34 @@ CanbusStream.prototype.connect = function () {
     this.setProviderStatus('Connected to socketcan')
     this.candevice = new CanDevice(this, this.options)
     this.candevice.start()
+
+    // Recreate the no-data monitoring timer for this connection
+    this._setupNoDataTimer()
+
+    // Clear reconnecting flag on success
+    this.reconnecting = false
+
+    if (this.options.app) {
+      console.log(`Successfully connected to ${canDevice}`)
+    }
+
     return true
   } catch (e: any) {
     console.error(`unable to open canbus ${canDevice}: ${e}`)
     console.error(e.stack)
     this.setProviderError(e.message)
+
+    // Clear reconnecting flag on failure
+    this.reconnecting = false
+
+    // Schedule retry after failure
+    if (this.options.app) {
+      console.error('Will retry connection in 5 seconds...')
+    }
+    setTimeout(() => {
+      this.connect()
+    }, 5000)
+
     return false
   }
 }
@@ -310,12 +402,19 @@ CanbusStream.prototype._transform = function (
 
 CanbusStream.prototype.end = function () {
   if (this.channel) {
+    // Mark as intentional stop to prevent reconnection
+    this.stoppingChannel = true
     const channel = this.channel
     delete this.channel
-    channel.stop()
+    try {
+      channel.stop()
+    } catch (e) {
+      console.error('Error stopping channel in end():', e)
+    }
   }
   if (this.noDataInterval) {
     clearInterval(this.noDataInterval)
+    this.noDataInterval = null
   }
 }
 
