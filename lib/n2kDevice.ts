@@ -128,7 +128,11 @@ export class N2kDevice extends EventEmitter {
 
     this.productInfo['Software Version Code'] = version
 
-    if (options.serverVersion && options.serverUrl) {
+    if (options.configurationInfo) {
+      this.configurationInfo = options.configurationInfo
+      this.configurationInfo.pgn = 126998
+      this.configurationInfo.dst = 255
+    } else if (options.serverVersion && options.serverUrl) {
       this.configurationInfo = {
         pgn: 126998,
         dst: 255,
