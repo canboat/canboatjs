@@ -9,7 +9,7 @@ module.exports = [
       fields: {
         messageId: 'Scheduled Class A position report',
         repeatIndicator: 'Initial',
-        userId: "367306490",
+        userId: '367306490',
         longitude: -76.5379949,
         latitude: 39.241965,
         positionAccuracy: 'Low',
