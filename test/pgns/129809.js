@@ -9,7 +9,7 @@ module.exports = [
       fields: {
         messageId: 'Static data report',
         repeatIndicator: 'Initial',
-        userId: "338184312",
+        userId: '338184312',
         name: 'WILHELM',
         aisTransceiverInformation: 'Channel A VDL transmission',
         reserved: 0,
