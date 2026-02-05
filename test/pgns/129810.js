@@ -9,7 +9,7 @@ module.exports = [
       fields: {
         messageId: 'Static data report',
         repeatIndicator: 'Initial',
-        userId: 338254261,
+        userId: "338254261",
         typeOfShip: 'Pleasure',
         vendorId: 'GARMIN',
         callsign: null,
@@ -17,7 +17,7 @@ module.exports = [
         beam: 27,
         positionReferenceFromStarboard: 25,
         positionReferenceFromBow: 6,
-        mothershipUserId: 338254262,
+        mothershipUserId: "338254262",
         reserved: 0,
         spare13: 0,
         aisTransceiverInformation: 'Channel B VDL reception',

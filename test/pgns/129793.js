@@ -10,7 +10,7 @@ module.exports = [
       fields: {
         messageId: 'Base station report',
         repeatIndicator: 'Initial',
-        userId: 3660611,
+        userId: "003660611",
         longitude: -76.4541382,
         latitude: 38.97897,
         positionAccuracy: 'High',
