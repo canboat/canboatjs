@@ -1546,6 +1546,11 @@ fieldTypePostProcessors[RES_BINARY] = (field, value) => {
   return value.toString()
 }
 
+fieldTypePostProcessors['MMSI'] = (field, value) => {
+  const mmsi = value.toString()
+  return mmsi.padStart(9, '0')
+}
+
 const unknownDef = (pgn: number) => {
   return {
     PGN: pgn,

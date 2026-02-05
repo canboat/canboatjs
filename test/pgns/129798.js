@@ -9,7 +9,7 @@ module.exports = [
       fields: {
         messageId: 'Standard SAR aircraft position report',
         repeatIndicator: 'Initial',
-        userId: 338254269,
+        userId: "338254269",
         longitude: -75.8338099,
         latitude: 39.6475617,
         positionAccuracy: 'High',
