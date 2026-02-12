@@ -56,7 +56,6 @@ jobs:
       run: |
         npm install
         npm link @canboat/canboatjs
-        npm run build
         npm test
       working-directory: ./signalk-to-nmea2000
 
