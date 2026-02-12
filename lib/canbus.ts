@@ -72,11 +72,22 @@ export function CanbusStream(this: any, options: any) {
   const that = this
 
   if (options.app) {
-    options.app.on(options.outEvent || 'nmea2000out', (msg: string) => {
-      that.sendPGN(msg)
+    const outEvents = (options.outEvent || 'nmea2000out')
+      .split(',')
+      .map((event: string) => event.trim())
+    outEvents.forEach((event: string) => {
+      options.app.on(event, (msg: string) => {
+        that.sendPGN(msg)
+      })
     })
-    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg: PGN) => {
-      that.sendPGN(msg)
+
+    const jsonOutEvents = (options.jsonOutEvent || 'nmea2000JsonOut')
+      .split(',')
+      .map((event: string) => event.trim())
+    jsonOutEvents.forEach((event: string) => {
+      options.app.on(event, (msg: PGN) => {
+        that.sendPGN(msg)
+      })
     })
   }
 

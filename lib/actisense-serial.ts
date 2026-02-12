@@ -180,9 +180,11 @@ ActisenseStream.prototype.start = function (this: any) {
         })
       }
 
-      this.options.app.on(
-        this.options.outEevent || 'nmea2000out',
-        (msg: string) => {
+      const outEvents = (this.options.outEvent || 'nmea2000out')
+        .split(',')
+        .map((event: string) => event.trim())
+      outEvents.forEach((event: string) => {
+        this.options.app.on(event, (msg: string) => {
           if (this.outAvailable) {
             if (typeof msg === 'string') {
               writeString(msg)
@@ -190,17 +192,19 @@ ActisenseStream.prototype.start = function (this: any) {
               writeObject(msg)
             }
           }
-        }
-      )
+        })
+      })
 
-      this.options.app.on(
-        this.options.jsonOutEvent || 'nmea2000JsonOut',
-        (msg: PGN) => {
+      const jsonOutEvents = (this.options.jsonOutEvent || 'nmea2000JsonOut')
+        .split(',')
+        .map((event: string) => event.trim())
+      jsonOutEvents.forEach((event: string) => {
+        this.options.app.on(event, (msg: PGN) => {
           if (this.outAvailable) {
             writeObject(msg)
           }
-        }
-      )
+        })
+      })
     }
 
     this.outAvailable = false

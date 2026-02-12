@@ -57,18 +57,28 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   })
 
   if (options.app) {
-    options.app.on(this.options.outEevent || 'nmea2000out', (msg: string) => {
-      if (typeof msg === 'string') {
-        this.sendYdgwPGN(msg)
-      } else {
-        this.sendPGN(msg)
-      }
-      options.app.emit('connectionwrite', { providerId: options.providerId })
+    const outEvents = (this.options.outEvent || 'nmea2000out')
+      .split(',')
+      .map((event: string) => event.trim())
+    outEvents.forEach((event: string) => {
+      options.app.on(event, (msg: string) => {
+        if (typeof msg === 'string') {
+          this.sendYdgwPGN(msg)
+        } else {
+          this.sendPGN(msg)
+        }
+        options.app.emit('connectionwrite', { providerId: options.providerId })
+      })
     })
 
-    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg: PGN) => {
-      this.sendPGN(msg)
-      options.app.emit('connectionwrite', { providerId: options.providerId })
+    const jsonOutEvents = (options.jsonOutEvent || 'nmea2000JsonOut')
+      .split(',')
+      .map((event: string) => event.trim())
+    jsonOutEvents.forEach((event: string) => {
+      options.app.on(event, (msg: PGN) => {
+        this.sendPGN(msg)
+        options.app.emit('connectionwrite', { providerId: options.providerId })
+      })
     })
 
     options.app.on('ydFullRawOut', (msgs: string[]) => {
