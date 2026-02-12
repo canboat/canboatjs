@@ -1547,6 +1547,9 @@ fieldTypePostProcessors[RES_BINARY] = (field, value) => {
 }
 
 fieldTypePostProcessors['MMSI'] = (field, value) => {
+  if (value === 0) {
+    return 0
+  }
   const mmsi = value.toString()
   return mmsi.padStart(9, '0')
 }
