@@ -41,7 +41,7 @@ import {
   encodeCandump3
 } from './stringMsg'
 import { encodeN2KActisense } from './n2k-actisense'
-import { createDebug } from './utilities'
+import { createDebug, isPGNProprietary } from './utilities'
 
 const debug = createDebug('canboatjs:toPgn')
 
@@ -107,13 +107,29 @@ export function toPgn(data: any): Buffer | undefined {
   }
 
   let fields = pgnData.Fields
-  let RepeatingFields = pgnData.RepeatingFieldSet1Size
-    ? pgnData.RepeatingFieldSet1Size
-    : 0
-  for (let index = 0; index < fields.length - RepeatingFields; index++) {
+  let RepeatingFields1 = pgnData.RepeatingFieldSet1Size ?? 0
+  let RepeatingFields2 = pgnData.RepeatingFieldSet2Size ?? 0
+  let totalRepeatingFields = RepeatingFields1 + RepeatingFields2
+  let targetPgnForCondition: number | undefined
+  for (let index = 0; index < fields.length - totalRepeatingFields; index++) {
     const field = fields[index]
+
+    // Skip conditional proprietary fields when target PGN is not proprietary
+    if (
+      field.Condition === 'PGNIsProprietary' &&
+      targetPgnForCondition !== undefined &&
+      !isPGNProprietary(targetPgnForCondition)
+    ) {
+      continue
+    }
+
     let value =
       data[field.Name] !== undefined ? data[field.Name] : data[field.Id]
+
+    // Capture the target PGN value for conditional field checks
+    if (field.FieldType === 'PGN' && typeof value === 'number') {
+      targetPgnForCondition = value
+    }
 
     if (!_.isUndefined(field.Match)) {
       //console.log(`matching ${field.Name} ${field.Match} ${value} ${_.isString(value)}`)
@@ -137,18 +153,36 @@ export function toPgn(data: any): Buffer | undefined {
         pgnData = pgnList[0]
         value = pgnData.Fields[index].Match
         fields = pgnData.Fields
-        RepeatingFields = pgnData.RepeatingFieldSet1Size
-          ? pgnData.RepeatingFieldSet1Size
-          : 0
+        RepeatingFields1 = pgnData.RepeatingFieldSet1Size ?? 0
+        RepeatingFields2 = pgnData.RepeatingFieldSet2Size ?? 0
+        totalRepeatingFields = RepeatingFields1 + RepeatingFields2
       }
     }
     writeField(bs, pgn_number, field, data, value, fields)
   }
 
+  // Process RepeatingFieldSet1 from data.list
   if (data.list) {
+    const set1Start = fields.length - totalRepeatingFields
     data.list.forEach((repeat: any) => {
-      for (let index = 0; index < RepeatingFields; index++) {
-        const field = fields[pgnData.Fields.length - RepeatingFields + index]
+      for (let index = 0; index < RepeatingFields1; index++) {
+        const field = fields[set1Start + index]
+        const value =
+          repeat[field.Name] !== undefined
+            ? repeat[field.Name]
+            : repeat[field.Id]
+
+        writeField(bs, pgn_number, field, data, value, fields)
+      }
+    })
+  }
+
+  // Process RepeatingFieldSet2 from data.list2
+  if (data.list2 && RepeatingFields2 > 0) {
+    const set2Start = fields.length - RepeatingFields2
+    data.list2.forEach((repeat: any) => {
+      for (let index = 0; index < RepeatingFields2; index++) {
+        const field = fields[set2Start + index]
         const value =
           repeat[field.Name] !== undefined
             ? repeat[field.Name]
@@ -171,7 +205,7 @@ export function toPgn(data: any): Buffer | undefined {
     pgnData.Length !== 0xff &&
     fields[fields.length - 1].FieldType !== RES_STRINGLAU &&
     fields[fields.length - 1].FieldType !== RES_STRINGLZ &&
-    !RepeatingFields
+    !totalRepeatingFields
   ) {
     //const len = lengthsOff[pgnData.PGN] || pgnData.Length
     //console.log(`Length ${len}`)

@@ -144,5 +144,38 @@ module.exports = [
     },
     input:
       '2023-09-25T00:20:09.551Z,3,126208,0,35,63,01,00,ef,01,f8,14,01,87,00,03,04,04,29,05,08,06,a0,00,07,ec,13,08,bc,02,09,d8,27,0a,5e,06,0b,14,50,0c,38,09,0d,50,78,0e,54,0b,0f,8c,a0,10,48,0d,11,04,f1,12,20,0d,13,d0,02,14,30,0c,15,37,03'
+  },
+  {
+    expected: {
+      prio: 3,
+      pgn: 126208,
+      dst: 37,
+      src: 0,
+      timestamp: '2026-02-24T00:00:00.000Z',
+      fields: {
+        functionCode: 'Write Fields',
+        pgn: 127508,
+        uniqueId: 0,
+        numberOfSelectionPairs: 1,
+        numberOfParameters: 1,
+        list: [
+          {
+            selectionParameter: 1,
+            parameterId: 'instance',
+            selectionValue: 102
+          }
+        ],
+        list2: [
+          {
+            parameter: 1,
+            parameterId: 'instance',
+            value: 5
+          }
+        ]
+      },
+      description: 'NMEA - Write Fields group function'
+    },
+    input:
+      '2026-02-24T00:00:00.000Z,3,126208,0,37,11,05,14,f2,01,00,01,01,01,66,01,05'
   }
 ]
