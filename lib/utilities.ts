@@ -56,6 +56,19 @@ export function getPlainPGNs(buffer: Buffer) {
   return res
 }
 
+// NMEA 2000 proprietary PGN ranges:
+// - 61184, 61440: PDU1 single-frame proprietary
+// - 65280–65535: PDU1 proprietary
+// - 126720–126975: PDU2 proprietary fast-packet
+export function isPGNProprietary(pgn: number): boolean {
+  return (
+    pgn === 61184 ||
+    pgn === 61440 ||
+    (pgn >= 65280 && pgn <= 65535) ||
+    (pgn >= 126720 && pgn <= 126975)
+  )
+}
+
 const m_hex = [
   '0',
   '1',

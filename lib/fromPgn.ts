@@ -28,7 +28,7 @@ import {
   getFieldTypeEnumerationBits,
   findFallBackPGN
 } from '@canboat/ts-pgns'
-import { createDebug, byteString } from './utilities'
+import { createDebug, byteString, isPGNProprietary } from './utilities'
 import { EventEmitter } from 'events'
 import pkg from '../package.json'
 import _ from 'lodash'
@@ -298,14 +298,15 @@ export class Parser extends EventEmitter {
   }
 
   private readRepeatingFields(pgn: PGN, pgnData: Definition, bs: BitStream) {
-    const RepeatingFields = pgnData.RepeatingFieldSet1Size
-      ? pgnData.RepeatingFieldSet1Size
-      : 0
+    const RepeatingFields1 = pgnData.RepeatingFieldSet1Size ?? 0
+    const RepeatingFields2 = pgnData.RepeatingFieldSet2Size ?? 0
+    const totalRepeating = RepeatingFields1 + RepeatingFields2
 
     const fields = pgnData.Fields
 
-    const repeating: Field[] = (fields as any).slice(
-      fields.length - RepeatingFields
+    const set1Fields: Field[] = (fields as any).slice(
+      fields.length - totalRepeating,
+      fields.length - totalRepeating + RepeatingFields1
     )
 
     const fany = pgn.fields as any
@@ -315,17 +316,17 @@ export class Parser extends EventEmitter {
       ;(pgn as any).byteMapping['list'] = []
     }
 
-    let count
+    let count1
 
     if (pgnData.RepeatingFieldSet1CountField !== undefined) {
       const rfield = pgnData.Fields[pgnData.RepeatingFieldSet1CountField - 1]
       const dataKey = this.options.useCamel ? rfield.Id : rfield.Name
-      count = (pgn.fields as any)[dataKey]
+      count1 = (pgn.fields as any)[dataKey]
     } else {
-      count = 2048
+      count1 = 2048
     }
 
-    while (bs.bitsLeft > 0 && --count >= 0) {
+    while (bs.bitsLeft > 0 && --count1 >= 0) {
       const group: { [key: string]: any } = {}
       let repeatingMap: RepeatingByteMapping
       if (this.options.includeByteMapping) {
@@ -333,7 +334,7 @@ export class Parser extends EventEmitter {
         ;(pgn as any).byteMapping['list'].push(repeatingMap)
       }
 
-      repeating.forEach((field) => {
+      set1Fields.forEach((field) => {
         if (bs.bitsLeft > 0) {
           const [value, refField, byteMapping] = readField(
             pgnData!,
@@ -362,6 +363,67 @@ export class Parser extends EventEmitter {
         fany.list.push(group)
       }
     }
+
+    // Process RepeatingFieldSet2 if defined
+    if (RepeatingFields2 > 0) {
+      const set2Fields: Field[] = (fields as any).slice(
+        fields.length - RepeatingFields2
+      )
+
+      fany.list2 = []
+
+      if (this.options.includeByteMapping) {
+        ;(pgn as any).byteMapping['list2'] = []
+      }
+
+      let count2
+
+      if (pgnData.RepeatingFieldSet2CountField !== undefined) {
+        const rfield = pgnData.Fields[pgnData.RepeatingFieldSet2CountField - 1]
+        const dataKey = this.options.useCamel ? rfield.Id : rfield.Name
+        count2 = (pgn.fields as any)[dataKey]
+      } else {
+        count2 = 2048
+      }
+
+      while (bs.bitsLeft > 0 && --count2 >= 0) {
+        const group: { [key: string]: any } = {}
+        let repeatingMap: RepeatingByteMapping
+        if (this.options.includeByteMapping) {
+          repeatingMap = {}
+          ;(pgn as any).byteMapping['list2'].push(repeatingMap)
+        }
+
+        set2Fields.forEach((field) => {
+          if (bs.bitsLeft > 0) {
+            const [value, refField, byteMapping] = readField(
+              pgnData!,
+              this.options,
+              true,
+              pgn,
+              field,
+              bs,
+              fields
+            )
+            if (refField) {
+              group.parameterId = refField.Id
+            }
+            if (
+              value !== undefined &&
+              (value != null || this.options.returnNulls)
+            ) {
+              this.setField(group, field, value)
+            }
+            if (this.options.includeByteMapping && byteMapping) {
+              repeatingMap[field.Id] = byteMapping
+            }
+          }
+        })
+        if (_.keys(group).length > 0) {
+          fany.list2.push(group)
+        }
+      }
+    }
   }
 
   private readFields(
@@ -372,9 +434,9 @@ export class Parser extends EventEmitter {
   ): [boolean, Definition | undefined, BitStream] {
     let pgnData: Definition | undefined = startDef
 
-    let RepeatingFields = pgnData.RepeatingFieldSet1Size
-      ? pgnData.RepeatingFieldSet1Size
-      : 0
+    let RepeatingFields = pgnData.RepeatingFieldSet1Size ?? 0
+    let totalRepeatingFields =
+      RepeatingFields + (pgnData.RepeatingFieldSet2Size ?? 0)
 
     pgn.fields = {}
 
@@ -386,8 +448,19 @@ export class Parser extends EventEmitter {
 
     let unknownPGN = false
     let previousMatch: Definition | undefined
-    for (let i = 0; i < fields.length - RepeatingFields; i++) {
+    let targetPgnForCondition: number | undefined
+    for (let i = 0; i < fields.length - totalRepeatingFields; i++) {
       const field = fields[i]
+
+      // Skip conditional proprietary fields when target PGN is not proprietary
+      if (
+        field.Condition === 'PGNIsProprietary' &&
+        targetPgnForCondition !== undefined &&
+        !isPGNProprietary(targetPgnForCondition)
+      ) {
+        continue
+      }
+
       const hasMatch = field.Match !== undefined
 
       const [valueRes, _refField, byteMapping] = readField(
@@ -472,18 +545,23 @@ export class Parser extends EventEmitter {
           if (value == null) {
             value = pgnData.Fields[i].Match
           }
-          RepeatingFields = pgnData.RepeatingFieldSet1Size
-            ? pgnData.RepeatingFieldSet1Size
-            : 0
+          RepeatingFields = pgnData.RepeatingFieldSet1Size ?? 0
+          totalRepeatingFields =
+            RepeatingFields + (pgnData.RepeatingFieldSet2Size ?? 0)
         }
       }
 
       if (value !== undefined && (value != null || this.options.returnNulls)) {
         this.setField(pgn.fields, field, value)
       }
+
+      // Capture the target PGN value for conditional field checks
+      if (field.FieldType === 'PGN' && typeof value === 'number') {
+        targetPgnForCondition = value
+      }
     }
 
-    if (RepeatingFields > 0 && pgnData !== undefined) {
+    if (totalRepeatingFields > 0 && pgnData !== undefined) {
       this.readRepeatingFields(pgn, pgnData, bs)
     }
 
