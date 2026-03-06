@@ -57,18 +57,32 @@ export function W2K01Stream(
 
   if (this.format === N2K_ASCII) {
     if (options.app) {
-      options.app.on(this.options.outEevent || 'nmea2000out', (msg: string) => {
-        if (typeof msg === 'string') {
-          this.sendW2KPGN(msg)
-        } else {
-          this.sendPGN(msg)
-        }
-        options.app.emit('connectionwrite', { providerId: options.providerId })
+      const outEvents = (this.options.outEvent || 'nmea2000out')
+        .split(',')
+        .map((event: string) => event.trim())
+      outEvents.forEach((event: string) => {
+        options.app.on(event, (msg: string) => {
+          if (typeof msg === 'string') {
+            this.sendW2KPGN(msg)
+          } else {
+            this.sendPGN(msg)
+          }
+          options.app.emit('connectionwrite', {
+            providerId: options.providerId
+          })
+        })
       })
 
-      options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg: PGN) => {
-        this.sendPGN(msg)
-        options.app.emit('connectionwrite', { providerId: options.providerId })
+      const jsonOutEvents = (options.jsonOutEvent || 'nmea2000JsonOut')
+        .split(',')
+        .map((event: string) => event.trim())
+      jsonOutEvents.forEach((event: string) => {
+        options.app.on(event, (msg: PGN) => {
+          this.sendPGN(msg)
+          options.app.emit('connectionwrite', {
+            providerId: options.providerId
+          })
+        })
       })
     }
   }
