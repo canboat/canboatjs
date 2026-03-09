@@ -215,7 +215,11 @@ iKonvertStream.prototype._transform = function (
     const msg = `NavLink2 error ${parts[2]}: ${parts[3]}`
     console.error(msg)
     //this.setProviderError(msg)
-  }
+  } else if (line.startsWith('!PDGY')) {
+            this.isSetup = true;
+            this.cansend = true;
+    }
+  
 
   if (!this.isSetup) {
     this.debug(line)
