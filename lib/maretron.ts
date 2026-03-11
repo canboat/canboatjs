@@ -141,7 +141,9 @@ export function buildMaretronConfigCommandActisense(
 
   const now = new Date()
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}Z`
-  const hexBytes = payload.map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(',')
+  const hexBytes = payload
+    .map((b) => b.toString(16).padStart(2, '0').toUpperCase())
+    .join(',')
   return `${timestamp},3,126208,0,${dst},${payload.length},${hexBytes}`
 }
 
@@ -177,7 +179,10 @@ export function parseMaretronConfigResponse(
   const fields = pgn.fields
 
   // Check for Maretron manufacturer code
-  if (fields?.manufacturerCode !== 'Maretron' && fields?.manufacturerCode !== 137) {
+  if (
+    fields?.manufacturerCode !== 'Maretron' &&
+    fields?.manufacturerCode !== 137
+  ) {
     return null
   }
 
