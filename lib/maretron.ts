@@ -1,46 +1,18 @@
-import { PGN } from '@canboat/ts-pgns'
+import {
+  PGN,
+  MaretronProductCodeValues,
+  MaretronOpcodeValues
+} from '@canboat/ts-pgns'
 
-/**
- * Product code → device name mapping for known Maretron devices.
- */
-const PRODUCT_NAMES: { [code: number]: string } = {
-  434: 'SSC200',
-  2686: 'SSC300',
-  2781: 'TLA100',
-  3979: 'NBE100',
-  4078: 'RIM100',
-  8165: 'ALM100',
-  20067: 'TMP100',
-  22585: 'DCR100',
-  23603: 'SIM100',
-  26493: 'ACM100'
+// Build reverse lookups from ts-pgns enums: numeric code → name string
+const PRODUCT_NAMES: { [code: number]: string } = {}
+for (const [name, code] of Object.entries(MaretronProductCodeValues)) {
+  PRODUCT_NAMES[code] = name
 }
 
-/**
- * Opcode → name mapping for Maretron config opcodes.
- */
-const OPCODE_NAMES: { [code: number]: string } = {
-  0x20: 'Write Config',
-  0x21: 'Read Filter',
-  0x22: 'Write Filter',
-  0x24: 'Calibrate',
-  0x30: 'Read Config',
-  0x31: 'Read Calibration',
-  0x35: 'Read Gauge Resistance',
-  0x36: 'Realtime Current',
-  0x38: 'Current Reading',
-  0x56: 'Read All',
-  0x57: 'Write Register',
-  0x5a: 'Read AC Config',
-  0x5b: 'Write AC Config',
-  0x60: 'Test Annunciator',
-  0x61: 'Set Instance',
-  0x62: 'Read Extended',
-  0x63: 'Write Extended',
-  0x66: 'Calibration Status',
-  0x67: 'Switch Lock',
-  0xfa: 'Status',
-  0xfc: 'Debug'
+const OPCODE_NAMES: { [code: number]: string } = {}
+for (const [name, code] of Object.entries(MaretronOpcodeValues)) {
+  OPCODE_NAMES[code] = name
 }
 
 /**

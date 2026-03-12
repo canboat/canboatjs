@@ -98,7 +98,7 @@ describe('parseMaretronConfigResponse', () => {
     expect(result!.productCode).toBe(23603)
     expect(result!.productName).toBe('SIM100')
     expect(result!.opcode).toBe(0x56)
-    expect(result!.opcodeName).toBe('Read All')
+    expect(result!.opcodeName).toBe('Read Channel Config Extended')
     expect(result!.payload).toEqual([0x00, 0x64, 0x00, 0x01, 0x64, 0x00])
   })
 
@@ -118,7 +118,7 @@ describe('parseMaretronConfigResponse', () => {
     expect(result!.productCode).toBe(22585)
     expect(result!.productName).toBe('DCR100')
     expect(result!.opcode).toBe(0xfa)
-    expect(result!.opcodeName).toBe('Status')
+    expect(result!.opcodeName).toBe('Status 2')
   })
 
   test('returns null for non-Maretron PGN', () => {
@@ -153,7 +153,7 @@ describe('parseMaretronConfigResponse', () => {
     const result = parseMaretronConfigResponse(pgn)
     expect(result).not.toBeNull()
     expect(result!.productName).toBe('TLA100')
-    expect(result!.opcodeName).toBe('Read Config')
+    expect(result!.opcodeName).toBe('Write Switch Config')
   })
 })
 
@@ -172,10 +172,10 @@ describe('getMaretronProductName', () => {
 
 describe('getMaretronOpcodeName', () => {
   test('returns name for known opcodes', () => {
-    expect(getMaretronOpcodeName(0x56)).toBe('Read All')
-    expect(getMaretronOpcodeName(0x57)).toBe('Write Register')
-    expect(getMaretronOpcodeName(0x30)).toBe('Read Config')
-    expect(getMaretronOpcodeName(0xfa)).toBe('Status')
+    expect(getMaretronOpcodeName(0x56)).toBe('Read Channel Config Extended')
+    expect(getMaretronOpcodeName(0x57)).toBe('Write Channel Config Extended')
+    expect(getMaretronOpcodeName(0x30)).toBe('Write Switch Config')
+    expect(getMaretronOpcodeName(0xfa)).toBe('Status 2')
   })
 
   test('returns undefined for unknown opcode', () => {
