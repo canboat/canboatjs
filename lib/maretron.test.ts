@@ -118,7 +118,7 @@ describe('parseMaretronConfigResponse', () => {
     expect(result!.productCode).toBe(22585)
     expect(result!.productName).toBe('DCR100')
     expect(result!.opcode).toBe(0xfa)
-    expect(result!.opcodeName).toBe('Status 2')
+    expect(result!.opcodeName).toBeUndefined()
   })
 
   test('returns null for non-Maretron PGN', () => {
@@ -175,7 +175,7 @@ describe('getMaretronOpcodeName', () => {
     expect(getMaretronOpcodeName(0x56)).toBe('Read Channel Config Extended')
     expect(getMaretronOpcodeName(0x57)).toBe('Write Channel Config Extended')
     expect(getMaretronOpcodeName(0x30)).toBe('Write Switch Config')
-    expect(getMaretronOpcodeName(0xfa)).toBe('Status 2')
+    expect(getMaretronOpcodeName(0x02)).toBe('Read Config')
   })
 
   test('returns undefined for unknown opcode', () => {
