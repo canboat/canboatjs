@@ -618,9 +618,11 @@ fieldTypeWriters[RES_STRINGLAU] = (pgn, field, value, bs) => {
 }
 
 fieldTypeMappers['DATE'] = (field, value) => {
-  //console.log(`Date: ${value}`)
   if (_.isString(value)) {
-    const date = new Date(value)
+    const parts = value.split('.')
+    const date = new Date(
+      Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+    )
     return date.getTime() / 86400 / 1000
   }
 
