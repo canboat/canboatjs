@@ -1334,7 +1334,14 @@ function readValue(
       } else if (bitLength <= 64) {
         value = bs.readBits(bitLength, field.Signed)
         if (bitLength > 1 && isMax(bitLength, value, field.Signed as boolean)) {
-          value = null
+          const fullRange =
+            field.FieldType !== 'LOOKUP' &&
+            field.RangeMax !== undefined &&
+            field.Resolution &&
+            field.RangeMax / field.Resolution >= (1 << bitLength) - 1
+          if (!fullRange) {
+            value = null
+          }
         }
       } else {
         if (bs.bitsLeft < bitLength) {
