@@ -7,9 +7,7 @@ import { setupFilters, filterPGN, FilterOptions } from '../utilities'
 import { encodeCandump2 } from '../stringMsg'
 import { printVersion } from './utils'
 import util from 'util'
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const socketcan = require('socketcan')
+import { CanChannel } from '../canSocket'
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -107,7 +105,7 @@ parser.on('pgn', (pgn: any) => {
   }
 })
 
-const channel = socketcan.createRawChannel(canDevice)
+const channel = new CanChannel(canDevice)
 
 channel.addListener('onStopped', (msg: any) => {
   console.error(`socketcan stopped ${msg}`)
