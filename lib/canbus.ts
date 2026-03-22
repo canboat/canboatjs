@@ -23,6 +23,7 @@ import { CanDevice } from './candevice'
 import { getPlainPGNs, binToActisense } from './utilities'
 import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
+import { CanChannel } from './canSocket'
 import util from 'util'
 
 export function CanbusStream(this: any, options: any) {
@@ -57,15 +58,6 @@ export function CanbusStream(this: any, options: any) {
 
   if (options.fromStdIn) {
     return
-  }
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    this.socketcan = require('socketcan')
-  } catch (err) {
-    console.error(err)
-    const msg = 'unable to load native socketcan interface'
-    console.error(msg)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -157,12 +149,6 @@ CanbusStream.prototype.connect = function () {
   const canDevice = this.options.canDevice || 'can0'
 
   try {
-    if (this.socketcan === undefined) {
-      this.setProviderError('unable to load native socketcan interface')
-      this.reconnecting = false
-      return false
-    }
-
     // Clean up old channel if it exists
     if (this.channel) {
       try {
@@ -182,9 +168,7 @@ CanbusStream.prototype.connect = function () {
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const that = this
-    this.channel = this.socketcan.createRawChannelWithOptions(canDevice, {
-      non_block_send: true
-    })
+    this.channel = new CanChannel(canDevice)
     this.channel.addListener('onStopped', () => {
       // Check if we still have a channel reference (not already handled)
       if (!this.channel) {
@@ -208,7 +192,7 @@ CanbusStream.prototype.connect = function () {
       delete this.channel
       this.setProviderError('Stopped unexpectedly, Retrying...')
       if (this.options.app) {
-        console.error('socketcan stopped unexpectedly, retrying...')
+        console.error('CAN channel stopped unexpectedly, retrying...')
       }
 
       setTimeout(() => {
@@ -260,7 +244,7 @@ CanbusStream.prototype.connect = function () {
       }
     })
     this.channel.start()
-    this.setProviderStatus('Connected to socketcan')
+    this.setProviderStatus('Connected to CAN bus')
     this.candevice = new CanDevice(this, this.options)
     this.candevice.start()
 

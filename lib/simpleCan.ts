@@ -19,6 +19,7 @@ import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
 import { toPgn } from './toPgn'
 import { getPlainPGNs, binToActisense, createDebug } from './utilities'
+import { CanChannel } from './canSocket'
 import _ from 'lodash'
 
 const debug = createDebug('canboatjs:simpleCan')
@@ -31,14 +32,12 @@ export function SimpleCan(
   this.options = options
   this.messageCb = messageCb
   this.plainText = false
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  this.socketcan = require('socketcan')
 }
 
 SimpleCan.prototype.start = function () {
   const canDevice = this.options.canDevice || 'can0'
 
-  this.channel = this.socketcan.createRawChannel(canDevice)
+  this.channel = new CanChannel(canDevice)
   if (this.messageCb) {
     this.channel.addListener('onMessage', (msg: any) => {
       const pgn = parseCanId(msg.id)
