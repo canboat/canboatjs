@@ -21,10 +21,10 @@ jobs:
         npm install
         npm ci && npm cache clean --force
         npm run build
-        
+
     - name: Set tag variable
-     id: vars
-     run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+      id: vars
+      run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
     - name: Publish 
       run: |
