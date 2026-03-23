@@ -1,5 +1,6 @@
 node_modules
 package-lock.json
+build/
 .DS_Store
 ios_canboat.js
 .nyc_output

@@ -7,6 +7,7 @@ import { encodeCanId } from '../canId'
 import readline from 'readline'
 import minimist from 'minimist'
 import { printVersion } from './utils'
+import { CanChannel } from '../canSocket'
 
 const argv = minimist(process.argv.slice(2), {
   boolean: ['test', 'log-output'],
@@ -40,12 +41,10 @@ const test = argv.test
 let channel: any
 
 if (!test) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const socketcan = require('socketcan')
-  channel = socketcan.createRawChannel(canDevice)
+  channel = new CanChannel(canDevice)
 
   channel.addListener('onStopped', (msg: any) => {
-    console.error(`socketcan stopped ${msg}`)
+    console.error(`CAN channel stopped ${msg}`)
   })
 
   channel.start()
