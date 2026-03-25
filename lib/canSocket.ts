@@ -27,8 +27,10 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   native = require('../build/Release/canSocket.node')
 } catch (_e) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  native = require('../build/Debug/canSocket.node')
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    native = require('../build/Debug/canSocket.node')
+  } catch (_e) {}
 }
 
 export interface CanMessage {
@@ -49,6 +51,9 @@ export class CanChannel extends EventEmitter {
 
   constructor(ifname: string) {
     super()
+    if (native === undefined) {
+      throw new Error('Failed to load native canSocket module')
+    }
     this.fd = native.openCanSocket(ifname)
   }
 
