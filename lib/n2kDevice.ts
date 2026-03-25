@@ -419,6 +419,11 @@ function sendHeartbeat(device: N2kDevice) {
   device.sendPGN(hb)
 }
 
+function announceStartupMessages(device: N2kDevice) {
+  sendProductInformation(device)
+  sendConfigInformation(device)
+}
+
 function sendAddressClaim(device: N2kDevice) {
   if (device.devices[device.address]) {
     //someone already has this address, so find a free one
@@ -441,6 +446,7 @@ function sendAddressClaim(device: N2kDevice) {
     device.savePersistedData('lastAddress', device.address)
 
     device.cansend = true
+    announceStartupMessages(device)
     if (!device.sentAvailable) {
       if (device.options.app) {
         device.options.app.emit('nmea2000OutAvailable')
