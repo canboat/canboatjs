@@ -2,19 +2,20 @@
  * Minimal CAN socket wrapper using fs streams instead of uv_poll_t.
  *
  * The native addon (native/canSocket.cpp) opens a PF_CAN socket, binds it
- * to the interface, sets O_NONBLOCK, and returns the raw fd.
+ * to the interface, and returns the raw fd in blocking mode.
  *
  * Node.js's net.Socket cannot wrap CAN fds (uv_guess_handle returns
  * UV_UNKNOWN_HANDLE). Instead we use fs.createReadStream which uses libuv's
  * threadpool-based uv_fs_read — works on any fd, never stalls, and does not
- * use uv_poll_t. Writes use fs.write() directly on the fd.
+ * use uv_poll_t. Writes use a native non-blocking writeCanFrame() to avoid
+ * blocking libuv threadpool workers when the CAN bus has no listeners.
  *
  * Copyright 2025 Signal K contributors
  * Licensed under the Apache License, Version 2.0
  */
 
 import { EventEmitter } from 'events'
-import { createReadStream, write as fsWrite, close as fsClose } from 'fs'
+import { createReadStream, close as fsClose } from 'fs'
 import { ReadStream } from 'fs'
 
 const CAN_EFF_FLAG = 0x80000000
@@ -22,7 +23,10 @@ const CAN_EFF_MASK = 0x1fffffff
 const CAN_FRAME_SIZE = 16 // sizeof(struct can_frame)
 const CAN_DATA_OFFSET = 8
 
-let native: { openCanSocket: (ifname: string) => number }
+let native: {
+  openCanSocket: (ifname: string) => number
+  writeCanFrame: (fd: number, buffer: Buffer) => number
+}
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   native = require('../build/Release/canSocket.node')
@@ -119,6 +123,6 @@ export class CanChannel extends EventEmitter {
     frame[4] = msg.data.length
     msg.data.copy(frame, CAN_DATA_OFFSET, 0, Math.min(msg.data.length, 8))
 
-    fsWrite(this.fd, frame, 0, CAN_FRAME_SIZE, null, () => {})
+    native.writeCanFrame(this.fd, frame)
   }
 }

@@ -19,16 +19,29 @@ import { N2kDevice } from './n2kDevice'
 
 export class CanDevice extends N2kDevice {
   canbus: any
+  private n2kMessageHandler?: (...args: any[]) => void
 
   constructor(canbus: any, options: any) {
     super(options, 'canboatjs:candevice')
     this.canbus = canbus
 
     if (options.app) {
+      this.n2kMessageHandler = this.n2kMessage.bind(this)
       options.app.on(
         options.analyzerOutEvent || 'N2KAnalyzerOut',
-        this.n2kMessage.bind(this)
+        this.n2kMessageHandler
       )
+    }
+  }
+
+  stop() {
+    super.stop()
+    if (this.options.app && this.n2kMessageHandler) {
+      this.options.app.removeListener(
+        this.options.analyzerOutEvent || 'N2KAnalyzerOut',
+        this.n2kMessageHandler
+      )
+      this.n2kMessageHandler = undefined
     }
   }
 
