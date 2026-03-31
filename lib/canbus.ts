@@ -149,6 +149,16 @@ CanbusStream.prototype.connect = function () {
   const canDevice = this.options.canDevice || 'can0'
 
   try {
+    // Clean up old candevice if it exists
+    if (this.candevice) {
+      try {
+        this.candevice.stop()
+      } catch (e) {
+        console.error('Error stopping candevice:', e)
+      }
+      delete this.candevice
+    }
+
     // Clean up old channel if it exists
     if (this.channel) {
       try {
@@ -285,6 +295,9 @@ CanbusStream.prototype.start = function () {}
 
 CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
   if (this.candevice) {
+    if (!this.channel) {
+      return
+    }
     //if ( !this.candevice.cansend && (_.isString(msg) || msg.pgn !== 59904) ) {
     if (!this.candevice.cansend && force !== true) {
       //we have not completed address claim yet
@@ -396,6 +409,14 @@ CanbusStream.prototype._transform = function (
 }
 
 CanbusStream.prototype.end = function () {
+  if (this.candevice) {
+    try {
+      this.candevice.stop()
+    } catch (e) {
+      console.error('Error stopping candevice in end():', e)
+    }
+    delete this.candevice
+  }
   if (this.channel) {
     // Mark as intentional stop to prevent reconnection
     this.stoppingChannel = true

@@ -5,6 +5,7 @@
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <cstring>
 #include <cerrno>
 
@@ -56,8 +57,43 @@ Napi::Value OpenCanSocket(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, fd);
 }
 
+Napi::Value WriteCanFrame(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsBuffer()) {
+    Napi::TypeError::New(env, "writeCanFrame(fd, buffer) expected")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  int fd = info[0].As<Napi::Number>().Int32Value();
+  Napi::Buffer<uint8_t> buf = info[1].As<Napi::Buffer<uint8_t>>();
+
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0) {
+    return Napi::Number::New(env, -errno);
+  }
+
+  if (!(flags & O_NONBLOCK)) {
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  }
+
+  ssize_t written = write(fd, buf.Data(), buf.Length());
+
+  if (!(flags & O_NONBLOCK)) {
+    fcntl(fd, F_SETFL, flags);
+  }
+
+  if (written < 0) {
+    return Napi::Number::New(env, -errno);
+  }
+
+  return Napi::Number::New(env, static_cast<int>(written));
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("openCanSocket", Napi::Function::New(env, OpenCanSocket));
+  exports.Set("writeCanFrame", Napi::Function::New(env, WriteCanFrame));
   return exports;
 }
 

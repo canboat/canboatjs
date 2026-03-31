@@ -180,6 +180,18 @@ export class N2kDevice extends EventEmitter {
     }, 1000)
   }
 
+  stop() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = undefined
+    }
+    if (this.addressClaimChecker) {
+      clearTimeout(this.addressClaimChecker)
+      this.addressClaimChecker = undefined
+    }
+    this.cansend = false
+  }
+
   getPersistedData(key: string) {
     try {
       return getPersistedData(this.options, this.options.providerId, key)
