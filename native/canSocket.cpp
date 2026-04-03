@@ -51,6 +51,11 @@ static Napi::Value OpenCanSocketImpl(const Napi::CallbackInfo& info, bool nonblo
   }
 
   if (nonblock) {
+    // Disable reception — this socket is write-only. An empty filter array
+    // tells the kernel not to deliver any incoming frames, avoiding wasted
+    // copies into a receive buffer nobody reads.
+    setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
+
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
       std::string err =
           std::string("fcntl(O_NONBLOCK) for '") + ifname + "': " + strerror(errno);
