@@ -62,6 +62,17 @@ static Napi::Value OpenCanSocketImpl(const Napi::CallbackInfo& info, bool nonblo
       return env.Undefined();
     }
 
+    // Disable local loopback — frames we send should not be echoed back
+    // to the read socket as if they came from the bus.
+    int loopback = 0;
+    if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &loopback, sizeof(loopback)) < 0) {
+      std::string err =
+          std::string("setsockopt(CAN_RAW_LOOPBACK) for '") + ifname + "': " + strerror(errno);
+      close(fd);
+      Napi::Error::New(env, err).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
       std::string err =
           std::string("fcntl(O_NONBLOCK) for '") + ifname + "': " + strerror(errno);

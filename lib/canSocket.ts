@@ -66,7 +66,12 @@ export class CanChannel extends EventEmitter {
       throw new Error('Failed to load native canSocket module')
     }
     this.readFd = native.openCanSocket(ifname)
-    this.writeFd = native.openCanSocketNonBlock(ifname)
+    try {
+      this.writeFd = native.openCanSocketNonBlock(ifname)
+    } catch (e) {
+      fsClose(this.readFd, () => {})
+      throw e
+    }
   }
 
   start(): void {
