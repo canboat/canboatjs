@@ -7,8 +7,13 @@
  * Node.js's net.Socket cannot wrap CAN fds (uv_guess_handle returns
  * UV_UNKNOWN_HANDLE). Instead we use fs.createReadStream which uses libuv's
  * threadpool-based uv_fs_read — works on any fd, never stalls, and does not
- * use uv_poll_t. Writes use a native non-blocking writeCanFrame() to avoid
- * blocking libuv threadpool workers when the CAN bus has no listeners.
+ * use uv_poll_t.
+ *
+ * Reads and writes use separate CAN sockets bound to the same interface.
+ * The read socket is blocking (for threadpool reads), the write socket is
+ * O_NONBLOCK (to avoid stalling when the CAN bus has no listeners).
+ * Separate fds prevent writeCanFrame from toggling O_NONBLOCK on the read
+ * fd, which caused spurious ReadStream errors and reconnect cycles.
  *
  * Copyright 2025 Signal K contributors
  * Licensed under the Apache License, Version 2.0
@@ -25,6 +30,7 @@ const CAN_DATA_OFFSET = 8
 
 let native: {
   openCanSocket: (ifname: string) => number
+  openCanSocketNonBlock: (ifname: string) => number
   writeCanFrame: (fd: number, buffer: Buffer) => number
 }
 try {
@@ -49,7 +55,8 @@ export interface CanMessage {
  */
 export class CanChannel extends EventEmitter {
   private readStream: ReadStream | null = null
-  private fd: number
+  private readFd: number
+  private writeFd: number
   private remainder: Buffer = Buffer.alloc(0)
   private stopped: boolean = false
 
@@ -58,13 +65,14 @@ export class CanChannel extends EventEmitter {
     if (native === undefined) {
       throw new Error('Failed to load native canSocket module')
     }
-    this.fd = native.openCanSocket(ifname)
+    this.readFd = native.openCanSocket(ifname)
+    this.writeFd = native.openCanSocketNonBlock(ifname)
   }
 
   start(): void {
     this.stopped = false
     this.readStream = createReadStream('', {
-      fd: this.fd,
+      fd: this.readFd,
       autoClose: false,
       highWaterMark: CAN_FRAME_SIZE * 64
     })
@@ -106,7 +114,8 @@ export class CanChannel extends EventEmitter {
       this.readStream.destroy()
       this.readStream = null
     }
-    fsClose(this.fd, () => {})
+    fsClose(this.readFd, () => {})
+    fsClose(this.writeFd, () => {})
   }
 
   send(msg: { id: number; ext?: boolean; data: Buffer }): void {
@@ -123,6 +132,6 @@ export class CanChannel extends EventEmitter {
     frame[4] = msg.data.length
     msg.data.copy(frame, CAN_DATA_OFFSET, 0, Math.min(msg.data.length, 8))
 
-    native.writeCanFrame(this.fd, frame)
+    native.writeCanFrame(this.writeFd, frame)
   }
 }
