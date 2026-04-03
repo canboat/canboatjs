@@ -54,7 +54,13 @@ static Napi::Value OpenCanSocketImpl(const Napi::CallbackInfo& info, bool nonblo
     // Disable reception — this socket is write-only. An empty filter array
     // tells the kernel not to deliver any incoming frames, avoiding wasted
     // copies into a receive buffer nobody reads.
-    setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
+    if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0) < 0) {
+      std::string err =
+          std::string("setsockopt(CAN_RAW_FILTER) for '") + ifname + "': " + strerror(errno);
+      close(fd);
+      Napi::Error::New(env, err).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
       std::string err =
