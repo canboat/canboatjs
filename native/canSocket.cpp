@@ -72,14 +72,6 @@ static Napi::Value OpenCanSocketImpl(const Napi::CallbackInfo& info, bool nonblo
       Napi::Error::New(env, err).ThrowAsJavaScriptException();
       return env.Undefined();
     }
-
-    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
-      std::string err =
-          std::string("fcntl(O_NONBLOCK) for '") + ifname + "': " + strerror(errno);
-      close(fd);
-      Napi::Error::New(env, err).ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
   }
 
   return Napi::Number::New(env, fd);
@@ -105,7 +97,7 @@ Napi::Value WriteCanFrame(const Napi::CallbackInfo& info) {
   int fd = info[0].As<Napi::Number>().Int32Value();
   Napi::Buffer<uint8_t> buf = info[1].As<Napi::Buffer<uint8_t>>();
 
-  ssize_t written = write(fd, buf.Data(), buf.Length());
+  ssize_t written = send(fd, buf.Data(), buf.Length(), MSG_DONTWAIT);
 
   if (written < 0) {
     return Napi::Number::New(env, -errno);
