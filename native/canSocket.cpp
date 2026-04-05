@@ -9,7 +9,7 @@
 #include <cstring>
 #include <cerrno>
 
-Napi::Value OpenCanSocket(const Napi::CallbackInfo& info) {
+static Napi::Value OpenCanSocketImpl(const Napi::CallbackInfo& info, bool nonblock) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsString()) {
@@ -50,11 +50,47 @@ Napi::Value OpenCanSocket(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  // Leave fd in blocking mode. fs.createReadStream uses libuv's threadpool
-  // (uv_fs_read) — blocking reads on worker threads are correct and efficient.
-  // This avoids EAGAIN errors and eliminates the uv_poll_t failure mode entirely.
+  if (nonblock) {
+    // Disable reception — this socket is write-only. An empty filter array
+    // tells the kernel not to deliver any incoming frames, avoiding wasted
+    // copies into a receive buffer nobody reads.
+    if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0) < 0) {
+      std::string err =
+          std::string("setsockopt(CAN_RAW_FILTER) for '") + ifname + "': " + strerror(errno);
+      close(fd);
+      Napi::Error::New(env, err).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    // Disable local loopback — frames we send should not be echoed back
+    // to the read socket as if they came from the bus.
+    int loopback = 0;
+    if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &loopback, sizeof(loopback)) < 0) {
+      std::string err =
+          std::string("setsockopt(CAN_RAW_LOOPBACK) for '") + ifname + "': " + strerror(errno);
+      close(fd);
+      Napi::Error::New(env, err).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+      std::string err =
+          std::string("fcntl(O_NONBLOCK) for '") + ifname + "': " + strerror(errno);
+      close(fd);
+      Napi::Error::New(env, err).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+  }
 
   return Napi::Number::New(env, fd);
+}
+
+Napi::Value OpenCanSocket(const Napi::CallbackInfo& info) {
+  return OpenCanSocketImpl(info, false);
+}
+
+Napi::Value OpenCanSocketNonBlock(const Napi::CallbackInfo& info) {
+  return OpenCanSocketImpl(info, true);
 }
 
 Napi::Value WriteCanFrame(const Napi::CallbackInfo& info) {
@@ -69,20 +105,7 @@ Napi::Value WriteCanFrame(const Napi::CallbackInfo& info) {
   int fd = info[0].As<Napi::Number>().Int32Value();
   Napi::Buffer<uint8_t> buf = info[1].As<Napi::Buffer<uint8_t>>();
 
-  int flags = fcntl(fd, F_GETFL, 0);
-  if (flags < 0) {
-    return Napi::Number::New(env, -errno);
-  }
-
-  if (!(flags & O_NONBLOCK)) {
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-  }
-
   ssize_t written = write(fd, buf.Data(), buf.Length());
-
-  if (!(flags & O_NONBLOCK)) {
-    fcntl(fd, F_SETFL, flags);
-  }
 
   if (written < 0) {
     return Napi::Number::New(env, -errno);
@@ -93,6 +116,7 @@ Napi::Value WriteCanFrame(const Napi::CallbackInfo& info) {
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("openCanSocket", Napi::Function::New(env, OpenCanSocket));
+  exports.Set("openCanSocketNonBlock", Napi::Function::New(env, OpenCanSocketNonBlock));
   exports.Set("writeCanFrame", Napi::Function::New(env, WriteCanFrame));
   return exports;
 }

@@ -14,6 +14,7 @@
     "install": "node-gyp rebuild || echo 'Native CAN socket addon not available on this platform'",
     "build": "tsc -b  --pretty false",
     "watch": "tsc --watch",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run build",
     "prettier": "prettier --write lib test",
     "lint": "eslint --fix --format compact",
