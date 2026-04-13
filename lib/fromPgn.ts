@@ -629,7 +629,7 @@ export class Parser extends EventEmitter {
     sourceString: string | undefined = undefined
   ) {
     if (pgn.src === undefined) {
-      throw new Error('invalid pgn, missing src')
+      throw new Error('invalid pgn, missing src: ' + JSON.stringify(pgn))
     }
 
     try {
