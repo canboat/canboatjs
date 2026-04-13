@@ -313,7 +313,7 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
     }
 
     const src =
-      _.isString(msg) === false && (msg.pgn === 59904 || msg.forceSrc)
+      _.isString(msg) === false && msg.forceSrc
         ? msg.src
         : this.candevice.address
     if (_.isString(msg)) {
