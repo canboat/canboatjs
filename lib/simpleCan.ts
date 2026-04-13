@@ -83,10 +83,7 @@ SimpleCan.prototype.sendPGN = function (msg: any) {
 
     debug('sending %j', msg)
 
-    const src =
-      msg.pgn === 59904 || (msg as any).forceSrc
-        ? msg.src
-        : this.candevice.address
+    const src = (msg as any).forceSrc ? msg.src : this.candevice.address
     if (_.isString(msg)) {
       const split = msg.split(',')
       split[3] = src
