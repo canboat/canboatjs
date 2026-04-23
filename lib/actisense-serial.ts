@@ -34,13 +34,17 @@ const ESC = 0x1b /* Escape */
 
 /* Actisense message structure is:
 
-   DLE STX <command> <len> [<data> ...]  <checksum> DLE ETX
+   DLE STX <command> <len> [<data> ...] <checksum> DLE ETX
 
-   <command> is a byte from the list below.
-   In <data> any DLE characters are double escaped (DLE DLE).
-   <len> encodes the unescaped length.
-   <checksum> is such that the sum of all unescaped data bytes plus the command
-              byte plus the length adds up to zero, modulo 256.
+   Byte stuffing: any DLE (0x10) byte appearing in <len>, <data>, or
+   <checksum> is duplicated on the wire (written as DLE DLE). The
+   leading DLE STX and trailing DLE ETX are framing markers and are
+   never stuffed.
+   <command> is a byte from the list below and is written as-is.
+   <len> is the payload length in bytes — the number of <data> bytes
+         before byte stuffing.
+   <checksum> is chosen so command + len + all unescaped <data> bytes +
+              checksum is 0 modulo 256.
 */
 
 const N2K_MSG_RECEIVED = 0x93 /* Receive standard N2K message */
@@ -525,17 +529,18 @@ function binToActisense(buffer: Buffer) {
   )
 }
 
-function composeMessage(command: number, buffer: Buffer, len: number) {
+export function composeMessage(command: number, buffer: Buffer, len: number) {
   const outBuf = Buffer.alloc(500)
   const out = new BitStream(outBuf)
 
   out.writeUint8(DLE)
   out.writeUint8(STX)
   out.writeUint8(command)
-
-  const lenPos = out.byteIndex
-  out.writeUint8(0) //length. will update later
-  let crc = command
+  out.writeUint8(len)
+  if (len == DLE) {
+    out.writeUint8(DLE)
+  }
+  let crc = addUInt8(command, len)
 
   for (let i = 0; i < len; i++) {
     const c = buffer.readUInt8(i)
@@ -546,15 +551,13 @@ function composeMessage(command: number, buffer: Buffer, len: number) {
     crc = addUInt8(crc, c)
   }
 
-  crc = addUInt8(crc, len)
-
-  out.writeUint8(256 - crc)
+  const checksum = (256 - crc) & 0xff
+  if (checksum == DLE) {
+    out.writeUint8(DLE)
+  }
+  out.writeUint8(checksum)
   out.writeUint8(DLE)
   out.writeUint8(ETX)
-
-  out.view.buffer.writeUInt8(len, lenPos)
-
-  //that.debug(`command ${out.view.buffer[2]} ${lenPos} ${len} ${out.view.buffer[lenPos]} ${out.view.buffer.length} ${out.byteIndex}`)
 
   return out.view.buffer.slice(0, out.byteIndex)
 }
