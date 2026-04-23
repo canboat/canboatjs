@@ -599,7 +599,7 @@ fieldTypeWriters['String with start/stop byte'] = (pgn, field, value, bs) => {
 }
 
 fieldTypeWriters[RES_STRINGLAU] = (pgn, field, value, bs) => {
-  if (pgn === 129041 && field.Name === 'AtoN Name') {
+  if (pgn === 129041 && field.Name === 'AtoN Name' && value) {
     if (value.length > 18) {
       value = value.substring(0, 18)
     } else {
