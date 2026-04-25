@@ -114,10 +114,26 @@ Napi::Value WriteCanFrame(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, static_cast<int>(written));
 }
 
+Napi::Value ShutdownCanSocket(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "shutdownCanSocket(fd) expected")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  int fd = info[0].As<Napi::Number>().Int32Value();
+  int rc = shutdown(fd, SHUT_RDWR);
+
+  return Napi::Number::New(env, rc < 0 ? -errno : 0);
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("openCanSocket", Napi::Function::New(env, OpenCanSocket));
   exports.Set("openCanSocketNonBlock", Napi::Function::New(env, OpenCanSocketNonBlock));
   exports.Set("writeCanFrame", Napi::Function::New(env, WriteCanFrame));
+  exports.Set("shutdownCanSocket", Napi::Function::New(env, ShutdownCanSocket));
   return exports;
 }
 
