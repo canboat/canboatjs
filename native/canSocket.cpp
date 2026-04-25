@@ -62,16 +62,13 @@ static Napi::Value OpenCanSocketImpl(const Napi::CallbackInfo& info, bool nonblo
       return env.Undefined();
     }
 
-    // Disable local loopback — frames we send should not be echoed back
-    // to the read socket as if they came from the bus.
-    int loopback = 0;
-    if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &loopback, sizeof(loopback)) < 0) {
-      std::string err =
-          std::string("setsockopt(CAN_RAW_LOOPBACK) for '") + ifname + "': " + strerror(errno);
-      close(fd);
-      Napi::Error::New(env, err).ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
+    // NOTE: CAN_RAW_LOOPBACK is left at its default (enabled). On virtual CAN
+    // (vcan) interfaces the kernel uses loopback to distribute frames between
+    // sockets bound to the same interface — disabling it here would cause
+    // write() to succeed silently while no other socket (including candump or
+    // other processes on the bus) ever sees the frame. The empty CAN_RAW_FILTER
+    // above already prevents unwanted frames from reaching this socket's
+    // receive queue, so loopback has no effect on read behavior.
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
       std::string err =
