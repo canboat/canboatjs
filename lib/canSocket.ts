@@ -20,7 +20,7 @@
  */
 
 import { EventEmitter } from 'events'
-import { createReadStream, close as fsClose } from 'fs'
+import { createReadStream, closeSync } from 'fs'
 import { ReadStream } from 'fs'
 
 const CAN_EFF_FLAG = 0x80000000
@@ -32,6 +32,7 @@ let native: {
   openCanSocket: (ifname: string) => number
   openCanSocketNonBlock: (ifname: string) => number
   writeCanFrame: (fd: number, buffer: Buffer) => number
+  shutdownCanSocket: (fd: number) => number
 }
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -59,6 +60,7 @@ export class CanChannel extends EventEmitter {
   private writeFd: number
   private remainder: Buffer = Buffer.alloc(0)
   private stopped: boolean = false
+  private exitHandler: (() => void) | null = null
 
   constructor(ifname: string) {
     super()
@@ -69,9 +71,15 @@ export class CanChannel extends EventEmitter {
     try {
       this.writeFd = native.openCanSocketNonBlock(ifname)
     } catch (e) {
-      fsClose(this.readFd, () => {})
+      closeSync(this.readFd)
       throw e
     }
+
+    // Ensure the blocking read fd is closed synchronously on process exit
+    // so the threadpool worker blocked in read() is unblocked and the
+    // process can actually terminate.
+    this.exitHandler = () => this.stop()
+    process.on('exit', this.exitHandler)
   }
 
   start(): void {
@@ -114,13 +122,31 @@ export class CanChannel extends EventEmitter {
   }
 
   stop(): void {
+    if (this.stopped) {
+      return
+    }
     this.stopped = true
+    if (this.exitHandler) {
+      process.removeListener('exit', this.exitHandler)
+      this.exitHandler = null
+    }
     if (this.readStream) {
       this.readStream.destroy()
       this.readStream = null
     }
-    fsClose(this.readFd, () => {})
-    fsClose(this.writeFd, () => {})
+    // shutdown() the read socket first so any threadpool worker blocked
+    // in read() is immediately unblocked (returns ENOTCONN). On Linux,
+    // close() alone does NOT interrupt a read() blocked on the same fd
+    // in another thread — the worker would hang forever.
+    try {
+      native.shutdownCanSocket(this.readFd)
+    } catch (_e) {}
+    try {
+      closeSync(this.readFd)
+    } catch (_e) {}
+    try {
+      closeSync(this.writeFd)
+    } catch (_e) {}
   }
 
   send(msg: { id: number; ext?: boolean; data: Buffer }): void {
