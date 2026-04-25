@@ -34,14 +34,17 @@ let native: {
   writeCanFrame: (fd: number, buffer: Buffer) => number
   shutdownCanSocket: (fd: number) => number
 }
+let nativeLoadError: Error | undefined
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   native = require('../build/Release/canSocket.node')
-} catch (_e) {
+} catch (releaseErr) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     native = require('../build/Debug/canSocket.node')
-  } catch (_e) {}
+  } catch (_debugErr) {
+    nativeLoadError = releaseErr as Error
+  }
 }
 
 export interface CanMessage {
@@ -65,7 +68,8 @@ export class CanChannel extends EventEmitter {
   constructor(ifname: string) {
     super()
     if (native === undefined) {
-      throw new Error('Failed to load native canSocket module')
+      const detail = nativeLoadError ? `: ${nativeLoadError.message}` : ''
+      throw new Error(`Failed to load native canSocket module${detail}`)
     }
     this.readFd = native.openCanSocket(ifname)
     try {
