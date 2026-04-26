@@ -305,7 +305,10 @@ function read1Byte(that: any, c: any) {
       that.bufferOffset++
       that.stat = MSG_MESSAGE
     } else {
-      console.error('DLE followed by unexpected char , ignore message')
+      console.error(
+        `DLE followed by unexpected char 0x${c.toString(16).padStart(2, '0')}, ignore message`
+      )
+      that.bufferOffset = 0
       that.stat = MSG_START
     }
   } else if (that.stat == MSG_MESSAGE) {
@@ -477,6 +480,19 @@ function addUInt8(num: number, add: number) {
 }
 
 function processN2KMessage(that: any, buffer: Buffer, len: number) {
+  // N2K received payloads must include the fixed 11-byte prefix that
+  // binToActisense reads, and the buffered frame must match the Actisense
+  // declared payload length exactly: command + length + payload + checksum.
+  const payloadLen = buffer[1]
+  if (payloadLen < 11 || len !== payloadLen + 3) {
+    that.debug(
+      'discarding malformed N2K frame (len=%d, payloadLen=%d)',
+      len,
+      payloadLen
+    )
+    return
+  }
+
   let checksum = 0
 
   for (let i = 0; i < len; i++) {
