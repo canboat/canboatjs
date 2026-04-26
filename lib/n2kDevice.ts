@@ -32,7 +32,7 @@ import {
   EquipmentStatus
 } from '@canboat/ts-pgns'
 import { EventEmitter } from 'node:events'
-import _ from 'lodash'
+import _, { get } from 'lodash'
 import { Uint64LE } from 'int64-buffer'
 import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
@@ -118,7 +118,7 @@ export class N2kDevice extends EventEmitter {
         dst: 255,
         'NMEA 2000 Version': 1300,
         'Product Code': 667, // Just made up..
-        'Model ID': 'Signal K',
+        'Model ID': getServerVersion(options),
         'Model Version': getModelVersion(options),
         'Model Serial Code': uniqueNumber.toString(),
         'Certification Level': 0,
@@ -261,6 +261,14 @@ function getModelVersion(options: any) {
     return `${options.app.config.ssl ? 'https' : 'http'}://${options.app.config.getExternalHostname()}:${options.app.config.getExternalPort()}`
   } else {
     return 'canboatjs'
+  }
+}
+
+function getServerVersion(options: any) {
+  if (options.app?.config?.version !== undefined) {
+    return `signalk-server@${options.app.config.version}`
+  } else {
+    return 'signalk-server'
   }
 }
 
