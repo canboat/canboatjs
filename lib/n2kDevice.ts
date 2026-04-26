@@ -32,7 +32,7 @@ import {
   EquipmentStatus
 } from '@canboat/ts-pgns'
 import { EventEmitter } from 'node:events'
-import _, { get } from 'lodash'
+import _ from 'lodash'
 import { Uint64LE } from 'int64-buffer'
 import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
