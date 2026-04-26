@@ -451,6 +451,10 @@ function sendAddressClaim(device: N2kDevice) {
   }
   device.debug(`Sending address claim ${device.address}`)
   device.sendPGN(device.addressClaim)
+  device.options.app.emit(
+    device.options.analyzerOutEvent || 'N2KAnalyzerOut',
+    device.addressClaim
+  )
   const version = packageJson ? packageJson.version : 'unknown'
   device.setStatus(`Claimed address ${device.address} (canboatjs v${version})`)
   device.addressClaimSentAt = Date.now()
@@ -501,12 +505,20 @@ function sendProductInformation(device: N2kDevice) {
   device.debug('Sending product info')
 
   device.sendPGN(device.productInfo)
+  device.options.app.emit(
+    device.options.analyzerOutEvent || 'N2KAnalyzerOut',
+    device.productInfo
+  )
 }
 
 function sendConfigInformation(device: N2kDevice) {
   if (device.configurationInfo) {
     device.debug('Sending config info..')
     device.sendPGN(device.configurationInfo)
+    device.options.app.emit(
+      device.options.analyzerOutEvent || 'N2KAnalyzerOut',
+      device.configurationInfo
+    )
   }
 }
 
