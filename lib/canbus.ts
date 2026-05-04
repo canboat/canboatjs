@@ -372,6 +372,16 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
         const pgns = getPlainPGNs(buffer)
         pgns.forEach((pbuffer) => {
           this.channel.send({ id: canid, ext: true, data: pbuffer })
+
+          if (msg.pgn === 126996 || msg.pgn === 126998 || msg.pgn === 60928) {
+            // forward on so these are seen by the server
+            this.push({
+              pgn,
+              length: pbuffer.length,
+              data: pbuffer
+            })
+          }
+
           if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
             this.options.app.emit('canboatjs:rawsend', {
               knownSrc: true,
@@ -385,6 +395,16 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
         })
       } else {
         this.channel.send({ id: canid, ext: true, data: buffer })
+
+        if (msg.pgn === 126996 || msg.pgn === 126998 || msg.pgn === 60928) {
+          // forward on so these are seen by the server
+          this.push({
+            pgn,
+            length: buffer.length,
+            data: buffer
+          })
+        }
+
         if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
           this.options.app.emit('canboatjs:rawsend', {
             knownSrc: true,
@@ -395,6 +415,17 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
             }
           })
         }
+      }
+      
+      if (
+        pgn.pgn == 59904 &&
+        pgn.src !== 254 &&
+        (pgn.dst == 255 || pgn.dst == this.address)
+      ) {
+        if ((pgn as any).PGN !== undefined) {
+          pgn.fields = { pgn: (pgn as any).PGN, ...pgn.fields }
+        }
+        this.candevice.n2kMessage(pgn)
       }
     }
   }
