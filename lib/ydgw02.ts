@@ -136,7 +136,7 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN) {
     if (this.device !== undefined) {
       if (pgn.pgn === 126996 || pgn.pgn === 126998 || pgn.pgn === 60928) {
         // forward on so these are seen by the server
-        this.push({  ...pgn, timestamp: new Date().toISOString()})
+        this.push({ ...pgn, timestamp: new Date().toISOString() })
       }
 
       if (
@@ -144,7 +144,7 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN) {
         pgn.src !== 254 &&
         (pgn.dst == 255 || pgn.dst == this.address)
       ) {
-        if ( (pgn as any).PGN !== undefined ) {
+        if ((pgn as any).PGN !== undefined) {
           pgn.fields = { pgn: (pgn as any).PGN, ...pgn.fields }
         }
         this.device.n2kMessage(pgn)

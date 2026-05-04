@@ -416,7 +416,7 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
           })
         }
       }
-      
+
       if (
         pgn.pgn == 59904 &&
         pgn.src !== 254 &&
