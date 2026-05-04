@@ -22,6 +22,7 @@ import {
   PGN_126208_NmeaCommandGroupFunction,
   PGN_126208_NmeaAcknowledgeGroupFunction,
   //PGN_126996,
+  PGN_126998,
   PGN_126993,
   PGN_59392,
   PGN_126464,
@@ -29,7 +30,10 @@ import {
   PgnErrorCode,
   TransmissionInterval,
   IsoControl,
-  EquipmentStatus
+  EquipmentStatus,
+  ManufacturerCode,
+  YesNo,
+  PGN_126996
 } from '@canboat/ts-pgns'
 import { EventEmitter } from 'node:events'
 import _ from 'lodash'
@@ -83,27 +87,26 @@ export class N2kDevice extends EventEmitter {
       this.addressClaim.dst = 255
       this.addressClaim.prio = 6
     } else {
-      this.addressClaim = {
-        pgn: 60928,
-        dst: 255,
-        prio: 6,
-        'Manufacturer Code':
-          options.manufacturerCode != undefined
-            ? options.manufacturerCode
-            : 999,
-        'Device Function': 130, // PC gateway
-        'Device Class': 25, // Inter/Intranetwork Device
-        'Device Instance Lower': 0,
-        'Device Instance Upper': 0,
-        'System Instance': 0,
-        'Industry Group': 4, // Marine
-        Reserved1: 1,
-        Reserved2: 2
-      }
+      this.addressClaim = new PGN_60928(
+        {
+          manufacturerCode:
+            options.manufacturerCode != undefined
+              ? options.manufacturerCode
+              : 999,
+          deviceFunction: 130, // PC gateway
+          deviceClass: 25, // Inter/Intranetwork Device
+          deviceInstanceLower: 0,
+          deviceInstanceUpper: 0,
+          systemInstance: 0,
+          industryGroup: 4, // Marine
+          arbitraryAddressCapable: YesNo.Yes
+        },
+        255
+      )
     }
 
     if (this.addressClaim['Unique Number'] === undefined) {
-      this.addressClaim['Unique Number'] = uniqueNumber
+      this.addressClaim.uniqueNumber = uniqueNumber
     }
 
     const version = packageJson ? packageJson.version : '1.0'
@@ -113,33 +116,28 @@ export class N2kDevice extends EventEmitter {
       this.productInfo.pgn = 126996
       this.productInfo.dst = 255
     } else {
-      this.productInfo = {
-        pgn: 126996,
-        dst: 255,
-        'NMEA 2000 Version': 1300,
-        'Product Code': 667, // Just made up..
-        'Model ID': getServerVersion(options),
-        'Model Version': getModelVersion(options),
-        'Model Serial Code': uniqueNumber.toString(),
-        'Certification Level': 0,
-        'Load Equivalency': 1
-      }
+      this.productInfo = new PGN_126996({
+        nmea2000Version: 1300,
+        productCode: 667, // Just made up..
+        modelId: 'signalk-server',
+        softwareVersionCode: getServerVersion(options),
+        modelVersion: version,
+        modelSerialCode: uniqueNumber.toString(),
+        certificationLevel: 0,
+        loadEquivalency: 1
+      })
     }
 
-    this.productInfo['Software Version Code'] = version
+    const url = getServerURL(options)
 
     if (options.configurationInfo) {
       this.configurationInfo = options.configurationInfo
       this.configurationInfo.pgn = 126998
       this.configurationInfo.dst = 255
-    } else if (options.serverVersion && options.serverUrl) {
-      this.configurationInfo = {
-        pgn: 126998,
-        dst: 255,
-        'Installation Description #1': options.serverUrl,
-        'Installation Description #2': options.serverDescription,
-        'Manufacturer Information': options.serverVersion
-      }
+    } else if (url) {
+      this.configurationInfo = new PGN_126998({
+        installationDescription1: url
+      })
     }
 
     let address: number | undefined = undefined
@@ -256,19 +254,15 @@ export class N2kDevice extends EventEmitter {
   sendPGN(_pgn: PGN, _src: number | undefined = undefined) {}
 }
 
-function getModelVersion(options: any) {
+function getServerURL(options: any) {
   if (options.app?.config?.getExternalHostname !== undefined) {
     return `${options.app.config.ssl ? 'https' : 'http'}://${options.app.config.getExternalHostname()}:${options.app.config.getExternalPort()}`
-  } else {
-    return 'canboatjs'
   }
 }
 
 function getServerVersion(options: any) {
   if (options.app?.config?.version !== undefined) {
-    return `signalk-server@${options.app.config.version}`
-  } else {
-    return 'signalk-server'
+    return options.app.config.version
   }
 }
 
@@ -287,6 +281,10 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
     case 60928: // ISO address claim request
       device.debug('sending address claim')
       device.sendPGN(device.addressClaim as PGN)
+      device.options?.app?.emit(
+        device.options.analyzerOutEvent || 'N2KAnalyzerOut',
+        device.addressClaim
+      )
       break
     case 126464:
       sendPGNList(device, n2kMsg.src!)
@@ -451,10 +449,6 @@ function sendAddressClaim(device: N2kDevice) {
   }
   device.debug(`Sending address claim ${device.address}`)
   device.sendPGN(device.addressClaim)
-  device.options.app.emit(
-    device.options.analyzerOutEvent || 'N2KAnalyzerOut',
-    device.addressClaim
-  )
   const version = packageJson ? packageJson.version : 'unknown'
   device.setStatus(`Claimed address ${device.address} (canboatjs v${version})`)
   device.addressClaimSentAt = Date.now()
@@ -503,22 +497,13 @@ function sendISORequest(
 
 function sendProductInformation(device: N2kDevice) {
   device.debug('Sending product info')
-
   device.sendPGN(device.productInfo)
-  device.options.app.emit(
-    device.options.analyzerOutEvent || 'N2KAnalyzerOut',
-    device.productInfo
-  )
 }
 
 function sendConfigInformation(device: N2kDevice) {
   if (device.configurationInfo) {
     device.debug('Sending config info..')
     device.sendPGN(device.configurationInfo)
-    device.options.app.emit(
-      device.options.analyzerOutEvent || 'N2KAnalyzerOut',
-      device.configurationInfo
-    )
   }
 }
 
