@@ -21,7 +21,6 @@ import {
   PGN_126208_NmeaRequestGroupFunction,
   PGN_126208_NmeaCommandGroupFunction,
   PGN_126208_NmeaAcknowledgeGroupFunction,
-  //PGN_126996,
   PGN_126998,
   PGN_126993,
   PGN_59392,
@@ -31,7 +30,6 @@ import {
   TransmissionInterval,
   IsoControl,
   EquipmentStatus,
-  ManufacturerCode,
   YesNo,
   PGN_126996
 } from '@canboat/ts-pgns'
