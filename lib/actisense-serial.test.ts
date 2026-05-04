@@ -1,4 +1,5 @@
-import { composeMessage } from './actisense-serial'
+import { EventEmitter } from 'events'
+import { ActisenseStream, composeMessage } from './actisense-serial'
 
 const DLE = 0x10
 const STX = 0x02
@@ -104,5 +105,112 @@ describe('composeMessage DLE escaping', () => {
     expect(unframed![0]).toBe(N2K_MSG_SEND)
     expect(unframed![1]).toBe(body.length)
     expect(unframed!.subarray(2)).toEqual(body)
+  })
+})
+
+describe('framing error recovery', () => {
+  test('framing error clears bufferOffset so the next DLE ETX cannot dispatch a stale frame', () => {
+    const app = new EventEmitter()
+    const rawOutputs: string[] = []
+    // signalk-server attaches a 'canboatjs:rawoutput' listener for the
+    // activity log; that's what makes the non-plainText path call
+    // binToActisense and exposes the crash.
+    app.on('canboatjs:rawoutput', (data: string) => rawOutputs.push(data))
+    const stream: any = new (ActisenseStream as any)({
+      fromFile: true,
+      app
+    })
+    // Capture the other downstream sink — `that.push(buffer.slice(2,
+    // len))` — so this test pins both consumers, not just the
+    // rawoutput emit.
+    const downstream: Buffer[] = []
+    stream.on('data', (chunk: Buffer) => downstream.push(chunk))
+
+    // Reproduces the production crash:
+    //   "DLE followed by unexpected char , ignore message"
+    //   "Error: Trying to read past the end of the stream"
+    //
+    // Stage 1 — DLE STX 0x93 0x01 0x6c: start an N2K_MSG_RECEIVED
+    // frame and collect 3 bytes whose sum (147+1+108) is 256 ≡ 0
+    // mod 256, so the checksum check in processN2KMessage will pass
+    // if it ever runs on this stale buffer.
+    stream._transform(
+      Buffer.from([DLE, STX, 0x93, 0x01, 0x6c]),
+      'binary',
+      () => {}
+    )
+    expect(stream.bufferOffset).toBe(3)
+
+    // Stage 2 — DLE 0x99: DLE followed by an unexpected byte; the
+    // framing state machine bails. The fix must clear bufferOffset
+    // here. Asserting it explicitly pins the fix to *this* mechanism
+    // — a future change that drops the bufferOffset reset but keeps
+    // the length guard in processN2KMessage would still hide the
+    // crash, but would fail this assertion.
+    stream._transform(Buffer.from([DLE, 0x99]), 'binary', () => {})
+    expect(stream.bufferOffset).toBe(0)
+
+    // Stage 3 — DLE ETX without an intervening STX. Under the bug
+    // this dispatches processN2KMessage on the stale 3-byte buffer
+    // and BitStream throws "Trying to read past the end". With the
+    // fix, bufferOffset is 0 — but note buffer[0] is *still* 0x93
+    // from the stale frame, so the dispatch in read1Byte's MSG_ESCAPE
+    // / ETX branch still calls processN2KMessage. Both layers of the
+    // fix cooperate: the bufferOffset reset means the call passes
+    // len=0, and the length guard in processN2KMessage rejects it
+    // because the (still-stale) buffer[1] = 1 is below the minimum
+    // declared payload of 11.
+    expect(() => {
+      stream._transform(Buffer.from([DLE, ETX]), 'binary', () => {})
+    }).not.toThrow()
+    expect(rawOutputs).toHaveLength(0)
+    expect(downstream).toHaveLength(0)
+  })
+
+  test('reject Actisense frames whose declared payload is too short for the N2K header', () => {
+    const app = new EventEmitter()
+    const rawOutputs: string[] = []
+    app.on('canboatjs:rawoutput', (data: string) => rawOutputs.push(data))
+    const stream: any = new (ActisenseStream as any)({
+      fromFile: true,
+      app
+    })
+    const downstream: Buffer[] = []
+    stream.on('data', (chunk: Buffer) => downstream.push(chunk))
+
+    // Structurally-valid Actisense frame whose declared payload (10
+    // bytes) is one byte too short to contain the 11-byte N2K header
+    // that binToActisense reads. With no minimum-payload guard,
+    // BitStream succeeds at reading 11 bytes (the buffered total is
+    // long enough), but the byte read as the N2K data-length field
+    // is actually the checksum byte — a silently-misparsed output
+    // line ends up on the rawoutput listener.
+    //   command 0x93 (147) + payloadLen 0x0a (10)
+    //   + 10 zero data bytes (no DLE escaping needed)
+    //   + checksum 0x63 (99)            (sum = 256 ≡ 0 mod 256)
+    const frame = Buffer.from([
+      DLE,
+      STX,
+      0x93,
+      0x0a,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0x63,
+      DLE,
+      ETX
+    ])
+
+    stream._transform(frame, 'binary', () => {})
+
+    expect(rawOutputs).toHaveLength(0)
+    expect(downstream).toHaveLength(0)
   })
 })
