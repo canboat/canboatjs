@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import { PGN } from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
-import { Transform } from 'stream'
+import { EventEmitter, Transform } from 'stream'
 import { Parser as FromPgn } from './fromPgn'
 import { YdDevice } from './yddevice'
 import {
@@ -26,6 +25,13 @@ import {
   actisenseToYdgwFullRawFormat
 } from './toPgn'
 import { parseCanIdStr } from './canId'
+import { DeviceEmulator } from './index'
+import {
+  PGN,
+  PGN_60928,
+  PGN_126998,
+  PGN_126996
+} from '@canboat/ts-pgns'
 import util from 'util'
 
 //const pgnsSent = {}
@@ -45,6 +51,8 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   this.options = options
   this.outEvent = options.ydgwOutEvent || 'ydwg02-out'
   this.device = undefined
+  this.devices =  {}
+  this.supportsDeviceCreation = true
 
   this.fromPgn = new FromPgn(options)
 
@@ -116,7 +124,7 @@ Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
   }
 }
 
-Ydgw02Stream.prototype.sendPGN = function (pgn: PGN) {
+Ydgw02Stream.prototype.sendPGN = function (pgn: PGN, force:boolean): void {
   if (this.cansend() || (pgn as any).forceSend === true) {
     //let now = Date.now()
     //let lastSent = pgnsSent[pgn.pgn]
@@ -190,9 +198,16 @@ Ydgw02Stream.prototype._transform = function (
     return
   }
 
+  if (this.sentAvailable === false && (this.options.createDevice === false || (this.device && this.device.cansend))) {
+    this.sentAvailable = true
+    this.debug('emit nmea2000OutAvailable')
+    this.options.app.emit('nmea2000OutAvailable')
+    this.options.app.emitPropertyValue('canboatjsUtils', { id: this.options.id, utils: this })
+  }
+
   if (this.options.createDevice === true) {
     if (this.device === undefined) {
-      this.device = new YdDevice(this.options)
+      this.device = new YdDevice(this, this.options)
       this.device.start()
     }
     if (this.cansend() && line.charAt(13) === 'T') {
@@ -205,11 +220,6 @@ Ydgw02Stream.prototype._transform = function (
       }
     }
   } else {
-    if (this.sentAvailable === false) {
-      this.sentAvailable = true
-      this.debug('emit nmea2000OutAvailable')
-      this.options.app.emit('nmea2000OutAvailable')
-    }
     if (line.charAt(13) === 'T') {
       //ignore pgns we're transmitting
       done()
@@ -227,9 +237,84 @@ Ydgw02Stream.prototype._transform = function (
       this.options.analyzerOutEvent || 'N2KAnalyzerOut',
       pgn
     )
+    Object.values(this.devices).forEach((device: any) => {
+        const yd = device as YDDeviceEmulator
+        yd.pgnReceived(pgn)
+    })
   }
 
   done()
 }
 
 Ydgw02Stream.prototype.end = function () {}
+
+Ydgw02Stream.prototype.createEmulator = function(id:string, options: any, addressClaim: PGN_60928, productInfo: PGN_126996, configInfo: PGN_126998|undefined): DeviceEmulator {
+  const device = new YDDeviceEmulator(this, id, options, addressClaim, productInfo, configInfo)
+  this.devices[id] = device
+  return device
+}
+
+Ydgw02Stream.prototype.removeEmulator = function(id: string): void {
+  delete this.devices[id]
+}
+
+class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
+  private stream: any
+  private device: YdDevice
+  public config: any
+
+  constructor(stream: any, id: string, options: any, addressClaim: PGN_60928, productInfo: PGN_126996, configInfo: PGN_126998|undefined){
+    super()
+    this.stream = stream
+    this.config = { configPath: stream.options.app?.config?.configPath }
+    this.device = new YdDevice(this, {
+      app: this,
+      providerId: 'emulator-' + id,
+      addressClaim,
+      productInfo,
+      configurationInfo: configInfo
+    })
+    this.device.start()
+  }
+
+  pgnReceived(pgn: PGN) {
+    this.emit('pgn', pgn)
+    this.emit('N2KAnalyzerOut', pgn)
+  }
+
+  sendPGN(pgn: PGN, force:boolean): void {
+    if (force || this.device.cansend) {
+      if (pgn.src !== 254) {
+        pgn.src = this.device.address
+      }
+      const msgs = pgnToYdgwFullRawFormat(pgn)
+
+      msgs.forEach((raw) => {
+        this.stream.sendString(raw + '\r\n', (pgn as any).forceSend)
+      })
+    }
+  }
+
+  send(pgn: PGN|string): void {
+    if (typeof pgn === 'string') {
+      const src = this.device.address
+
+      const split = pgn.split(',')
+      split[3] = src.toString()
+      pgn = split.join(',')
+
+      const msgs = actisenseToYdgwFullRawFormat(pgn)
+
+      msgs.forEach((raw) => {
+        this.stream.sendString(raw + '\r\n')
+      })
+
+    } else {
+      this.sendPGN(pgn, false)
+    }
+  }
+
+  onPGN(cb: (pgn: PGN) => void): void {
+    this.on('pgn', cb)
+  }
+}

@@ -73,3 +73,24 @@ import { getEnumerationValue, getEnumerationName } from '@canboat/ts-pgns'
 
 export const lookupEnumerationValue = getEnumerationValue
 export const lookupEnumerationName = getEnumerationName
+
+import { PGN, PGN_60928, PGN_126998, PGN_126996 } from '@canboat/ts-pgns'
+
+export interface DeviceEmulator {
+  send(pgn: PGN | string): void
+  onPGN(cb: (pgn: PGN) => void): void
+}
+
+export interface CanboatUtilities {
+  supportsDeviceCreation: boolean
+
+  createEmulator: (
+    id: string,
+    options: any,
+    addressClaim: PGN_60928,
+    productInfo: PGN_126996,
+    configInfo: PGN_126998 | undefined
+  ) => DeviceEmulator
+
+  removeEmulator: (id: string) => void
+}

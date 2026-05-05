@@ -1,10 +1,18 @@
 {
+  "extends": "@tsconfig/node20/tsconfig.json",
   "compilerOptions": {
-    "target": "es5",
-    "module": "commonjs",
+    "outDir": "${configDir}/dist",
+    "rootDir": "${configDir}/src",
+    "allowJs": true,
+    "typeRoots": ["./node_modules/@types"],
+    "resolveJsonModule": true,
     "declaration": true,
-    "rootDir": "src",
-    "outDir": "./dist",
-    "strict": true
-  }
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true
+  },
+  "ts-node": {
+    "files": true
+  },
+  "include": ["./src/**/*.ts"]
 }

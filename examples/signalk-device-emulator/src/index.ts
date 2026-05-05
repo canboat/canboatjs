@@ -13,137 +13,124 @@
  * limitations under the License.
  */
 
-const canboatjs = require('@canboat/canboatjs')
-const util = require('util')
+/// <reference types="node" />
 
-const keepAlivePGN = '%s,7,65305,%s,255,8,41,9f,01,17,1c,01,00,00'
+import { ServerAPI, Plugin, PropertyValue } from '@signalk/server-api'
 
-export default function (app: any) {
-  const error = app.error
-  const debug = app.debug
-  let props: any
+import {
+  PGN,
+  PGN_60928,
+  PGN_126998,
+  PGN_126996,
+  ManufacturerCode,
+  DeviceFunction,
+  DeviceClass,
+  YesNo,
+  IndustryCode
+} from '@canboat/ts-pgns'
+
+import { DeviceEmulator, CanboatUtilities } from '@canboat/canboatjs'
+
+const start = (app: ServerAPI) => {
   let onStop: any = []
-  let device: any
+  let emulator: DeviceEmulator | undefined = undefined
+  let utils: CanboatUtilities | undefined = undefined
 
   const plugin: Plugin = {
-    start: function (properties: any) {
-      props = properties
+    start: (_properties: any, _restartPluginParam) => {
+      app.onPropertyValues(
+        'canboatjsUtils',
+        (propValuesHistory: (PropertyValue | undefined)[]) => {
+          
+          if (propValuesHistory !== undefined) {
+            propValuesHistory.forEach((propValue) => {
+              if ( emulator !== undefined ) {
+                //make we don't create multiple emulators if we get multiple events
+                return
+              }
 
-
-      let n2kOptions = {
-        app,
-        canDevice: props.candevice,
-        preferredAddress: props.sourceAddress,
-        disableDefaultTransmitPGNs: true,
-        transmitPGNs: [126996],
-        addressClaim: {
-          'Unique Number': 1731561,
-          'Manufacturer Code': 'Navico',
-          'Device Function': 190,
-          'Device Class': 'Internal Environment',
-          'Device Instance Lower': 0,
-          'Device Instance Upper': 0,
-          'System Instance': 0,
-          'Industry Group': 'Marine'
-        },
-        productInfo: {
-          'NMEA 2000 Version': 2100,
-          'Product Code': 246,
-          'Model ID': 'H5000 CPU',
-          'Software Version Code': '2.0.45.0.29',
-          'Model Version': '',
-          'Model Serial Code': '005469',
-          'Certification Level': 2,
-          'Load Equivalency': 1
+              if (propValue !== undefined) {
+                utils = (propValue.value as any)
+                  .utils as CanboatUtilities
+                if (utils.supportsDeviceCreation) {
+                  emulator = utils.createEmulator(
+                    plugin.id,
+                    {},
+                    new PGN_60928({
+                      manufacturerCode: ManufacturerCode.BepMarine,
+                      deviceFunction: DeviceFunction.SwitchInterface,
+                      deviceClass: DeviceClass.ElectricalDistribution,
+                      deviceInstanceLower: 0,
+                      deviceInstanceUpper: 0,
+                      systemInstance: 0,
+                      industryGroup: IndustryCode.Marine,
+                      arbitraryAddressCapable: YesNo.Yes
+                    }),
+                    new PGN_126996({
+                      nmea2000Version: 1300,
+                      productCode: 100,
+                      modelId: 'mock-czone-device',
+                      softwareVersionCode: '1.0',
+                      modelVersion: '1.0',
+                      modelSerialCode: '123456',
+                      certificationLevel: 0,
+                      loadEquivalency: 1
+                    }),
+                    new PGN_126998({
+                      installationDescription1: 'Signal K Device Emulator'
+                    })
+                  )
+                  emulator = utils.createEmulator(
+                    plugin.id,
+                    {},
+                    new PGN_60928({
+                      manufacturerCode: ManufacturerCode.BepMarine,
+                      deviceFunction: DeviceFunction.SwitchInterface,
+                      deviceClass: DeviceClass.ElectricalDistribution,
+                      deviceInstanceLower: 0,
+                      deviceInstanceUpper: 0,
+                      systemInstance: 0,
+                      industryGroup: IndustryCode.Marine,
+                      arbitraryAddressCapable: YesNo.Yes
+                    }),
+                    new PGN_126996({
+                      nmea2000Version: 1300,
+                      productCode: 100,
+                      modelId: 'mock-czone-device',
+                      softwareVersionCode: '1.0',
+                      modelVersion: '1.0',
+                      modelSerialCode: '123456',
+                      certificationLevel: 0,
+                      loadEquivalency: 1
+                    }),
+                    new PGN_126998({
+                      installationDescription1: 'Signal K Device Emulator'
+                    })
+                  )
+                  emulator.onPGN((_pgn: PGN) => { })
+                }
+              }
+            })
+          }
         }
-      }
-
-      if ( props.emulationType === 'socketcan' ) {
-        device = new canboatjs.SimpleCan(n2kOptions)
-        device.start()
-      } else {
-        app.on('nmea2000OutAvailable', () => {
-          device = new canboatjs.YdDevice(n2kOptions)
-          device.start()
-        })
-      }
-      
-      const timer = setInterval(() => {
-        this.sendKeepAlive()
-      }, 1000)
-      
-      onStop.push(() => { clearInterval(timer) })
+      )
     },
-    
-    sendKeepAlive: () =>  {
-      let msg = util.format(keepAlivePGN, (new Date()).toISOString(),
-                            device.address)
-      device.sendActisenseFormat(msg)
 
-      /*
-      device.sendPGN({
-        "prio":2,
-        "dst":255,
-        "pgn":127245,
-        "fields":{
-          "Instance":252,
-          "Direction Order":4,
-          "Angle Order":-0.0021,
-          "Position":-0.0029,
-          "Reserved1":null,
-          "Reserved2":null
-        }
-        })
-        */
-    },
-    
     stop: function () {
       onStop.forEach((f: any) => f())
       onStop = []
+      utils?.removeEmulator(plugin.id)
     },
 
     id: 'signalk-device-emulator',
-    name: 'signalk-device-emulator',
-    description: 'signalk-device-emulator',
+    name: 'Signal K Device Emulator',
+    description: 'Signal K Plugin to emulate a candevice',
 
-    schema: () => {
-      const schema: any = {
-        type: 'object',
-        properties: {
-          emulationType: {
-            type: 'string',
-            title: 'Emulation Device',
-            enum: ['socketcan', 'yd'],
-            enumNames: [
-            'SocketCan',
-            'Yacht Devices'
-            ],
-            default: 'yd'
-          },
-          candevice: {
-            type: "string",
-            title: "Candevice to use for device emulation)",
-            default: "can0"
-          },
-          sourceAddress: {
-            type: "number",
-            title: "Source device id for device emulation to use.",
-            default: 199
-          },
-        }
-      }
-      return schema
-    }
+    schema: {}
   }
+
   return plugin
 }
 
-interface Plugin {
-  start: (app: any) => void
-  stop: () => void
-  sendKeepAlive: () => void
-  id: string
-  name: string
-  description: string
-  schema: any
-}
+module.exports = start
+export default start
