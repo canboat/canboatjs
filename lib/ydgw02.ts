@@ -200,8 +200,10 @@ Ydgw02Stream.prototype._transform = function (
 
   if (this.sentAvailable === false && (this.options.createDevice === false || (this.device && this.device.cansend))) {
     this.sentAvailable = true
-    this.debug('emit nmea2000OutAvailable')
-    this.options.app.emit('nmea2000OutAvailable')
+    if ( this.options.createDevice === false ) {
+      this.debug('emit nmea2000OutAvailable')
+      this.options.app.emit('nmea2000OutAvailable')
+    }
     this.options.app.emitPropertyValue('canboatjsUtils', { id: this.options.id, utils: this })
   }
 
