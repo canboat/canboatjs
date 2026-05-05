@@ -15,12 +15,7 @@
  */
 
 import { DeviceEmulator } from './index'
-import {
-  PGN,
-  PGN_60928,
-  PGN_126998,
-  PGN_126996
-} from '@canboat/ts-pgns'
+import { PGN, PGN_60928, PGN_126998, PGN_126996 } from '@canboat/ts-pgns'
 import { createDebug, byteStringArray } from './utilities'
 import { Transform, EventEmitter } from 'stream'
 import { toPgn } from './toPgn'
@@ -46,6 +41,7 @@ export function CanbusStream(this: any, options: any) {
   this.supportsDeviceCreation = true
   this.sentUtils = false
   this.plainText = false
+  this.devices = {}
   this.options = options
   this.reconnecting = false // Guard flag to prevent concurrent reconnections
   this.stoppingChannel = false // Flag to track intentional stops
@@ -261,6 +257,24 @@ CanbusStream.prototype.connect = function () {
         that.push(data)
       }
     })
+
+    // Fan inbound parsed PGNs out to emulator devices so plugins that
+    // created an emulator via createEmulator() can receive bus traffic
+    // through the emulator's onPGN() callback.
+    if (this.options.app) {
+      const analyzerOutEvent = this.options.analyzerOutEvent || 'N2KAnalyzerOut'
+      const fanOut = (pgn: any) => {
+        const ids = Object.keys(this.devices)
+        for (const id of ids) {
+          const emulator = this.devices[id]
+          if (emulator && typeof emulator.pgnReceived === 'function') {
+            emulator.pgnReceived(pgn)
+          }
+        }
+      }
+      this.options.app.on(analyzerOutEvent, fanOut)
+      this._emulatorFanOut = fanOut
+    }
     this.channel.start()
     this.setProviderStatus('Connected to CAN bus')
     this.candevice = new CanDevice(this, this.options)
@@ -276,8 +290,11 @@ CanbusStream.prototype.connect = function () {
       console.log(`Successfully connected to ${canDevice}`)
     }
 
-    if (this.sentUtils === false && this.options.app.emitPropertyValue ) {
-      this.options.app.emitPropertyValue('canboatjsUtils', { id: this.options.id, utils: this })
+    if (this.sentUtils === false && this.options.app.emitPropertyValue) {
+      this.options.app.emitPropertyValue('canboatjsUtils', {
+        id: this.options.id,
+        utils: this
+      })
       this.sentUtils = true
     }
 
@@ -306,18 +323,32 @@ util.inherits(CanbusStream, Transform)
 
 CanbusStream.prototype.start = function () {}
 
-CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
-  return this.sendPGN(msg, this.candevice, force)
-}
-
-CanbusStream.prototype.sendPGN = function (msg: any, candevice: CanDevice, force: boolean) {
+CanbusStream.prototype.sendPGN = function (
+  msg: any,
+  force?: boolean | CanDevice,
+  forceArg?: boolean
+) {
+  // The function accepts two call shapes:
+  //   sendPGN(msg, force?: boolean)            — used by all existing callers
+  //   sendPGN(msg, candevice, force?: boolean) — used by per-emulator path
+  // JavaScript prototypes can only hold one definition for a given property,
+  // so we discriminate on the type of the second argument.
+  let candevice: CanDevice
+  let actualForce: boolean | undefined
+  if (force && typeof force === 'object') {
+    candevice = force
+    actualForce = forceArg
+  } else {
+    candevice = this.candevice
+    actualForce = force as boolean | undefined
+  }
 
   if (this.candevice) {
     if (!this.channel) {
       return
     }
     //if ( !this.candevice.cansend && (_.isString(msg) || msg.pgn !== 59904) ) {
-    if (!candevice.cansend && force !== true) {
+    if (!candevice.cansend && actualForce !== true) {
       //we have not completed address claim yet
       return
     }
@@ -331,9 +362,7 @@ CanbusStream.prototype.sendPGN = function (msg: any, candevice: CanDevice, force
     }
 
     const src =
-      _.isString(msg) === false && msg.forceSrc
-        ? msg.src
-        : candevice.address
+      _.isString(msg) === false && msg.forceSrc ? msg.src : candevice.address
     if (_.isString(msg)) {
       const split = msg.split(',')
       split[3] = src
@@ -476,13 +505,26 @@ CanbusStream.prototype.pipe = function (pipeTo: any) {
   return (CanbusStream as any).super_.prototype.pipe.call(this, pipeTo)
 }
 
-CanbusStream.prototype.createEmulator = function(id:string, options: any, addressClaim: PGN_60928, productInfo: PGN_126996, configInfo: PGN_126998|undefined): DeviceEmulator {
-  const device = new CanbusDeviceEmulator(this, id, options, addressClaim, productInfo, configInfo)
+CanbusStream.prototype.createEmulator = function (
+  id: string,
+  options: any,
+  addressClaim: PGN_60928,
+  productInfo: PGN_126996,
+  configInfo: PGN_126998 | undefined
+): DeviceEmulator {
+  const device = new CanbusDeviceEmulator(
+    this,
+    id,
+    options,
+    addressClaim,
+    productInfo,
+    configInfo
+  )
   this.devices[id] = device
   return device
 }
 
-CanbusStream.prototype.removeEmulator = function(id: string): void {
+CanbusStream.prototype.removeEmulator = function (id: string): void {
   delete this.devices[id]
 }
 
@@ -491,7 +533,14 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
   private device: CanDevice
   public config: any
 
-  constructor(stream: any, id: string, options: any, addressClaim: PGN_60928, productInfo: PGN_126996, configInfo: PGN_126998|undefined){
+  constructor(
+    stream: any,
+    id: string,
+    options: any,
+    addressClaim: PGN_60928,
+    productInfo: PGN_126996,
+    configInfo: PGN_126998 | undefined
+  ) {
     super()
     this.stream = stream
     this.config = { configPath: stream.options.app?.config?.configPath }
@@ -510,11 +559,11 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
     this.emit('N2KAnalyzerOut', pgn)
   }
 
-  sendPGN(pgn: PGN, force:boolean): void {
+  sendPGN(pgn: PGN, force: boolean): void {
     this.stream.sendPGN(pgn, this.device, force)
   }
 
-  send(pgn: PGN|string): void {
+  send(pgn: PGN | string): void {
     this.stream.sendPGN(pgn, this.device, false)
   }
 

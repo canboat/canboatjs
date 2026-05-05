@@ -37,6 +37,7 @@ export function SimpleCan(
   this.options = options
   this.messageCb = messageCb
   this.plainText = false
+  this.debug = createDebug('canboatjs:n2k-out', options)
 }
 
 SimpleCan.prototype.start = function () {
@@ -46,6 +47,17 @@ SimpleCan.prototype.start = function () {
   if (this.messageCb) {
     this.channel.addListener('onMessage', (msg: any) => {
       const pgn = parseCanId(msg.id)
+
+      // Drop frames the device emitted itself. Without this filter, the
+      // device sees its own announces and heartbeats coming back in via
+      // the socketcan loopback and treats them as real bus traffic.
+      if (
+        this.candevice &&
+        this.candevice.cansend &&
+        pgn.src == this.candevice.address
+      ) {
+        return
+      }
 
       const timestamp = new Date().toISOString()
       if (this.plainText) {

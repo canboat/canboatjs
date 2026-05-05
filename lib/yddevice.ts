@@ -16,21 +16,18 @@
 
 import { PGN } from '@canboat/ts-pgns'
 import { N2kDevice } from './n2kDevice'
-import { actisenseToYdgwFullRawFormat } from './toPgn'
 
 export class YdDevice extends N2kDevice {
   yd: any
   app: any
 
-  constructor(yd:any, options: any) {
+  constructor(yd: any, options: any) {
     super(options, 'canboatjs:yddevice')
     this.yd = yd
     this.app = options.app
 
     const analyzerOutEvent = options.analyzerOutEvent || 'N2KAnalyzerOut'
-
     this.app.on(analyzerOutEvent, this.n2kMessage.bind(this))
-
   }
 
   sendPGN(pgn: PGN, src: number | undefined = undefined) {
@@ -39,14 +36,8 @@ export class YdDevice extends N2kDevice {
     const ppgn = pgn as any //FIXME??
     ppgn.ydFullFormat = true
     ppgn.forceSend = true
-    
+
     this.debug('Sending PGN %j', pgn)
     this.yd.sendPGN(pgn, true)
   }
-
-  /*
-  sendActisenseFormat(msg: string) {
-    this.app.emit('ydFullRawOut', actisenseToYdgwFullRawFormat(msg))
-  }
-    */
 }
