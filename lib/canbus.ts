@@ -276,7 +276,7 @@ CanbusStream.prototype.connect = function () {
       console.log(`Successfully connected to ${canDevice}`)
     }
 
-    if (this.sentUtils === false) {
+    if (this.sentUtils === false && this.options.app.emitPropertyValue ) {
       this.options.app.emitPropertyValue('canboatjsUtils', { id: this.options.id, utils: this })
       this.sentUtils = true
     }
