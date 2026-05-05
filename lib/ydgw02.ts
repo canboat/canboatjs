@@ -26,12 +26,7 @@ import {
 } from './toPgn'
 import { parseCanIdStr } from './canId'
 import { DeviceEmulator } from './index'
-import {
-  PGN,
-  PGN_60928,
-  PGN_126998,
-  PGN_126996
-} from '@canboat/ts-pgns'
+import { PGN, PGN_60928, PGN_126998, PGN_126996 } from '@canboat/ts-pgns'
 import util from 'util'
 
 //const pgnsSent = {}
@@ -51,7 +46,7 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   this.options = options
   this.outEvent = options.ydgwOutEvent || 'ydwg02-out'
   this.device = undefined
-  this.devices =  {}
+  this.devices = {}
   this.supportsDeviceCreation = true
 
   this.fromPgn = new FromPgn(options)
@@ -124,8 +119,8 @@ Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
   }
 }
 
-Ydgw02Stream.prototype.sendPGN = function (pgn: PGN, force:boolean): void {
-  if (this.cansend() || (pgn as any).forceSend === true) {
+Ydgw02Stream.prototype.sendPGN = function (pgn: PGN, force?: boolean): void {
+  if (this.cansend() || (pgn as any).forceSend === true || force === true) {
     //let now = Date.now()
     //let lastSent = pgnsSent[pgn.pgn]
     let msgs
@@ -198,14 +193,21 @@ Ydgw02Stream.prototype._transform = function (
     return
   }
 
-  if (this.sentAvailable === false && (this.options.createDevice === false || (this.device && this.device.cansend))) {
+  if (
+    this.sentAvailable === false &&
+    (this.options.createDevice === false ||
+      (this.device && this.device.cansend))
+  ) {
     this.sentAvailable = true
-    if ( this.options.createDevice === false ) {
+    if (this.options.createDevice === false) {
       this.debug('emit nmea2000OutAvailable')
       this.options.app.emit('nmea2000OutAvailable')
     }
-    if (this.options.app.emitPropertyValue ) {
-      this.options.app.emitPropertyValue('canboatjsUtils', { id: this.options.id, utils: this })
+    if (this.options.app.emitPropertyValue) {
+      this.options.app.emitPropertyValue('canboatjsUtils', {
+        id: this.options.id,
+        utils: this
+      })
     }
   }
 
@@ -242,8 +244,8 @@ Ydgw02Stream.prototype._transform = function (
       pgn
     )
     Object.values(this.devices).forEach((device: any) => {
-        const yd = device as YDDeviceEmulator
-        yd.pgnReceived(pgn)
+      const yd = device as YDDeviceEmulator
+      yd.pgnReceived(pgn)
     })
   }
 
@@ -252,13 +254,26 @@ Ydgw02Stream.prototype._transform = function (
 
 Ydgw02Stream.prototype.end = function () {}
 
-Ydgw02Stream.prototype.createEmulator = function(id:string, options: any, addressClaim: PGN_60928, productInfo: PGN_126996, configInfo: PGN_126998|undefined): DeviceEmulator {
-  const device = new YDDeviceEmulator(this, id, options, addressClaim, productInfo, configInfo)
+Ydgw02Stream.prototype.createEmulator = function (
+  id: string,
+  options: any,
+  addressClaim: PGN_60928,
+  productInfo: PGN_126996,
+  configInfo: PGN_126998 | undefined
+): DeviceEmulator {
+  const device = new YDDeviceEmulator(
+    this,
+    id,
+    options,
+    addressClaim,
+    productInfo,
+    configInfo
+  )
   this.devices[id] = device
   return device
 }
 
-Ydgw02Stream.prototype.removeEmulator = function(id: string): void {
+Ydgw02Stream.prototype.removeEmulator = function (id: string): void {
   delete this.devices[id]
 }
 
@@ -267,7 +282,14 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
   private device: YdDevice
   public config: any
 
-  constructor(stream: any, id: string, options: any, addressClaim: PGN_60928, productInfo: PGN_126996, configInfo: PGN_126998|undefined){
+  constructor(
+    stream: any,
+    id: string,
+    options: any,
+    addressClaim: PGN_60928,
+    productInfo: PGN_126996,
+    configInfo: PGN_126998 | undefined
+  ) {
     super()
     this.stream = stream
     this.config = { configPath: stream.options.app?.config?.configPath }
@@ -286,7 +308,7 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
     this.emit('N2KAnalyzerOut', pgn)
   }
 
-  sendPGN(pgn: PGN, force:boolean): void {
+  sendPGN(pgn: PGN, force: boolean): void {
     if (force || this.device.cansend) {
       if (pgn.src !== 254) {
         pgn.src = this.device.address
@@ -299,7 +321,7 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
     }
   }
 
-  send(pgn: PGN|string): void {
+  send(pgn: PGN | string): void {
     if (typeof pgn === 'string') {
       const src = this.device.address
 
@@ -312,7 +334,6 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
       msgs.forEach((raw) => {
         this.stream.sendString(raw + '\r\n')
       })
-
     } else {
       this.sendPGN(pgn, false)
     }

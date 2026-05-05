@@ -80,33 +80,6 @@ const start = (app: ServerAPI) => {
                       installationDescription1: 'Signal K Device Emulator'
                     })
                   )
-                  emulator = utils.createEmulator(
-                    plugin.id,
-                    {},
-                    new PGN_60928({
-                      manufacturerCode: ManufacturerCode.BepMarine,
-                      deviceFunction: DeviceFunction.SwitchInterface,
-                      deviceClass: DeviceClass.ElectricalDistribution,
-                      deviceInstanceLower: 0,
-                      deviceInstanceUpper: 0,
-                      systemInstance: 0,
-                      industryGroup: IndustryCode.Marine,
-                      arbitraryAddressCapable: YesNo.Yes
-                    }),
-                    new PGN_126996({
-                      nmea2000Version: 1300,
-                      productCode: 100,
-                      modelId: 'mock-czone-device',
-                      softwareVersionCode: '1.0',
-                      modelVersion: '1.0',
-                      modelSerialCode: '123456',
-                      certificationLevel: 0,
-                      loadEquivalency: 1
-                    }),
-                    new PGN_126998({
-                      installationDescription1: 'Signal K Device Emulator'
-                    })
-                  )
                   emulator.onPGN((_pgn: PGN) => { })
                 }
               }
