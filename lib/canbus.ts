@@ -44,6 +44,7 @@ export function CanbusStream(this: any, options: any) {
   })
 
   this.supportsDeviceCreation = true
+  this.sentUtils = false
   this.plainText = false
   this.options = options
   this.reconnecting = false // Guard flag to prevent concurrent reconnections
@@ -273,6 +274,11 @@ CanbusStream.prototype.connect = function () {
 
     if (this.options.app) {
       console.log(`Successfully connected to ${canDevice}`)
+    }
+
+    if (this.sentUtils === false) {
+      this.options.app.emitPropertyValue('canboatjsUtils', { id: this.options.id, utils: this })
+      this.sentUtils = true
     }
 
     return true
