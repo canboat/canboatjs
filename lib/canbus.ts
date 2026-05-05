@@ -326,29 +326,17 @@ CanbusStream.prototype.start = function () {}
 CanbusStream.prototype.sendPGN = function (
   msg: any,
   force?: boolean | CanDevice,
-  forceArg?: boolean
+  candeviceArg: CanDevice | undefined = undefined
 ) {
-  // The function accepts two call shapes:
-  //   sendPGN(msg, force?: boolean)            — used by all existing callers
-  //   sendPGN(msg, candevice, force?: boolean) — used by per-emulator path
-  // JavaScript prototypes can only hold one definition for a given property,
-  // so we discriminate on the type of the second argument.
-  let candevice: CanDevice
-  let actualForce: boolean | undefined
-  if (force && typeof force === 'object') {
-    candevice = force
-    actualForce = forceArg
-  } else {
-    candevice = this.candevice
-    actualForce = force as boolean | undefined
-  }
 
   if (this.candevice) {
     if (!this.channel) {
       return
     }
-    //if ( !this.candevice.cansend && (_.isString(msg) || msg.pgn !== 59904) ) {
-    if (!candevice.cansend && actualForce !== true) {
+
+    let candevice: CanDevice = candeviceArg || this.candevice
+
+    if (!candevice.cansend && force !== true) {
       //we have not completed address claim yet
       return
     }
@@ -560,11 +548,11 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
   }
 
   sendPGN(pgn: PGN, force: boolean): void {
-    this.stream.sendPGN(pgn, this.device, force)
+    this.stream.sendPGN(pgn, force, this.device)
   }
 
   send(pgn: PGN | string): void {
-    this.stream.sendPGN(pgn, this.device, false)
+    this.stream.sendPGN(pgn, false, this.device)
   }
 
   onPGN(cb: (pgn: PGN) => void): void {
