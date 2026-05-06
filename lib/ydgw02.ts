@@ -274,7 +274,11 @@ Ydgw02Stream.prototype.createEmulator = function (
 }
 
 Ydgw02Stream.prototype.removeEmulator = function (id: string): void {
-  delete this.devices[id]
+  const device: YDDeviceEmulator = this.devices[id]
+  if (device) {
+    device.stop()
+    delete this.devices[id]
+  }
 }
 
 class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
@@ -303,8 +307,12 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
     this.device.start()
   }
 
+  stop() {
+    this.device.stop()
+    this.removeAllListeners()
+  }
+
   pgnReceived(pgn: PGN) {
-    this.emit('pgn', pgn)
     this.emit('N2KAnalyzerOut', pgn)
   }
 
@@ -340,6 +348,6 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
   }
 
   onPGN(cb: (pgn: PGN) => void): void {
-    this.on('pgn', cb)
+    this.on('N2KAnalyzerOut', cb)
   }
 }

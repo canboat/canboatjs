@@ -258,23 +258,6 @@ CanbusStream.prototype.connect = function () {
       }
     })
 
-    // Fan inbound parsed PGNs out to emulator devices so plugins that
-    // created an emulator via createEmulator() can receive bus traffic
-    // through the emulator's onPGN() callback.
-    if (this.options.app) {
-      const analyzerOutEvent = this.options.analyzerOutEvent || 'N2KAnalyzerOut'
-      const fanOut = (pgn: any) => {
-        const ids = Object.keys(this.devices)
-        for (const id of ids) {
-          const emulator = this.devices[id]
-          if (emulator && typeof emulator.pgnReceived === 'function') {
-            emulator.pgnReceived(pgn)
-          }
-        }
-      }
-      this.options.app.on(analyzerOutEvent, fanOut)
-      this._emulatorFanOut = fanOut
-    }
     this.channel.start()
     this.setProviderStatus('Connected to CAN bus')
     this.candevice = new CanDevice(this, this.options)
@@ -328,13 +311,12 @@ CanbusStream.prototype.sendPGN = function (
   force?: boolean | CanDevice,
   candeviceArg: CanDevice | undefined = undefined
 ) {
-
   if (this.candevice) {
     if (!this.channel) {
       return
     }
 
-    let candevice: CanDevice = candeviceArg || this.candevice
+    const candevice: CanDevice = candeviceArg || this.candevice
 
     if (!candevice.cansend && force !== true) {
       //we have not completed address claim yet
@@ -513,13 +495,18 @@ CanbusStream.prototype.createEmulator = function (
 }
 
 CanbusStream.prototype.removeEmulator = function (id: string): void {
-  delete this.devices[id]
+  const device: CanbusDeviceEmulator = this.devices[id]
+  if (device) {
+    device.stop()
+    delete this.devices[id]
+  }
 }
 
 class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
   private stream: any
   private device: CanDevice
   public config: any
+  private boundListener: any
 
   constructor(
     stream: any,
@@ -540,10 +527,26 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
       configurationInfo: configInfo
     })
     this.device.start()
+    this.boundListener = this.pgnReceived.bind(this)
+    stream.options.app.on(
+      stream.options.analyzerOutEvent || 'N2KAnalyzerOut',
+      this.boundListener
+    )
+  }
+
+  stop() {
+    this.device.stop()
+    if (this.boundListener) {
+      this.stream.options.app.removeListener(
+        this.stream.options.analyzerOutEvent || 'N2KAnalyzerOut',
+        this.boundListener
+      )
+    }
+    this.boundListener = undefined
+    this.removeAllListeners()
   }
 
   pgnReceived(pgn: PGN) {
-    this.emit('pgn', pgn)
     this.emit('N2KAnalyzerOut', pgn)
   }
 
@@ -556,6 +559,6 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
   }
 
   onPGN(cb: (pgn: PGN) => void): void {
-    this.on('pgn', cb)
+    this.on('N2KAnalyzerOut', cb)
   }
 }
