@@ -284,6 +284,7 @@ Ydgw02Stream.prototype.removeEmulator = function (id: string): void {
 class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
   private stream: any
   private device: YdDevice
+  private id: string
   public config: any
 
   constructor(
@@ -296,6 +297,7 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
   ) {
     super()
     this.stream = stream
+    this.id = id
     this.config = { configPath: stream.options.app?.config?.configPath }
     this.device = new YdDevice(this, {
       app: this,
@@ -349,5 +351,13 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
 
   onPGN(cb: (pgn: PGN) => void): void {
     this.on('N2KAnalyzerOut', cb)
+  }
+
+  setProviderError(id: string, error: string): void {
+    console.error(`${id}:${this.id} ${error}`)
+  }
+
+  setProviderStatus(id: string, status: string): void {
+    console.log(`${id}:${this.id} ${status}`)
   }
 }

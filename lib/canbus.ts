@@ -561,4 +561,12 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
   onPGN(cb: (pgn: PGN) => void): void {
     this.on('N2KAnalyzerOut', cb)
   }
+
+  setProviderError(id: string, error: string): void {
+    console.error(`${id}:${this.id} ${error}`)
+  }
+
+  setProviderStatus(id: string, status: string): void {
+    console.log(`${id}:${this.id} ${status}`)
+  }
 }
