@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-import { PGN } from '@canboat/ts-pgns'
+import { DeviceEmulator } from './index'
+import { PGN, PGN_60928, PGN_126998, PGN_126996 } from '@canboat/ts-pgns'
 import { createDebug, byteStringArray } from './utilities'
-import { Transform } from 'stream'
+import { Transform, EventEmitter } from 'stream'
 import { toPgn } from './toPgn'
 import _ from 'lodash'
 import { CanDevice } from './candevice'
@@ -37,7 +38,10 @@ export function CanbusStream(this: any, options: any) {
     objectMode: true
   })
 
+  this.supportsDeviceCreation = true
+  this.sentUtils = false
   this.plainText = false
+  this.devices = {}
   this.options = options
   this.reconnecting = false // Guard flag to prevent concurrent reconnections
   this.stoppingChannel = false // Flag to track intentional stops
@@ -253,6 +257,7 @@ CanbusStream.prototype.connect = function () {
         that.push(data)
       }
     })
+
     this.channel.start()
     this.setProviderStatus('Connected to CAN bus')
     this.candevice = new CanDevice(this, this.options)
@@ -266,6 +271,14 @@ CanbusStream.prototype.connect = function () {
 
     if (this.options.app) {
       console.log(`Successfully connected to ${canDevice}`)
+    }
+
+    if (this.sentUtils === false && this.options.app.emitPropertyValue) {
+      this.options.app.emitPropertyValue('canboatjsUtils', {
+        id: this.options.id,
+        utils: this
+      })
+      this.sentUtils = true
     }
 
     return true
@@ -293,13 +306,19 @@ util.inherits(CanbusStream, Transform)
 
 CanbusStream.prototype.start = function () {}
 
-CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
+CanbusStream.prototype.sendPGN = function (
+  msg: any,
+  force?: boolean | CanDevice,
+  candeviceArg: CanDevice | undefined = undefined
+) {
   if (this.candevice) {
     if (!this.channel) {
       return
     }
-    //if ( !this.candevice.cansend && (_.isString(msg) || msg.pgn !== 59904) ) {
-    if (!this.candevice.cansend && force !== true) {
+
+    const candevice: CanDevice = candeviceArg || this.candevice
+
+    if (!candevice.cansend && force !== true) {
       //we have not completed address claim yet
       return
     }
@@ -313,9 +332,7 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
     }
 
     const src =
-      _.isString(msg) === false && msg.forceSrc
-        ? msg.src
-        : this.candevice.address
+      _.isString(msg) === false && msg.forceSrc ? msg.src : candevice.address
     if (_.isString(msg)) {
       const split = msg.split(',')
       split[3] = src
@@ -330,78 +347,42 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
       }
     }
 
-    if (this.socketCanWriter) {
-      if (_.isString(msg)) {
-        this.socketCanWriter.stdin.write(msg + '\n')
-      } else {
-        const str = toActisenseSerialFormat(
-          msg.pgn,
-          toPgn(msg),
-          msg.dst,
-          msg.src
-        )
-        this.socketCanWriter.stdin.write(str + '\n')
-      }
-    } else if (this.channel) {
-      let canid: number
-      let buffer: Buffer | undefined
-      let pgn: any
+    let canid: number
+    let buffer: Buffer | undefined
+    let pgn: any
 
-      if (_.isObject(msg)) {
-        canid = encodeCanId(msg as CanID)
-        buffer = toPgn(msg)
-        pgn = msg
-      } else {
-        pgn = parseActisense(msg)
-        canid = encodeCanId(pgn)
-        buffer = pgn.data
-      }
+    if (_.isObject(msg)) {
+      canid = encodeCanId(msg as CanID)
+      buffer = toPgn(msg)
+      pgn = msg
+    } else {
+      pgn = parseActisense(msg)
+      canid = encodeCanId(pgn)
+      buffer = pgn.data
+    }
 
-      if (this.debug.enabled) {
-        const str = toActisenseSerialFormat(pgn.pgn, buffer, pgn.dst, pgn.src)
-        this.debug(str)
-      }
+    if (this.debug.enabled) {
+      const str = toActisenseSerialFormat(pgn.pgn, buffer, pgn.dst, pgn.src)
+      this.debug(str)
+    }
 
-      if (buffer === undefined) {
-        this.debug("can't convert %j", msg)
-        return
-      }
+    if (buffer === undefined) {
+      this.debug("can't convert %j", msg)
+      return
+    }
 
-      //seems as though 126720 should always be encoded this way
-      if (buffer.length > 8 || pgn.pgn == 126720) {
-        const pgns = getPlainPGNs(buffer)
-        pgns.forEach((pbuffer) => {
-          this.channel.send({ id: canid, ext: true, data: pbuffer })
-
-          if (msg.pgn === 126996 || msg.pgn === 126998 || msg.pgn === 60928) {
-            // forward on so these are seen by the server
-            this.push({
-              pgn,
-              length: pbuffer.length,
-              data: pbuffer
-            })
-          }
-
-          if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-            this.options.app.emit('canboatjs:rawsend', {
-              knownSrc: true,
-              data: {
-                pgn,
-                length: pbuffer.length,
-                data: byteStringArray(pbuffer)
-              }
-            })
-          }
-        })
-      } else {
-        this.channel.send({ id: canid, ext: true, data: buffer })
+    //seems as though 126720 should always be encoded this way
+    if (buffer.length > 8 || pgn.pgn == 126720) {
+      const pgns = getPlainPGNs(buffer)
+      pgns.forEach((pbuffer) => {
+        this.channel.send({ id: canid, ext: true, data: pbuffer })
 
         if (msg.pgn === 126996 || msg.pgn === 126998 || msg.pgn === 60928) {
           // forward on so these are seen by the server
           this.push({
             pgn,
-            length: buffer.length,
-            data: buffer
+            length: pbuffer.length,
+            data: pbuffer
           })
         }
 
@@ -410,23 +391,45 @@ CanbusStream.prototype.sendPGN = function (msg: any, force: boolean) {
             knownSrc: true,
             data: {
               pgn,
-              length: buffer.length,
-              data: byteStringArray(buffer)
+              length: pbuffer.length,
+              data: byteStringArray(pbuffer)
             }
           })
         }
+      })
+    } else {
+      this.channel.send({ id: canid, ext: true, data: buffer })
+
+      if (msg.pgn === 126996 || msg.pgn === 126998 || msg.pgn === 60928) {
+        // forward on so these are seen by the server
+        this.push({
+          pgn,
+          length: buffer.length,
+          data: buffer
+        })
       }
 
-      if (
-        pgn.pgn == 59904 &&
-        pgn.src !== 254 &&
-        (pgn.dst == 255 || pgn.dst == this.address)
-      ) {
-        if ((pgn as any).PGN !== undefined) {
-          pgn.fields = { pgn: (pgn as any).PGN, ...pgn.fields }
-        }
-        this.candevice.n2kMessage(pgn)
+      if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+        this.options.app.emit('canboatjs:rawsend', {
+          knownSrc: true,
+          data: {
+            pgn,
+            length: buffer.length,
+            data: byteStringArray(buffer)
+          }
+        })
       }
+    }
+
+    if (
+      pgn.pgn == 59904 &&
+      pgn.src !== 254 &&
+      (pgn.dst == 255 || pgn.dst == this.address)
+    ) {
+      if ((pgn as any).PGN !== undefined) {
+        pgn.fields = { pgn: (pgn as any).PGN, ...pgn.fields }
+      }
+      this.candevice.n2kMessage(pgn)
     }
   }
 }
@@ -469,12 +472,103 @@ CanbusStream.prototype.pipe = function (pipeTo: any) {
   if (!pipeTo.fromPgn) {
     this.plainText = true
   }
-  /*
-  pipeTo.fromPgn.on('pgn', (pgn) => {
-    if ( this.candevice ) {
-      this.candevice.n2kMessage(pgn)
-    }
-  })
-  */
   return (CanbusStream as any).super_.prototype.pipe.call(this, pipeTo)
+}
+
+CanbusStream.prototype.createEmulator = function (
+  id: string,
+  options: any,
+  addressClaim: PGN_60928,
+  productInfo: PGN_126996,
+  configInfo: PGN_126998 | undefined
+): DeviceEmulator {
+  const device = new CanbusDeviceEmulator(
+    this,
+    id,
+    options,
+    addressClaim,
+    productInfo,
+    configInfo
+  )
+  this.devices[id] = device
+  return device
+}
+
+CanbusStream.prototype.removeEmulator = function (id: string): void {
+  const device: CanbusDeviceEmulator = this.devices[id]
+  if (device) {
+    device.stop()
+    delete this.devices[id]
+  }
+}
+
+class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
+  private stream: any
+  private device: CanDevice
+  public config: any
+  private boundListener: any
+  private id: string
+
+  constructor(
+    stream: any,
+    id: string,
+    options: any,
+    addressClaim: PGN_60928,
+    productInfo: PGN_126996,
+    configInfo: PGN_126998 | undefined
+  ) {
+    super()
+    this.stream = stream
+    this.id = id
+    this.config = { configPath: stream.options.app?.config?.configPath }
+    this.device = new CanDevice(this, {
+      app: this,
+      providerId: 'emulator-' + id,
+      addressClaim,
+      productInfo,
+      configurationInfo: configInfo
+    })
+    this.device.start()
+    this.boundListener = this.pgnReceived.bind(this)
+    stream.options.app.on(
+      stream.options.analyzerOutEvent || 'N2KAnalyzerOut',
+      this.boundListener
+    )
+  }
+
+  stop() {
+    this.device.stop()
+    if (this.boundListener) {
+      this.stream.options.app.removeListener(
+        this.stream.options.analyzerOutEvent || 'N2KAnalyzerOut',
+        this.boundListener
+      )
+    }
+    this.boundListener = undefined
+    this.removeAllListeners()
+  }
+
+  pgnReceived(pgn: PGN) {
+    this.emit('N2KAnalyzerOut', pgn)
+  }
+
+  sendPGN(pgn: PGN, force: boolean): void {
+    this.stream.sendPGN(pgn, force, this.device)
+  }
+
+  send(pgn: PGN | string): void {
+    this.stream.sendPGN(pgn, false, this.device)
+  }
+
+  onPGN(cb: (pgn: PGN) => void): void {
+    this.on('N2KAnalyzerOut', cb)
+  }
+
+  setProviderError(id: string, error: string): void {
+    console.error(`${id}:${this.id} ${error}`)
+  }
+
+  setProviderStatus(id: string, status: string): void {
+    console.log(`${id}:${this.id} ${status}`)
+  }
 }

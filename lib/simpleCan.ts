@@ -18,7 +18,12 @@ import { CanDevice } from './candevice'
 import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
 import { toPgn } from './toPgn'
-import { getPlainPGNs, binToActisense, createDebug } from './utilities'
+import {
+  getPlainPGNs,
+  binToActisense,
+  createDebug,
+  byteStringArray
+} from './utilities'
 import { CanChannel } from './canSocket'
 import _ from 'lodash'
 
@@ -32,6 +37,7 @@ export function SimpleCan(
   this.options = options
   this.messageCb = messageCb
   this.plainText = false
+  this.debug = createDebug('canboatjs:n2k-out', options)
 }
 
 SimpleCan.prototype.start = function () {
@@ -42,6 +48,9 @@ SimpleCan.prototype.start = function () {
     this.channel.addListener('onMessage', (msg: any) => {
       const pgn = parseCanId(msg.id)
 
+      // Drop frames the device emitted itself. Without this filter, the
+      // device sees its own announces and heartbeats coming back in via
+      // the socketcan loopback and treats them as real bus traffic.
       if (
         this.candevice &&
         this.candevice.cansend &&
@@ -69,21 +78,29 @@ SimpleCan.prototype.start = function () {
   this.candevice.start()
 }
 
-SimpleCan.prototype.sendPGN = function (msg: any) {
+SimpleCan.prototype.sendPGN = function (msg: any, force: boolean) {
   if (this.candevice) {
-    if (
-      !this.candevice.cansend &&
-      msg.pgn !== 59904 &&
-      msg.pgn !== 60928 &&
-      msg.pgn !== 126996
-    ) {
-      debug('ignoring %j', msg)
+    if (!this.channel) {
+      return
+    }
+
+    if (!this.candevice.cansend && force !== true) {
+      //we have not completed address claim yet
       return
     }
 
     debug('sending %j', msg)
 
-    const src = (msg as any).forceSrc ? msg.src : this.candevice.address
+    if (this.options.app) {
+      this.options.app.emit('connectionwrite', {
+        providerId: this.options.providerId
+      })
+    }
+
+    const src =
+      _.isString(msg) === false && msg.forceSrc
+        ? msg.src
+        : this.candevice.address
     if (_.isString(msg)) {
       const split = msg.split(',')
       split[3] = src
@@ -100,8 +117,8 @@ SimpleCan.prototype.sendPGN = function (msg: any) {
 
     let canid: number
     let buffer: Buffer | undefined
+    let pgn: any
 
-    let pgn
     if (_.isObject(msg)) {
       canid = encodeCanId(msg as CanID)
       buffer = toPgn(msg)
@@ -112,20 +129,51 @@ SimpleCan.prototype.sendPGN = function (msg: any) {
       buffer = pgn.data
     }
 
-    if (debug.enabled) {
+    if (this.debug.enabled) {
       const str = toActisenseSerialFormat(pgn.pgn, buffer, pgn.dst, pgn.src)
-      debug(str)
+      this.debug(str)
     }
 
-    if (buffer) {
-      //seems as though 126720 should always be encoded this way
-      if (buffer.length > 8 || pgn.pgn == 126720) {
-        const pgns = getPlainPGNs(buffer)
-        pgns.forEach((pbuffer) => {
-          this.channel.send({ id: canid, ext: true, data: pbuffer })
+    if (buffer === undefined) {
+      this.debug("can't convert %j", msg)
+      return
+    }
+
+    //seems as though 126720 should always be encoded this way
+    if (buffer.length > 8 || pgn.pgn == 126720) {
+      const pgns = getPlainPGNs(buffer)
+      pgns.forEach((pbuffer) => {
+        this.channel.send({ id: canid, ext: true, data: pbuffer })
+
+        if (
+          this.options.app &&
+          this.options.app.listenerCount('canboatjs:rawsend') > 0
+        ) {
+          this.options.app.emit('canboatjs:rawsend', {
+            knownSrc: true,
+            data: {
+              pgn,
+              length: pbuffer.length,
+              data: byteStringArray(pbuffer)
+            }
+          })
+        }
+      })
+    } else {
+      this.channel.send({ id: canid, ext: true, data: buffer })
+
+      if (
+        this.options.app &&
+        this.options.app.listenerCount('canboatjs:rawsend') > 0
+      ) {
+        this.options.app.emit('canboatjs:rawsend', {
+          knownSrc: true,
+          data: {
+            pgn,
+            length: buffer.length,
+            data: byteStringArray(buffer)
+          }
         })
-      } else {
-        this.channel.send({ id: canid, ext: true, data: buffer })
       }
     }
   }

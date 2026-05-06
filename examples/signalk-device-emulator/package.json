@@ -1,24 +1,54 @@
 {
   "name": "signalk-device-emulator",
   "version": "1.0.0",
-  "description": "Signal K Plugin which emulates a device",
-  "main": "index.js",
+  "description": "Signal K can device emulator",
+  "main": "dist/index.js",
   "scripts": {
-    "format": "prettier-standard 'src/*.ts'",
+    "test": "mocha --require ts-node/register",
+    "test:unit": "mocha --require ts-node/register test/windlass.test.ts",
+    "test:timing": "mocha --require ts-node/register test/chain-counter.test.ts",
+    "test:integration": "mocha --require ts-node/register test/integration.test.ts",
+    "test:watch": "mocha --require ts-node/register --watch",
+    "prettier": "prettier --write .",
+    "lint": "eslint --fix --format compact .",
+    "ci-lint": "eslint && prettier --check .",
+    "ci-test": "npm run build && npm run test && npm run ci-lint",
+    "format": "npm run prettier && npm run lint",
     "build": "tsc",
     "watch": "npm run build -- -w"
   },
   "keywords": [
-    "signalk-node-server-plugin"
+    "signalk-node-server-plugin",
+    "signalk-category-hardware"
   ],
   "author": "scott@scottbender.net",
   "license": "Apache-2.0",
   "dependencies": {
-    "@canboat/canboatjs": "^2.10.0"
+    "@canboat/canboatjs": "^3.17.0",
+    "@canboat/ts-pgns": "^1.11.15",
+    "node-hid": "^3.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sbender9/signalk-relay-windlass.git"
   },
   "devDependencies": {
-    "@types/node": "^14.14.10",
-    "prettier-standard": "^16.4.1",
-    "typescript": "^4.1.2"
+    "@signalk/server-api": "^2.7.2",
+    "@tsconfig/node20": "^20.1.6",
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.0.4",
+    "chai": "^5.2.1",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-formatter-compact": "^8.40.0",
+    "file-loader": "^6.1.1",
+    "mocha": "^11.7.1",
+    "prettier": "^3.6.2",
+    "style-loader": "^2.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.40.0"
   }
 }
