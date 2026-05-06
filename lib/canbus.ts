@@ -507,6 +507,7 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
   private device: CanDevice
   public config: any
   private boundListener: any
+  private id: string
 
   constructor(
     stream: any,
@@ -518,6 +519,7 @@ class CanbusDeviceEmulator extends EventEmitter implements DeviceEmulator {
   ) {
     super()
     this.stream = stream
+    this.id = id
     this.config = { configPath: stream.options.app?.config?.configPath }
     this.device = new CanDevice(this, {
       app: this,
