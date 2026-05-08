@@ -125,7 +125,15 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN, force?: boolean): void {
     //let lastSent = pgnsSent[pgn.pgn]
     let msgs
     if ((pgn as any).ydFullFormat === true || this.device !== undefined) {
-      if (pgn.src !== 254) {
+      // Only stamp src from this.device when the stream actually owns
+      // a device. ydFullFormat senders (e.g. YdDevice.sendPGN for
+      // Heartbeat / ISO Request responses) already set pgn.src to the
+      // sender's claimed address, so leaving it intact is correct.
+      // Without this guard, every heartbeat from a YdDevice attached
+      // via app event-bus to a Ydgw02Stream that hasn't yet received
+      // an inbound packet (so this.device is still undefined) throws
+      // 'Cannot read properties of undefined (reading address)'.
+      if (pgn.src !== 254 && this.device !== undefined) {
         pgn.src = this.device.address
       }
       msgs = pgnToYdgwFullRawFormat(pgn)
