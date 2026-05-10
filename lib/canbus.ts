@@ -260,8 +260,19 @@ CanbusStream.prototype.connect = function () {
 
     this.channel.start()
     this.setProviderStatus('Connected to CAN bus')
-    this.candevice = new CanDevice(this, this.options)
-    this.candevice.start()
+
+    // createDevice controls whether canboatjs claims its own N2K address
+    // on the bus. The historical default for this transport was "always
+    // on" — preserve that for back-compat by treating undefined as true.
+    // When explicitly disabled the stream stays receive-only: sendPGN
+    // becomes a no-op (the `if (this.candevice)` guard already covers
+    // that) and nmea2000OutAvailable is never emitted, which is the
+    // truth — without an address claim we have no source on the bus
+    // and cannot transmit.
+    if (this.options.createDevice !== false) {
+      this.candevice = new CanDevice(this, this.options)
+      this.candevice.start()
+    }
 
     // Recreate the no-data monitoring timer for this connection
     this._setupNoDataTimer()
