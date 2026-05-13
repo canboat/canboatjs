@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { PGN } from '@canboat/ts-pgns'
 import { ActisenseStream, composeMessage } from './actisense-serial'
 
 const DLE = 0x10
@@ -212,5 +213,136 @@ describe('framing error recovery', () => {
 
     expect(rawOutputs).toHaveLength(0)
     expect(downstream).toHaveLength(0)
+  })
+})
+
+interface SendTestHarness {
+  instance: any
+  app: EventEmitter
+  writes: Buffer[]
+  rawSends: string[]
+}
+
+// Build a bare ActisenseStream wired to in-memory sinks so the send-path
+// prototype methods can be exercised without opening a serial port.
+function makeSendInstance(): SendTestHarness {
+  const app = new EventEmitter()
+  const writes: Buffer[] = []
+  const rawSends: string[] = []
+  app.on('canboatjs:rawsend', (e: { data: string }) => rawSends.push(e.data))
+
+  const instance: any = Object.create((ActisenseStream as any).prototype)
+  instance.options = { app, providerId: 'test' }
+  instance.outAvailable = true
+  instance.serial = { write: (buf: Buffer) => writes.push(buf) }
+  instance.debugOut = () => {}
+
+  return { instance, app, writes, rawSends }
+}
+
+const samplePGN = {
+  pgn: 127251,
+  prio: 6,
+  src: 17,
+  dst: 200,
+  fields: { rateOfTurn: 0 }
+} as unknown as PGN
+
+// Actisense CSV: <timestamp>,<prio>,<pgn>,<src>,<dst>,<len>,<bytes...>
+function actisenseFields(s: string) {
+  const parts = s.split(',')
+  return {
+    prio: Number(parts[1]),
+    pgn: Number(parts[2]),
+    src: Number(parts[3]),
+    dst: Number(parts[4])
+  }
+}
+
+describe('ActisenseStream.sendPGN', () => {
+  test('preserves prio and reports the NGT-1 send-frame source', () => {
+    const { instance, rawSends, writes } = makeSendInstance()
+    instance.sendPGN(samplePGN)
+
+    expect(writes).toHaveLength(1)
+    expect(rawSends).toHaveLength(1)
+    // src is reported as 0 because the NGT-1 transmits with its own
+    // claimed N2K address; pgn.src is not forwarded on the wire.
+    expect(actisenseFields(rawSends[0])).toEqual({
+      prio: 6,
+      pgn: 127251,
+      src: 0,
+      dst: 200
+    })
+  })
+
+  test('falls back to defaults when prio is not provided', () => {
+    const { instance, rawSends } = makeSendInstance()
+    instance.sendPGN({
+      pgn: 127251,
+      dst: 255,
+      fields: { rateOfTurn: 0 }
+    } as unknown as PGN)
+
+    expect(actisenseFields(rawSends[0])).toEqual({
+      prio: 2,
+      pgn: 127251,
+      src: 0,
+      dst: 255
+    })
+  })
+
+  test('does not write when outAvailable is false', () => {
+    const { instance, writes, rawSends } = makeSendInstance()
+    instance.outAvailable = false
+    instance.sendPGN(samplePGN)
+
+    expect(writes).toHaveLength(0)
+    expect(rawSends).toHaveLength(0)
+  })
+
+  test('emits connectionwrite when sending', () => {
+    const { instance, app } = makeSendInstance()
+    let connectionWrites = 0
+    app.on('connectionwrite', () => connectionWrites++)
+    instance.sendPGN(samplePGN)
+
+    expect(connectionWrites).toBe(1)
+  })
+})
+
+describe('ActisenseStream listener wiring', () => {
+  // The listener registration lives inside start(), which opens a serial
+  // port. Mirror just the listener-only portion so the event-to-method
+  // routing can be verified without touching hardware.
+  function wireListeners(instance: any) {
+    const app: EventEmitter = instance.options.app
+    app.on('nmea2000out', (msg: any) => {
+      if (typeof msg === 'string') {
+        instance.sendString(msg)
+      } else {
+        instance.sendPGN(msg)
+      }
+    })
+    app.on('nmea2000JsonOut', (msg: PGN) => instance.sendPGN(msg))
+  }
+
+  test('routes nmea2000JsonOut events through sendPGN', () => {
+    const { instance, app, rawSends } = makeSendInstance()
+    wireListeners(instance)
+    app.emit('nmea2000JsonOut', samplePGN)
+
+    expect(rawSends).toHaveLength(1)
+    expect(actisenseFields(rawSends[0]).prio).toBe(6)
+  })
+
+  test('routes nmea2000out string events through sendString', () => {
+    const { instance, app, rawSends } = makeSendInstance()
+    wireListeners(instance)
+    const raw =
+      '2026-05-07T20:35:05.606Z,6,61184,49,255,8,16,1c,4d,11,00,00,00,00'
+    app.emit('nmea2000out', raw)
+
+    expect(rawSends).toEqual([raw])
   })
 })
