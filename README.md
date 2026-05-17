@@ -113,6 +113,7 @@ console.log('Generated:', actisenseString)
 ### NMEA 2000 Gateways
 - **Actisense NGT-1** & **W2K-1** - USB and WiFi NMEA 2000 gateways
 - **Digital Yacht iKonvert** - Serial to NMEA 2000 converter
+- **Maretron IPG100** - Ethernet NMEA 2000 gateway
 - **Yacht Devices YDWG-02** & **YDEN-02** - WiFi and Ethernet gateways
 - **Shipmodul MiniPlex-3-N2K** - Multi-protocol marine data multiplexer
 
@@ -141,6 +142,9 @@ actisense-serialjs /dev/ttyUSB0 | analyzerjs
 
 # From iKonvert
 ikonvert-serial /dev/ttyUSB0 | analyzerjs
+
+# From IPG100 over network
+maretron-ipgjs ipg100-ip | analyzerjs
 
 # From YDWG-02 over network
 nc ydgw-ip 1475 | analyzerjs
