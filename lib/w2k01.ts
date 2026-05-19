@@ -24,6 +24,7 @@ import {
   actisenseToN2KActisenseFormat
 } from './toPgn'
 import { readN2KActisense } from './n2k-actisense'
+import { CanDevice } from './candevice'
 import util from 'util'
 
 //const pgnsSent = {}
@@ -85,6 +86,16 @@ export function W2K01Stream(
         })
       })
     }
+
+    // When asked to "act as a CAN device", instantiate a CanDevice so we
+    // respond to ISO Address Claim, Product Information, Heartbeat, etc.
+    // The CanDevice listens for inbound parsed PGNs on `N2KAnalyzerOut`
+    // (emitted by the CanboatJs pipe element) and calls back into our
+    // `sendPGN` to deliver its responses through the W2K-1 ASCII encoder.
+    if (options.app && options.actAsDevice) {
+      this.candevice = new CanDevice(this, options)
+      this.candevice.start()
+    }
   }
 
   this.debug('started')
@@ -95,7 +106,10 @@ W2K01Stream.prototype.send = function (msg: string | Buffer) {
   this.options.app.emit(this.outEvent, msg)
 }
 
-W2K01Stream.prototype.sendPGN = function (pgn: PGN) {
+// The optional `_force` parameter is part of the contract `CanDevice` uses to
+// drive its host transport; we always accept the PGN since the W2K-1 has no
+// "address claim pending" gating of its own.
+W2K01Stream.prototype.sendPGN = function (pgn: PGN, _force?: boolean) {
   //const now = Date.now()
   //let lastSent = pgnsSent[pgn.pgn]
   if (this.format === N2K_ASCII) {
@@ -167,4 +181,9 @@ W2K01Stream.prototype.pipe = function (pipeTo: any) {
   return (W2K01Stream as any).super_.prototype.pipe.call(this, pipeTo)
 }
 
-W2K01Stream.prototype.end = function () {}
+W2K01Stream.prototype.end = function () {
+  if (this.candevice) {
+    this.candevice.stop()
+    this.candevice = undefined
+  }
+}
