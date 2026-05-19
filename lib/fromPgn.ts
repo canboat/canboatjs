@@ -1224,6 +1224,12 @@ function convertField(
       }
     }
   }
+  // Numeric fields must never emit NaN: downstream consumers (e.g. databases
+  // doing BigInt(value * 1e9) for nanosecond conversion) will throw on NaN
+  // but handle null. Treat NaN the same as an out-of-range / invalid value.
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return null
+  }
   return value
 }
 
