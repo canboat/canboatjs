@@ -56,9 +56,19 @@ const DEFAULT_PORT = 2599
 const DEFAULT_RECONNECT_MS = 5000
 const DEFAULT_FORMAT: SupportedFormat = 'candump3'
 
+// Anything before 2000-01-01 UTC is treated as the device's uptime clock,
+// not wall-clock time, and dropped so the downstream analyzer can fall
+// back to `new Date()`. This is needed because devices like the SensESP
+// candump gateway fall back to uptime when their RTC has not been synced
+// (no NTP yet), and stamping deltas with 1970-01-01 + uptime ends up in
+// historical timeseries databases as either way-future or way-past rows.
+const MIN_VALID_TIMESTAMP_MS = Date.UTC(2000, 0, 1)
+
 // Convert a candump3-style "(sec.usec)" or "(sec.usec) " timestamp into an
 // ISO-8601 string. Returns undefined if the input doesn't look like a
-// candump epoch timestamp — the caller should drop the field in that case.
+// candump epoch timestamp, or if the value clearly comes from a device
+// whose clock has not been set — the caller should drop the field in
+// either case.
 function candumpTimestampToIso(ts: string): string | undefined {
   const m = /^\(?(\d+)(?:\.(\d+))?\)?$/.exec(ts)
   if (!m) return undefined
@@ -68,6 +78,7 @@ function candumpTimestampToIso(ts: string): string | undefined {
   const usec = m[2] ? Number(m[2].slice(0, 6).padEnd(6, '0')) : 0
   if (!Number.isFinite(usec)) return undefined
   const ms = sec * 1000 + Math.floor(usec / 1000)
+  if (ms < MIN_VALID_TIMESTAMP_MS) return undefined
   const d = new Date(ms)
   if (Number.isNaN(d.getTime())) return undefined
   return d.toISOString()

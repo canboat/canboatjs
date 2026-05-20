@@ -173,6 +173,27 @@ describe('N2kIpGateway', () => {
     expect(new Date(pushed[0].pgn.timestamp).getTime()).not.toBeNaN()
   })
 
+  test('RX candump3: drops timestamps from devices with unsynced clocks (pre-2000)', async () => {
+    const gw = newGateway({
+      app: makeApp(),
+      host: 'gw.local',
+      format: 'candump3',
+      actAsCanDevice: false
+    })
+    await waitForConnect()
+
+    const pushed: any[] = []
+    gw.on('data', (frame: any) => pushed.push(frame))
+
+    // Epoch 56702 = uptime-derived timestamp (1970-01-01 + ~15h45m), which
+    // is what the SensESP gateway emits before NTP has synced. We drop it
+    // so downstream code falls back to the server's own clock.
+    lastSocket!.feed('(56702.123456) can0 09F11274#0001020304050607\n')
+
+    expect(pushed).toHaveLength(1)
+    expect(pushed[0].pgn.timestamp).toBeUndefined()
+  })
+
   test('RX candump3: drops the timestamp field when it cannot be parsed', async () => {
     const gw = newGateway({
       app: makeApp(),
