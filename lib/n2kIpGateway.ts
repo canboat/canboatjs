@@ -527,14 +527,19 @@ N2kIpGateway.prototype.sendPGN = function (msg: any, force?: boolean) {
         data: { pgn, length: payload.length, data: byteStringArray(payload) }
       })
     }
-  })
 
-  // Forward self-emitted device info back into the analyzer pipe so the
-  // server sees its own address claim / product info / config info, matching
-  // CanbusStream behavior.
-  if (pgn.pgn === 60928 || pgn.pgn === 126996 || pgn.pgn === 126998) {
-    this.push({ pgn, length: buffer.length, data: buffer })
-  }
+    // Forward self-emitted device info back into the analyzer pipe so the
+    // server sees its own address claim / product info / config info, the
+    // same way CanbusStream does. CRITICALLY this must be done once per
+    // per-frame `payload` (≤ 8 bytes), not once with the full reassembled
+    // buffer — handing a > 8 byte chunk to FromPgn flips the analyzer
+    // into FORMAT_COALESCED for the rest of the session and corrupts
+    // every subsequent fast-packet reassembly (e.g. AIS PGN 129038/9
+    // bytes get read at the wrong offset, producing phantom vessels).
+    if (pgn.pgn === 60928 || pgn.pgn === 126996 || pgn.pgn === 126998) {
+      this.push({ pgn, length: payload.length, data: payload })
+    }
+  })
 }
 
 N2kIpGateway.prototype._transform = function (

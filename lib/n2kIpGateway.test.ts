@@ -359,6 +359,44 @@ describe('N2kIpGateway', () => {
     )
   })
 
+  test('TX self-PGN forwarded to analyzer is split per CAN frame, never > 8 bytes', async () => {
+    // Regression: a 134-byte PGN 126996 (Product Info) had been pushed
+    // downstream as a single chunk with length=134, which flipped the
+    // canboatjs FromPgn instance into FORMAT_COALESCED for the rest of
+    // the session and corrupted fast-packet reassembly for unrelated
+    // PGNs (e.g. AIS 129038/129039 — producing phantom vessels with
+    // misaligned MMSI bytes).
+    const gw = newGateway({
+      app: makeApp(),
+      host: 'gw.local',
+      format: 'candump3',
+      actAsCanDevice: false
+    })
+    await waitForConnect()
+
+    const pushed: any[] = []
+    gw.on('data', (frame: any) => pushed.push(frame))
+
+    // 32-byte raw "Product Info" payload — over 8 bytes so it must split.
+    const raw = Buffer.from(
+      '0102030405060708090a0b0c0d0e0f1011121314151617181920212223',
+      'hex'
+    )
+    gw.sendPGN({
+      pgn: 126996,
+      prio: 6,
+      src: 17,
+      dst: 255,
+      data: raw
+    })
+
+    expect(pushed.length).toBeGreaterThan(1) // multi-frame
+    pushed.forEach((frame) => {
+      expect(frame.length).toBeLessThanOrEqual(8)
+      expect(frame.data.length).toBeLessThanOrEqual(8)
+    })
+  })
+
   test('end() closes socket', async () => {
     const gw = newGateway({
       app: makeApp(),
