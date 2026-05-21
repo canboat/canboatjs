@@ -49,6 +49,22 @@ describe('N2kDevice address claim options', () => {
     expect(ac.fields.uniqueNumber).toBe(7777777)
   })
 
+  test("caller-supplied addressClaim with legacy 'Unique Number' key is honored", () => {
+    // Same fallback as the previous test, but supplied via the
+    // human-readable key the canboat JSON uses. Exercises the
+    // `ac['Unique Number']` arm of the `??` chain.
+    const legacyClaim: any = { 'Unique Number': 9999999 }
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        addressClaim: legacyClaim,
+        uniqueNumber: 1111111 // would otherwise win
+      })
+    )
+    const ac: any = dev.addressClaim
+    expect(ac.fields.uniqueNumber).toBe(9999999)
+  })
+
   test('caller-supplied addressClaim with .fields.uniqueNumber is honored', () => {
     const claim: any = { fields: { uniqueNumber: 8888888 } }
     dev = new CanDevice(
