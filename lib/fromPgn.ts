@@ -726,7 +726,16 @@ export class Parser extends EventEmitter {
 
       // Stringify timestamp because SK Server needs it that way.
       const ts = _.get(pgn, 'timestamp', new Date())
-      res.timestamp = _.isDate(ts) ? ts.toISOString() : ts
+      if (_.isDate(ts) && Number.isFinite(ts.getTime())) {
+        res.timestamp = ts.toISOString()
+      } else if (typeof ts === 'string' && !isNaN(new Date(ts).getTime())) {
+        res.timestamp = ts
+      } else {
+        // Non-ISO timestamps from formats like candump (e.g. "(1502979132.106111)")
+        // would otherwise propagate downstream and produce "Invalid Date" in
+        // consumers. Fall back to current time.
+        res.timestamp = new Date().toISOString()
+      }
       this.emit('pgn', res)
       cb && cb(undefined, res)
 
