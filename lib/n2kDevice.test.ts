@@ -31,6 +31,37 @@ describe('N2kDevice address claim options', () => {
     }
   })
 
+  test('caller-supplied addressClaim with legacy top-level uniqueNumber is honored', () => {
+    // Older callers passed an addressClaim object with `uniqueNumber`
+    // (or the human-readable `'Unique Number'`) at the top level.
+    // The encoder ignores both and reads `.fields.uniqueNumber` only,
+    // so we promote the legacy value into `.fields` rather than letting
+    // options.uniqueNumber / persistence silently overwrite it.
+    const legacyClaim: any = { uniqueNumber: 7777777 }
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        addressClaim: legacyClaim,
+        uniqueNumber: 1111111 // would otherwise win
+      })
+    )
+    const ac: any = dev.addressClaim
+    expect(ac.fields.uniqueNumber).toBe(7777777)
+  })
+
+  test('caller-supplied addressClaim with .fields.uniqueNumber is honored', () => {
+    const claim: any = { fields: { uniqueNumber: 8888888 } }
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        addressClaim: claim,
+        uniqueNumber: 2222222 // would otherwise win
+      })
+    )
+    const ac: any = dev.addressClaim
+    expect(ac.fields.uniqueNumber).toBe(8888888)
+  })
+
   test('uniqueNumber from options lands on addressClaim.fields (not top-level)', () => {
     dev = new CanDevice(
       { sendPGN: () => undefined },

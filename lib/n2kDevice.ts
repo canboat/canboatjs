@@ -145,11 +145,22 @@ export class N2kDevice extends EventEmitter {
     // `'Unique Number'` property, which the encoder ignored — meaning every
     // signalk-server claim went out with the all-ones (0x1FFFFF) sentinel
     // unique number. Some N2K analyzers (e.g. Maretron) treat that value
-    // as factory-default and hide the device. Set it on `.fields` directly.
+    // as factory-default and hide the device.
+    //
+    // Honor any uniqueNumber the caller already set on the supplied
+    // addressClaim — both the canonical `.fields.uniqueNumber` form and
+    // the legacy top-level `uniqueNumber` / `'Unique Number'` shapes —
+    // before backfilling from options/persistence. This preserves a
+    // caller-supplied claim's identity instead of silently overwriting it.
     const ac: any = this.addressClaim
     const fields = (ac.fields = ac.fields || {})
     if (fields.uniqueNumber === undefined) {
-      fields.uniqueNumber = uniqueNumber
+      const legacy = ac.uniqueNumber ?? ac['Unique Number']
+      if (legacy !== undefined) {
+        fields.uniqueNumber = legacy
+      } else {
+        fields.uniqueNumber = uniqueNumber
+      }
     }
 
     const version = packageJson ? packageJson.version : '1.0'
