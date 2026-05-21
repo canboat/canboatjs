@@ -87,6 +87,18 @@ describe('N2kDevice address claim options', () => {
     dev.stop()
   })
 
+  test('numeric strings ("3") are coerced — admin UI form inputs deliver strings', () => {
+    const dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({ deviceInstance: '3', systemInstance: '5' })
+    )
+    const ac: any = dev.addressClaim
+    expect(ac.fields.deviceInstanceLower).toBe(3)
+    expect(ac.fields.deviceInstanceUpper).toBe(0)
+    expect(ac.fields.systemInstance).toBe(5)
+    dev.stop()
+  })
+
   test('non-numeric instance values fall back to 0', () => {
     const dev = new CanDevice(
       { sendPGN: () => undefined },

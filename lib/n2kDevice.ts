@@ -90,22 +90,26 @@ export class N2kDevice extends EventEmitter {
       // accept a single combined value 0-255 via options.deviceInstance
       // and split it; individual lower/upper overrides also work for
       // users that want to set them explicitly.
-      const combinedInstance =
-        typeof options.deviceInstance === 'number'
-          ? options.deviceInstance & 0xff
-          : 0
+      // Coerce numeric strings ("3") to numbers — admin UI form inputs
+      // and settings.json may carry the value as a string.
+      const toInt = (v: unknown): number | undefined => {
+        if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v)
+        if (typeof v === 'string' && v.trim() !== '') {
+          const n = Number(v)
+          if (Number.isFinite(n)) return Math.trunc(n)
+        }
+        return undefined
+      }
+      const combined = toInt(options.deviceInstance) ?? 0
+      const explicitLower = toInt(options.deviceInstanceLower)
+      const explicitUpper = toInt(options.deviceInstanceUpper)
+      const explicitSystem = toInt(options.systemInstance)
       const deviceInstanceLower =
-        typeof options.deviceInstanceLower === 'number'
-          ? options.deviceInstanceLower & 0x07
-          : combinedInstance & 0x07
+        (explicitLower !== undefined ? explicitLower : combined) & 0x07
       const deviceInstanceUpper =
-        typeof options.deviceInstanceUpper === 'number'
-          ? options.deviceInstanceUpper & 0x1f
-          : (combinedInstance >> 3) & 0x1f
+        (explicitUpper !== undefined ? explicitUpper : combined >> 3) & 0x1f
       const systemInstance =
-        typeof options.systemInstance === 'number'
-          ? options.systemInstance & 0x0f
-          : 0
+        (explicitSystem !== undefined ? explicitSystem : 0) & 0x0f
 
       this.addressClaim = new PGN_60928(
         {
