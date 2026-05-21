@@ -19,61 +19,68 @@ function makeOptions(overrides: Record<string, unknown> = {}) {
 }
 
 describe('N2kDevice address claim options', () => {
+  // Hoisted so afterEach can stop the device created in each test even
+  // if the test body throws — otherwise a failing assertion leaks the
+  // addressClaimChecker / heartbeatInterval into the next test run.
+  let dev: CanDevice | undefined
+
+  afterEach(() => {
+    if (dev) {
+      dev.stop()
+      dev = undefined
+    }
+  })
+
   test('uniqueNumber from options lands on addressClaim.fields (not top-level)', () => {
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({ uniqueNumber: 1150522 })
     )
     const ac: any = dev.addressClaim
     expect(ac.fields.uniqueNumber).toBe(1150522)
-    dev.stop()
   })
 
   test('defaults: deviceInstanceLower=0, deviceInstanceUpper=0, systemInstance=0', () => {
-    const dev = new CanDevice({ sendPGN: () => undefined }, makeOptions())
+    dev = new CanDevice({ sendPGN: () => undefined }, makeOptions())
     const ac: any = dev.addressClaim
     expect(ac.fields.deviceInstanceLower).toBe(0)
     expect(ac.fields.deviceInstanceUpper).toBe(0)
     expect(ac.fields.systemInstance).toBe(0)
-    dev.stop()
   })
 
   test('combined deviceInstance = 5 → lower=5, upper=0', () => {
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({ deviceInstance: 5 })
     )
     const ac: any = dev.addressClaim
     expect(ac.fields.deviceInstanceLower).toBe(5)
     expect(ac.fields.deviceInstanceUpper).toBe(0)
-    dev.stop()
   })
 
   test('combined deviceInstance = 12 → lower=4, upper=1', () => {
     // 12 = (1<<3) | 4
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({ deviceInstance: 12 })
     )
     const ac: any = dev.addressClaim
     expect(ac.fields.deviceInstanceLower).toBe(4)
     expect(ac.fields.deviceInstanceUpper).toBe(1)
-    dev.stop()
   })
 
   test('combined deviceInstance = 255 → lower=7, upper=31', () => {
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({ deviceInstance: 255 })
     )
     const ac: any = dev.addressClaim
     expect(ac.fields.deviceInstanceLower).toBe(7)
     expect(ac.fields.deviceInstanceUpper).toBe(31)
-    dev.stop()
   })
 
   test('explicit deviceInstanceLower / deviceInstanceUpper override combined', () => {
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({
         deviceInstance: 0, // would split to (0,0)
@@ -84,21 +91,19 @@ describe('N2kDevice address claim options', () => {
     const ac: any = dev.addressClaim
     expect(ac.fields.deviceInstanceLower).toBe(3)
     expect(ac.fields.deviceInstanceUpper).toBe(9)
-    dev.stop()
   })
 
   test('systemInstance = 7 is applied', () => {
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({ systemInstance: 7 })
     )
     const ac: any = dev.addressClaim
     expect(ac.fields.systemInstance).toBe(7)
-    dev.stop()
   })
 
   test('numeric strings ("3") are coerced — admin UI form inputs deliver strings', () => {
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({ deviceInstance: '3', systemInstance: '5' })
     )
@@ -106,11 +111,10 @@ describe('N2kDevice address claim options', () => {
     expect(ac.fields.deviceInstanceLower).toBe(3)
     expect(ac.fields.deviceInstanceUpper).toBe(0)
     expect(ac.fields.systemInstance).toBe(5)
-    dev.stop()
   })
 
   test('non-numeric instance values fall back to 0', () => {
-    const dev = new CanDevice(
+    dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({
         deviceInstance: 'huh',
@@ -121,6 +125,38 @@ describe('N2kDevice address claim options', () => {
     expect(ac.fields.deviceInstanceLower).toBe(0)
     expect(ac.fields.deviceInstanceUpper).toBe(0)
     expect(ac.fields.systemInstance).toBe(0)
-    dev.stop()
+  })
+
+  test('out-of-range values fall back to 0 (no silent bit-mask wrap)', () => {
+    // Bit-masking a 257 produces deviceInstance=1, which surprises the
+    // user who set it to 257 thinking the bus would carry that exact
+    // value. Drop the input on the floor instead.
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        deviceInstance: 257,
+        deviceInstanceLower: 8, // > 0x07
+        deviceInstanceUpper: 32, // > 0x1f
+        systemInstance: 16 // > 0x0f
+      })
+    )
+    const ac: any = dev.addressClaim
+    expect(ac.fields.deviceInstanceLower).toBe(0)
+    expect(ac.fields.deviceInstanceUpper).toBe(0)
+    expect(ac.fields.systemInstance).toBe(0)
+  })
+
+  test('negative values fall back to 0', () => {
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        deviceInstance: -1,
+        systemInstance: -5
+      })
+    )
+    const ac: any = dev.addressClaim
+    expect(ac.fields.deviceInstanceLower).toBe(0)
+    expect(ac.fields.deviceInstanceUpper).toBe(0)
+    expect(ac.fields.systemInstance).toBe(0)
   })
 })

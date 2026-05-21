@@ -90,26 +90,37 @@ export class N2kDevice extends EventEmitter {
       // accept a single combined value 0-255 via options.deviceInstance
       // and split it; individual lower/upper overrides also work for
       // users that want to set them explicitly.
-      // Coerce numeric strings ("3") to numbers — admin UI form inputs
-      // and settings.json may carry the value as a string.
-      const toInt = (v: unknown): number | undefined => {
-        if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v)
-        if (typeof v === 'string' && v.trim() !== '') {
-          const n = Number(v)
-          if (Number.isFinite(n)) return Math.trunc(n)
+      //
+      // Inputs that fall outside the documented range (or aren't a
+      // finite integer-coercible value at all) are dropped silently
+      // back to 0. We deliberately do NOT bit-mask out-of-range
+      // numbers: silently emitting `255 → 0` from a user-set
+      // deviceInstance of e.g. 257 would be more surprising than the
+      // fallback. Numeric-string forms ("3") are accepted because
+      // the admin UI's <input type="number"> ships values as strings.
+      const toIntInRange = (
+        v: unknown,
+        min: number,
+        max: number
+      ): number | undefined => {
+        let n: number | undefined
+        if (typeof v === 'number' && Number.isFinite(v)) n = Math.trunc(v)
+        else if (typeof v === 'string' && v.trim() !== '') {
+          const parsed = Number(v)
+          if (Number.isFinite(parsed)) n = Math.trunc(parsed)
         }
-        return undefined
+        if (n === undefined || n < min || n > max) return undefined
+        return n
       }
-      const combined = toInt(options.deviceInstance) ?? 0
-      const explicitLower = toInt(options.deviceInstanceLower)
-      const explicitUpper = toInt(options.deviceInstanceUpper)
-      const explicitSystem = toInt(options.systemInstance)
+      const combined = toIntInRange(options.deviceInstance, 0, 0xff) ?? 0
+      const explicitLower = toIntInRange(options.deviceInstanceLower, 0, 0x07)
+      const explicitUpper = toIntInRange(options.deviceInstanceUpper, 0, 0x1f)
+      const explicitSystem = toIntInRange(options.systemInstance, 0, 0x0f)
       const deviceInstanceLower =
-        (explicitLower !== undefined ? explicitLower : combined) & 0x07
+        explicitLower !== undefined ? explicitLower : combined & 0x07
       const deviceInstanceUpper =
-        (explicitUpper !== undefined ? explicitUpper : combined >> 3) & 0x1f
-      const systemInstance =
-        (explicitSystem !== undefined ? explicitSystem : 0) & 0x0f
+        explicitUpper !== undefined ? explicitUpper : (combined >> 3) & 0x1f
+      const systemInstance = explicitSystem !== undefined ? explicitSystem : 0
 
       this.addressClaim = new PGN_60928(
         {
