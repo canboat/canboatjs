@@ -426,10 +426,23 @@ export const encodeCandump2 = ({
 
 // candump3 log
 // (1502979132.106111) slcan0 09F50374#000A00FFFF00FFFF
-export const isCandump3 = startsWith('(')
+export const isCandump3 = (input: string) =>
+  input.charAt(0) === '(' && input.indexOf('#') > 0
 export const parseCandump3 = (input: string) => {
-  const [timestamp, bus, canFrame] = input.split(' ')
-  const [canId, data] = canFrame.split('#')
+  const parts = input.split(' ')
+  if (parts.length !== 3) {
+    return buildErr('candump3', 'Malformed candump3 line', input)
+  }
+  const [timestamp, bus, canFrame] = parts
+  const hashIdx = canFrame.indexOf('#')
+  if (hashIdx <= 0 || hashIdx === canFrame.length - 1) {
+    return buildErr('candump3', 'Malformed candump3 frame', input)
+  }
+  const canId = canFrame.substring(0, hashIdx)
+  const data = canFrame.substring(hashIdx + 1)
+  if (!/^[0-9A-Fa-f]+$/.test(data)) {
+    return buildErr('candump3', 'Non-hex candump3 data', input)
+  }
   return buildMsg(parseCanIdStr(canId), 'candump3', Buffer.from(data, 'hex'), {
     timestamp,
     bus
