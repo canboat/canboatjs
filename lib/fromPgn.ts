@@ -950,6 +950,10 @@ export class Parser extends EventEmitter {
   }
 
   parseString(pgn_data: string, cb: FromPgnCallback | undefined = undefined) {
+    // skip format-banner lines emitted by canboat tools since canboat#573
+    if (pgn_data.startsWith('#')) {
+      return
+    }
     try {
       const { coalesced, data, error, len, ...pgn } = parseN2kString(
         pgn_data,
