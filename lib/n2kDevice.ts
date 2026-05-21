@@ -85,6 +85,28 @@ export class N2kDevice extends EventEmitter {
       this.addressClaim.dst = 255
       this.addressClaim.prio = 6
     } else {
+      // Device Instance: 8-bit identifier built from a 3-bit "lower"
+      // and a 5-bit "upper" field, mirroring the N2K standard. We
+      // accept a single combined value 0-255 via options.deviceInstance
+      // and split it; individual lower/upper overrides also work for
+      // users that want to set them explicitly.
+      const combinedInstance =
+        typeof options.deviceInstance === 'number'
+          ? options.deviceInstance & 0xff
+          : 0
+      const deviceInstanceLower =
+        typeof options.deviceInstanceLower === 'number'
+          ? options.deviceInstanceLower & 0x07
+          : combinedInstance & 0x07
+      const deviceInstanceUpper =
+        typeof options.deviceInstanceUpper === 'number'
+          ? options.deviceInstanceUpper & 0x1f
+          : (combinedInstance >> 3) & 0x1f
+      const systemInstance =
+        typeof options.systemInstance === 'number'
+          ? options.systemInstance & 0x0f
+          : 0
+
       this.addressClaim = new PGN_60928(
         {
           manufacturerCode:
@@ -93,9 +115,9 @@ export class N2kDevice extends EventEmitter {
               : 999,
           deviceFunction: 130, // PC gateway
           deviceClass: 25, // Inter/Intranetwork Device
-          deviceInstanceLower: 0,
-          deviceInstanceUpper: 0,
-          systemInstance: 0,
+          deviceInstanceLower,
+          deviceInstanceUpper,
+          systemInstance,
           industryGroup: 4, // Marine
           arbitraryAddressCapable: YesNo.Yes
         },
