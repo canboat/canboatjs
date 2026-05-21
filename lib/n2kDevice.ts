@@ -85,6 +85,43 @@ export class N2kDevice extends EventEmitter {
       this.addressClaim.dst = 255
       this.addressClaim.prio = 6
     } else {
+      // Device Instance: 8-bit identifier built from a 3-bit "lower"
+      // and a 5-bit "upper" field, mirroring the N2K standard. We
+      // accept a single combined value 0-255 via options.deviceInstance
+      // and split it; individual lower/upper overrides also work for
+      // users that want to set them explicitly.
+      //
+      // Inputs that fall outside the documented range (or aren't a
+      // finite integer-coercible value at all) are dropped silently
+      // back to 0. We deliberately do NOT bit-mask out-of-range
+      // numbers: silently emitting `255 → 0` from a user-set
+      // deviceInstance of e.g. 257 would be more surprising than the
+      // fallback. Numeric-string forms ("3") are accepted because
+      // the admin UI's <input type="number"> ships values as strings.
+      const toIntInRange = (
+        v: unknown,
+        min: number,
+        max: number
+      ): number | undefined => {
+        let n: number | undefined
+        if (typeof v === 'number' && Number.isFinite(v)) n = Math.trunc(v)
+        else if (typeof v === 'string' && v.trim() !== '') {
+          const parsed = Number(v)
+          if (Number.isFinite(parsed)) n = Math.trunc(parsed)
+        }
+        if (n === undefined || n < min || n > max) return undefined
+        return n
+      }
+      const combined = toIntInRange(options.deviceInstance, 0, 0xff) ?? 0
+      const explicitLower = toIntInRange(options.deviceInstanceLower, 0, 0x07)
+      const explicitUpper = toIntInRange(options.deviceInstanceUpper, 0, 0x1f)
+      const explicitSystem = toIntInRange(options.systemInstance, 0, 0x0f)
+      const deviceInstanceLower =
+        explicitLower !== undefined ? explicitLower : combined & 0x07
+      const deviceInstanceUpper =
+        explicitUpper !== undefined ? explicitUpper : (combined >> 3) & 0x1f
+      const systemInstance = explicitSystem !== undefined ? explicitSystem : 0
+
       this.addressClaim = new PGN_60928(
         {
           manufacturerCode:
@@ -93,9 +130,9 @@ export class N2kDevice extends EventEmitter {
               : 999,
           deviceFunction: 130, // PC gateway
           deviceClass: 25, // Inter/Intranetwork Device
-          deviceInstanceLower: 0,
-          deviceInstanceUpper: 0,
-          systemInstance: 0,
+          deviceInstanceLower,
+          deviceInstanceUpper,
+          systemInstance,
           industryGroup: 4, // Marine
           arbitraryAddressCapable: YesNo.Yes
         },
@@ -103,8 +140,27 @@ export class N2kDevice extends EventEmitter {
       )
     }
 
-    if (this.addressClaim['Unique Number'] === undefined) {
-      this.addressClaim.uniqueNumber = uniqueNumber
+    // PGN_60928 stores its NMEA fields in `.fields` (canboat camelCase Id
+    // form). Older canboatjs code set a top-level `uniqueNumber` /
+    // `'Unique Number'` property, which the encoder ignored — meaning every
+    // signalk-server claim went out with the all-ones (0x1FFFFF) sentinel
+    // unique number. Some N2K analyzers (e.g. Maretron) treat that value
+    // as factory-default and hide the device.
+    //
+    // Honor any uniqueNumber the caller already set on the supplied
+    // addressClaim — both the canonical `.fields.uniqueNumber` form and
+    // the legacy top-level `uniqueNumber` / `'Unique Number'` shapes —
+    // before backfilling from options/persistence. This preserves a
+    // caller-supplied claim's identity instead of silently overwriting it.
+    const ac: any = this.addressClaim
+    const fields = (ac.fields = ac.fields || {})
+    if (fields.uniqueNumber === undefined) {
+      const legacy = ac.uniqueNumber ?? ac['Unique Number']
+      if (legacy !== undefined) {
+        fields.uniqueNumber = legacy
+      } else {
+        fields.uniqueNumber = uniqueNumber
+      }
     }
 
     const version = packageJson ? packageJson.version : '1.0'
