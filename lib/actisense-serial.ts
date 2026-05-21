@@ -154,47 +154,15 @@ ActisenseStream.prototype.start = function (this: any) {
     })
 
     if (this.options.app) {
-      const writeString = (msg: string) => {
-        this.debugOut(`sending ${msg}`)
-        let buf = parseInput(msg)
-        buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
-        this.debugOut(buf)
-        this.serial.write(buf)
-        if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-          this.options.app.emit('canboatjs:rawsend', { data: msg })
-        }
-        this.options.app.emit('connectionwrite', {
-          providerId: this.options.providerId
-        })
-      }
-
-      const writeObject = (msg: PGN) => {
-        const data = toPgn(msg)
-        const actisense = encodeActisense({ pgn: msg.pgn, data, dst: msg.dst })
-        this.debugOut(`sending ${actisense}`)
-        let buf = parseInput(actisense)
-        buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
-        this.debugOut(buf)
-        this.serial.write(buf)
-        if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-          this.options.app.emit('canboatjs:rawsend', { data: actisense })
-        }
-        this.options.app.emit('connectionwrite', {
-          providerId: this.options.providerId
-        })
-      }
-
       const outEvents = (this.options.outEvent || 'nmea2000out')
         .split(',')
         .map((event: string) => event.trim())
       outEvents.forEach((event: string) => {
-        this.options.app.on(event, (msg: string) => {
-          if (this.outAvailable) {
-            if (typeof msg === 'string') {
-              writeString(msg)
-            } else {
-              writeObject(msg)
-            }
+        this.options.app.on(event, (msg: any) => {
+          if (typeof msg === 'string') {
+            this.sendString(msg)
+          } else {
+            this.sendPGN(msg)
           }
         })
       })
@@ -204,9 +172,7 @@ ActisenseStream.prototype.start = function (this: any) {
         .map((event: string) => event.trim())
       jsonOutEvents.forEach((event: string) => {
         this.options.app.on(event, (msg: PGN) => {
-          if (this.outAvailable) {
-            writeObject(msg)
-          }
+          this.sendPGN(msg)
         })
       })
     }
@@ -254,6 +220,46 @@ ActisenseStream.prototype.start = function (this: any) {
       }
     })
   }
+}
+
+ActisenseStream.prototype.sendString = function (this: any, msg: string) {
+  if (!this.outAvailable) return
+  this.debugOut(`sending ${msg}`)
+  let buf = parseInput(msg)
+  buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
+  this.debugOut(buf)
+  this.serial.write(buf)
+  if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+    this.options.app.emit('canboatjs:rawsend', { data: msg })
+  }
+  this.options.app.emit('connectionwrite', {
+    providerId: this.options.providerId
+  })
+}
+
+ActisenseStream.prototype.sendPGN = function (this: any, pgn: PGN) {
+  if (!this.outAvailable) return
+  const data = toPgn(pgn)
+  const actisense = encodeActisense({
+    pgn: pgn.pgn,
+    data,
+    dst: pgn.dst,
+    // NGT-1 send frames do not carry a caller-provided source address;
+    // the gateway transmits using its own claimed NMEA 2000 address.
+    src: 0,
+    prio: pgn.prio
+  })
+  this.debugOut(`sending ${actisense}`)
+  let buf = parseInput(actisense)
+  buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
+  this.debugOut(buf)
+  this.serial.write(buf)
+  if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
+    this.options.app.emit('canboatjs:rawsend', { data: actisense })
+  }
+  this.options.app.emit('connectionwrite', {
+    providerId: this.options.providerId
+  })
 }
 
 ActisenseStream.prototype.scheduleReconnect = function () {
