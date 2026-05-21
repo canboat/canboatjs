@@ -19,6 +19,16 @@ function makeOptions(overrides: Record<string, unknown> = {}) {
 }
 
 describe('N2kDevice address claim options', () => {
+  test('uniqueNumber from options lands on addressClaim.fields (not top-level)', () => {
+    const dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({ uniqueNumber: 1150522 })
+    )
+    const ac: any = dev.addressClaim
+    expect(ac.fields.uniqueNumber).toBe(1150522)
+    dev.stop()
+  })
+
   test('defaults: deviceInstanceLower=0, deviceInstanceUpper=0, systemInstance=0', () => {
     const dev = new CanDevice({ sendPGN: () => undefined }, makeOptions())
     const ac: any = dev.addressClaim

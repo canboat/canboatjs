@@ -129,8 +129,16 @@ export class N2kDevice extends EventEmitter {
       )
     }
 
-    if (this.addressClaim['Unique Number'] === undefined) {
-      this.addressClaim.uniqueNumber = uniqueNumber
+    // PGN_60928 stores its NMEA fields in `.fields` (canboat camelCase Id
+    // form). Older canboatjs code set a top-level `uniqueNumber` /
+    // `'Unique Number'` property, which the encoder ignored — meaning every
+    // signalk-server claim went out with the all-ones (0x1FFFFF) sentinel
+    // unique number. Some N2K analyzers (e.g. Maretron) treat that value
+    // as factory-default and hide the device. Set it on `.fields` directly.
+    const ac: any = this.addressClaim
+    const fields = (ac.fields = ac.fields || {})
+    if (fields.uniqueNumber === undefined) {
+      fields.uniqueNumber = uniqueNumber
     }
 
     const version = packageJson ? packageJson.version : '1.0'
