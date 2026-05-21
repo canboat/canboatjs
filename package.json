@@ -37,7 +37,8 @@
     "candumpjs": "dist/bin/candumpjs.js",
     "ikonvert-serial": "dist/bin/ikonvert-serial.js",
     "cansendjs": "dist/bin/cansendjs.js",
-    "ydr-file": "dist/bin/ydvr-file.js"
+    "ydr-file": "dist/bin/ydvr-file.js",
+    "maretron-ipgjs": "dist/bin/maretron-ipgjs.js"
   },
   "keywords": [
     "boat",
