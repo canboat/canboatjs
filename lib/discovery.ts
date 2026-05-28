@@ -37,7 +37,7 @@ const DISCOVERY_TIMEOUT_MS = 30000
 export function isMaretronAnnounce(buffer: Buffer): boolean {
   return (
     buffer.length >= MARETRON_ANNOUNCE_PREFIX.length &&
-    buffer.toString('latin1', 0, MARETRON_ANNOUNCE_PREFIX.length) ===
+    buffer.toString('ascii', 0, MARETRON_ANNOUNCE_PREFIX.length) ===
       MARETRON_ANNOUNCE_PREFIX
   )
 }
