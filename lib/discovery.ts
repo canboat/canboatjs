@@ -16,11 +16,105 @@
 
 import { createDebug } from './utilities'
 import { isYDRAW } from './stringMsg'
+import { IPG_PORT } from './maretron-ipg'
 import dgram from 'dgram'
 
 const debug = createDebug('canboatjs:discovery')
 
+// The Maretron IPG100 advertises itself on the LAN with an unsolicited UDP
+// broadcast to port 65499 every ~10 s. The 34-byte payload begins with the
+// ASCII string "IPG, return ping ACK\0" followed by a binary tail (flags +
+// device identifier). We listen for one such frame, take the announcing
+// host's IP as the connect target, and emit a streaming
+// `maretron-ipg-canboatjs` provider on the IPG's TCP control port.
+const MARETRON_ANNOUNCE_PORT = 65499
+const MARETRON_ANNOUNCE_PREFIX = 'IPG, return ping ACK'
+const DISCOVERY_TIMEOUT_MS = 30000
+
+// Match on the leading ASCII prefix only — the binary tail varies by device
+// and firmware, but the prefix is constant and specific enough not to claim
+// unrelated traffic that happens to land on 65499.
+export function isMaretronAnnounce(buffer: Buffer): boolean {
+  return (
+    buffer.length >= MARETRON_ANNOUNCE_PREFIX.length &&
+    buffer.toString('ascii', 0, MARETRON_ANNOUNCE_PREFIX.length) ===
+      MARETRON_ANNOUNCE_PREFIX
+  )
+}
+
+function discoverMaretronIPG(app: any) {
+  const port = String(IPG_PORT)
+  const exists = app.config.settings.pipedProviders.find((provider: any) => {
+    return (
+      provider.pipeElements &&
+      provider.pipeElements.length === 1 &&
+      provider.pipeElements[0].type == 'providers/simple' &&
+      provider.pipeElements[0].options &&
+      provider.pipeElements[0].options.type === 'NMEA2000' &&
+      provider.pipeElements[0].options.subOptions.type ===
+        'maretron-ipg-canboatjs'
+    )
+  })
+
+  if (exists) return
+
+  const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+  let done = false
+  socket.on('message', (buffer: Buffer, remote: any) => {
+    if (done) return
+    if (!isMaretronAnnounce(buffer)) return
+    done = true
+    socket.close()
+    const host = remote.address
+    debug('found Maretron IPG at %s (announce on port %d)', host, remote.port)
+    app.emit('discovered', {
+      id: `Maretron-IPG-${host}`,
+      pipeElements: [
+        {
+          type: 'providers/simple',
+          options: {
+            logging: false,
+            type: 'NMEA2000',
+            subOptions: {
+              type: 'maretron-ipg-canboatjs',
+              host,
+              port
+            }
+          }
+        }
+      ]
+    })
+  })
+  socket.on('error', (error: any) => {
+    debug(error)
+  })
+  socket.on('close', () => {
+    debug('close')
+  })
+  debug(
+    'looking for a Maretron IPG broadcasting on UDP port %d',
+    MARETRON_ANNOUNCE_PORT
+  )
+  try {
+    socket.bind(MARETRON_ANNOUNCE_PORT)
+  } catch (ex) {
+    debug(ex)
+  }
+  const timer = setTimeout(() => {
+    if (!done) {
+      socket.close()
+    }
+  }, DISCOVERY_TIMEOUT_MS)
+  // Don't let the discovery window hold the host process open: SignalK's
+  // shutdown (and jest) should be free to exit before the 30 s timeout.
+  if (timer.unref) timer.unref()
+}
+
 export function discover(app: any) {
+  if (app.config.settings.pipedProviders) {
+    discoverMaretronIPG(app)
+  }
+
   if (app.config.settings.pipedProviders) {
     const exists = app.config.settings.pipedProviders.find((provider: any) => {
       return (
