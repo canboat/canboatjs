@@ -1090,6 +1090,11 @@ function lookup(field: Field, value: number) {
   let name
   if (field.LookupEnumeration) {
     name = getEnumerationName(field.LookupEnumeration, value)
+
+    if (name === undefined && field.BitLength !== undefined && field.BitLength > 1 && isMax(field.BitLength, value, field.Signed as boolean)) {
+      // if is max value and there is no enum, return null
+      return null
+    }
   } else {
     name = getFieldTypeEnumerationName(field.LookupFieldTypeEnumeration, value)
   }
@@ -1352,9 +1357,9 @@ function readValue(
         }
       } else if (bitLength <= 64) {
         value = bs.readBits(bitLength, field.Signed)
-        if (bitLength > 1 && isMax(bitLength, value, field.Signed as boolean)) {
+        if (field.FieldType !== 'LOOKUP' && bitLength > 1 && isMax(bitLength, value, field.Signed as boolean)) {
           const fullRange =
-            field.FieldType !== 'LOOKUP' &&
+            //field.FieldType !== 'LOOKUP' &&
             field.RangeMax !== undefined &&
             field.Resolution &&
             field.RangeMax / field.Resolution >= (1 << bitLength) - 1
