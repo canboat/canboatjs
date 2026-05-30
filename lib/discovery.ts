@@ -149,7 +149,12 @@ function discoverSensespN2K(app: any) {
       )
       return
     }
-    const host = service.addresses && service.addresses[0]
+    // Prefer an IPv4 address — dnssd may list IPv6 first (e.g. ['::1',
+    // '192.168.1.1']) and downstream Node net.connect / SignalK consumers
+    // generally expect bare-dot-quad hosts in the provider config.
+    const addresses: string[] = service.addresses || []
+    const host =
+      addresses.find((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a)) || addresses[0]
     const port = service.port
     if (!host || !port) return
 

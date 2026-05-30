@@ -156,6 +156,29 @@ describe('discover — SensESP-N2K (mDNS)', () => {
     })
   })
 
+  test('prefers an IPv4 address when both v4 and v6 are advertised', (done) => {
+    const app = makeApp()
+    app.on('discovered', (provider: any) => {
+      try {
+        expect(provider.id).toBe('SensESP-N2K-192.168.1.42')
+        expect(provider.pipeElements[0].options.subOptions.host).toBe(
+          '192.168.1.42'
+        )
+        done()
+      } catch (err) {
+        done(err)
+      }
+    })
+
+    discover(app)
+
+    lastBrowser().emit('serviceUp', {
+      addresses: ['fe80::1', '192.168.1.42'],
+      port: 2599,
+      txt: { format: 'candump3' }
+    })
+  })
+
   test('ignores services with a non-candump3 format', () => {
     const app = makeApp()
     const emitted: any[] = []
