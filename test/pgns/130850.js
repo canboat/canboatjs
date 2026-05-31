@@ -15,10 +15,8 @@ module.exports = [
         proprietaryId: 'Autopilot',
         commandType: 'AP Command',
         event: 'No Drift mode',
-        unknown: 0,
         reserved10: null,
-        reserved11: null,
-        reserved12: null
+        spare9: 0
       },
       description: 'Simnet: Command AP NoDrift'
     },
@@ -42,7 +40,7 @@ module.exports = [
         proprietaryId: 'Autopilot',
         commandType: 'AP Command',
         event: 'Change course',
-        unknown: 0,
+        spare9: 0,
         direction: 'Starboard',
         angle: 0.1745,
         reserved12: null
