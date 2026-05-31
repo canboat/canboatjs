@@ -19,6 +19,12 @@ import { isYDRAW } from './stringMsg'
 import { IPG_PORT } from './maretron-ipg'
 import dgram from 'dgram'
 
+// dnssd is plain CommonJS with no shipped types. The namespace import keeps
+// it untyped without needing a @types shim, while satisfying both the no-
+// require-imports lint rule and esModuleInterop.
+// @ts-expect-error -- no @types/dnssd published
+import * as dnssd from 'dnssd'
+
 const debug = createDebug('canboatjs:discovery')
 
 // The Maretron IPG100 advertises itself on the LAN with an unsolicited UDP
@@ -110,9 +116,103 @@ function discoverMaretronIPG(app: any) {
   if (timer.unref) timer.unref()
 }
 
+// The sensesp-n2k-gateway ESP32 firmware (Ethernet or WiFi) advertises a
+// candump3 TCP stream via mDNS as `_sensesp-n2k._tcp`. Works across both
+// link types where UDP broadcast is unreliable. The advertisement carries
+// `format=candump3` and the candump interface name in its TXT records;
+// port comes from the SRV record. We map a discovered service to a
+// streaming `navlink2-tcp-canboatjs` provider, which feeds candump3 lines
+// into canboatjs's TCP+Liner pipeline and auto-detects the format.
+const SENSESP_N2K_SERVICE = 'sensesp-n2k'
+
+function discoverSensespN2K(app: any) {
+  const browser = new dnssd.Browser(dnssd.tcp(SENSESP_N2K_SERVICE))
+  let done = false
+  const stop = () => {
+    if (done) return
+    done = true
+    try {
+      browser.stop()
+    } catch (ex) {
+      debug(ex)
+    }
+  }
+
+  browser.on('serviceUp', (service: any) => {
+    if (done) return
+    const txt = service.txt || {}
+    if (txt.format !== 'candump3') {
+      debug(
+        'ignoring %s: unsupported format %j',
+        service.fullname || service.name,
+        txt.format
+      )
+      return
+    }
+    // Prefer an IPv4 address — dnssd may list IPv6 first (e.g. ['::1',
+    // '192.168.1.1']) and downstream Node net.connect / SignalK consumers
+    // generally expect bare-dot-quad hosts in the provider config.
+    const addresses: string[] = service.addresses || []
+    const host =
+      addresses.find((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a)) || addresses[0]
+    const port = service.port
+    if (!host || !port) return
+
+    const id = `SensESP-N2K-${host}`
+    const exists = app.config.settings.pipedProviders.find((provider: any) => {
+      const opts = provider.pipeElements?.[0]?.options
+      const sub = opts?.subOptions
+      return (
+        provider.id === id ||
+        (opts?.type === 'NMEA2000' &&
+          sub?.type === 'navlink2-tcp-canboatjs' &&
+          sub?.host === host &&
+          String(sub?.port) === String(port))
+      )
+    })
+    if (exists) {
+      debug('SensESP-N2K at %s already configured, skipping', host)
+      return
+    }
+
+    debug('found SensESP-N2K gateway at %s:%d', host, port)
+    app.emit('discovered', {
+      id,
+      pipeElements: [
+        {
+          type: 'providers/simple',
+          options: {
+            logging: false,
+            type: 'NMEA2000',
+            subOptions: {
+              type: 'navlink2-tcp-canboatjs',
+              host,
+              port: String(port)
+            }
+          }
+        }
+      ]
+    })
+  })
+  browser.on('error', (error: any) => {
+    debug(error)
+  })
+
+  debug('browsing for _%s._tcp via mDNS', SENSESP_N2K_SERVICE)
+  try {
+    browser.start()
+  } catch (ex) {
+    debug(ex)
+  }
+
+  const timer = setTimeout(stop, DISCOVERY_TIMEOUT_MS)
+  if (timer.unref) timer.unref()
+}
+
 export function discover(app: any) {
   if (app.config.settings.pipedProviders) {
     discoverMaretronIPG(app)
+    discoverSensespN2K(app)
   }
 
   if (app.config.settings.pipedProviders) {
