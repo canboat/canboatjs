@@ -29,23 +29,108 @@ const debug = createDebug('canboatjs:discovery')
 
 // The Maretron IPG100 advertises itself on the LAN with an unsolicited UDP
 // broadcast to port 65499 every ~10 s. The 34-byte payload begins with the
-// ASCII string "IPG, return ping ACK\0" followed by a binary tail (flags +
-// device identifier). We listen for one such frame, take the announcing
+// ASCII string "IPG, return ping ACK\0" followed by a 0x01 discriminator and
+// a binary device tail. We listen for one such frame, take the announcing
 // host's IP as the connect target, and emit a streaming
-// `maretron-ipg-canboatjs` provider on the IPG's TCP control port.
-const MARETRON_ANNOUNCE_PORT = 65499
-const MARETRON_ANNOUNCE_PREFIX = 'IPG, return ping ACK'
+// `maretron-ipg-canboatjs` provider on the IPG's TCP control port. To avoid
+// waiting up to ~10 s for the next announce, we also actively solicit an
+// immediate reply (see sendMaretronRequest).
+//
+// The whole REQ/ACK ping exchange uses port 65499: clients broadcast the
+// request to 65499, and the IPG sends its ACK back to the request packet's
+// source address and port. So we bind one socket to 65499, send the request
+// from it, and read both the solicited reply and the unsolicited announces on
+// that same socket.
+const MARETRON_PORT = 65499
+const MARETRON_ANNOUNCE_PREFIX = 'IPG, return ping ACK' // 20 ASCII bytes
 const DISCOVERY_TIMEOUT_MS = 30000
 
-// Match on the leading ASCII prefix only — the binary tail varies by device
-// and firmware, but the prefix is constant and specific enough not to claim
-// unrelated traffic that happens to land on 65499.
+// Both 65499 ping packets share a 21-byte header: the ASCII prefix followed by
+// a NUL terminator at offset 20. The byte after that (offset 21) is the
+// REQ/ACK flag. Empirically (captured off a live IPG100):
+//   0x01 = a genuine announce/ACK FROM the IPG (34-byte frame: header + a
+//          12-byte body of override IP, service port, product code, serial)
+//   0x00 = a request frame broadcast BY OTHER HOSTS (22-byte frame, no body,
+//          e.g. Maretron N2KAnalyzer). Matching it would mis-discover the
+//          requester's IP as the IPG, so we must reject it.
+const MARETRON_NUL_OFFSET = MARETRON_ANNOUNCE_PREFIX.length // 20
+const MARETRON_DISCRIMINATOR_OFFSET = MARETRON_ANNOUNCE_PREFIX.length + 1 // 21
+const MARETRON_NUL = 0x00
+const MARETRON_RESPONSE_DISCRIMINATOR = 0x01
+const MARETRON_REQUEST_DISCRIMINATOR = 0x00
+// A genuine ACK carries the header plus a 12-byte body (bytes 22–33), so a
+// real announce is 34 bytes. Requiring the full length rejects truncated or
+// spoofed frames that carry only the header and flag.
+const MARETRON_ANNOUNCE_LENGTH = 34
+
+// Active-discovery probe schedule (ms after the socket binds). The IPG often
+// ignores the first packet or two but answers reliably within a few closely
+// spaced retries — so, like Maretron's own N2KAnalyzer, we send a short burst
+// ~100 ms apart. Measured against a live IPG100 this yields a reply within a
+// few hundred ms every time, with no rate-limiting on port 65499. Probing stops
+// as soon as a reply arrives; the unsolicited ~10 s announce is the fallback if
+// every probe is dropped. An immediate send (offset 0) is always done first.
+const MARETRON_PROBE_OFFSETS_MS = [100, 200, 300, 500, 800]
+
+/**
+ * Build the 22-byte active-discovery request frame: the ASCII prefix, a NUL
+ * terminator, and the 0x00 request flag. Broadcasting this to `MARETRON_PORT`
+ * (65499) elicits an immediate ACK that the IPG sends back to the request's
+ * source address and port. Pure and exported so it can be byte-compared against
+ * a captured request frame without touching the network.
+ */
+export function buildMaretronRequest(): Buffer {
+  return Buffer.concat([
+    Buffer.from(MARETRON_ANNOUNCE_PREFIX, 'ascii'),
+    Buffer.from([MARETRON_NUL, MARETRON_REQUEST_DISCRIMINATOR])
+  ])
+}
+
+/**
+ * Return true only for a genuine IPG announce/ACK frame: the full 34-byte
+ * length, the ASCII prefix, the NUL terminator at offset 20, and the 0x01
+ * response flag at offset 21. The 0x00 request frames other hosts broadcast
+ * share the prefix but are 22 bytes with a 0x00 flag, so they are rejected —
+ * as are truncated or spoofed frames that carry only the header and flag.
+ */
 export function isMaretronAnnounce(buffer: Buffer): boolean {
   return (
-    buffer.length >= MARETRON_ANNOUNCE_PREFIX.length &&
+    buffer.length >= MARETRON_ANNOUNCE_LENGTH &&
     buffer.toString('ascii', 0, MARETRON_ANNOUNCE_PREFIX.length) ===
-      MARETRON_ANNOUNCE_PREFIX
+      MARETRON_ANNOUNCE_PREFIX &&
+    buffer[MARETRON_NUL_OFFSET] === MARETRON_NUL &&
+    buffer[MARETRON_DISCRIMINATOR_OFFSET] === MARETRON_RESPONSE_DISCRIMINATOR
   )
+}
+
+/**
+ * Actively solicit an IPG ACK instead of waiting for the next unsolicited
+ * announce. Broadcasts the request frame to `MARETRON_PORT` (65499) from the
+ * caller's already-bound listener `socket` — the IPG sends its ACK back to the
+ * request's source address and port, so it must be sent from the same socket
+ * the caller reads, not a throwaway one. Fire-and-forget: it never reads, it
+ * only sends, on the burst schedule. `isDone()` short-circuits the burst once
+ * the listener has handled a reply. `setBroadcast` must already be enabled on
+ * the socket. Exported for unit testing with a fake socket.
+ */
+export function sendMaretronRequest(
+  socket: dgram.Socket,
+  isDone: () => boolean
+): void {
+  const frame = buildMaretronRequest()
+  const blast = () => {
+    if (isDone()) return
+    socket.send(frame, MARETRON_PORT, '255.255.255.255', (err) => {
+      if (err) debug('probe send failed %s', err)
+    })
+  }
+
+  // Immediate probe, then the ~100 ms-spaced burst retries.
+  blast()
+  for (const offset of MARETRON_PROBE_OFFSETS_MS) {
+    const t = setTimeout(blast, offset)
+    if (t.unref) t.unref()
+  }
 }
 
 function discoverMaretronIPG(app: any) {
@@ -97,12 +182,20 @@ function discoverMaretronIPG(app: any) {
   socket.on('close', () => {
     debug('close')
   })
-  debug(
-    'looking for a Maretron IPG broadcasting on UDP port %d',
-    MARETRON_ANNOUNCE_PORT
-  )
+  debug('looking for a Maretron IPG on UDP port %d', MARETRON_PORT)
   try {
-    socket.bind(MARETRON_ANNOUNCE_PORT)
+    socket.bind(MARETRON_PORT, () => {
+      // Socket is up; actively solicit an immediate ACK instead of waiting up
+      // to ~10 s for the next unsolicited announce. The IPG replies to this
+      // socket's address/port, so we send the request from it and read the
+      // reply on it. Unsolicited announces also arrive here as the fallback.
+      try {
+        socket.setBroadcast(true)
+      } catch (ex) {
+        debug('setBroadcast failed %s', ex)
+      }
+      sendMaretronRequest(socket, () => done)
+    })
   } catch (ex) {
     debug(ex)
   }
