@@ -10,7 +10,7 @@ module.exports = [
       fields: {
         messageId: 'Static and voyage related data',
         repeatIndicator: 'Initial',
-        userId: 367307850,
+        userId: '367307850',
         imoNumber: 0,
         callsign: 'WDD9171',
         name: 'ATLANTIC COAST',

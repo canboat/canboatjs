@@ -9,7 +9,7 @@ module.exports = [
       fields: {
         messageId: 'ATON report',
         repeatIndicator: 'Initial',
-        userId: 993672312,
+        userId: '993672312',
         longitude: -76.5295832,
         latitude: 39.2160667,
         positionAccuracy: 'High',
