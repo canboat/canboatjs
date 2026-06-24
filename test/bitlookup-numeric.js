@@ -15,16 +15,23 @@ describe('toPgn encodes a numeric BITLOOKUP value', function () {
     fields: { instance: 'Single Engine or Dual Engine Port' }
   }
 
-  const bytes = (pgn) => pgnToActisenseSerialFormat(pgn).split(',').slice(5).join(',')
+  const bytes = (pgn) =>
+    pgnToActisenseSerialFormat(pgn).split(',').slice(5).join(',')
 
   it('does not throw on a numeric bitmask', function () {
-    const numeric = { ...base, fields: { ...base.fields, 'Discrete Status 1': 6 } }
+    const numeric = {
+      ...base,
+      fields: { ...base.fields, 'Discrete Status 1': 6 }
+    }
     ;(() => pgnToActisenseSerialFormat(numeric)).should.not.throw()
   })
 
   it('numeric bitmask encodes the same as the equivalent name array', function () {
     // bit 1 = "Over Temperature", bit 2 = "Low Oil Pressure" => 0b110 = 6
-    const numeric = { ...base, fields: { ...base.fields, 'Discrete Status 1': 6 } }
+    const numeric = {
+      ...base,
+      fields: { ...base.fields, 'Discrete Status 1': 6 }
+    }
     const named = {
       ...base,
       fields: {
