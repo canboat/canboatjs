@@ -312,7 +312,8 @@ export class Parser extends EventEmitter {
             pgn,
             field,
             bs,
-            fields
+            fields,
+            group
           )
           if (refField) {
             group.parameterId = refField.Id
@@ -372,7 +373,8 @@ export class Parser extends EventEmitter {
               pgn,
               field,
               bs,
-              fields
+              fields,
+              group
             )
             if (refField) {
               group.parameterId = refField.Id
@@ -1138,7 +1140,8 @@ function readField(
   pgn: PGN,
   field: Field,
   bs: BitStream,
-  fields: Field[] | undefined = undefined
+  fields: Field[] | undefined = undefined,
+  data: any = undefined
 ): [any, Field | undefined, ByteMapping | undefined] {
   let value
   let refField: Field | undefined = undefined
@@ -1168,7 +1171,16 @@ function readField(
 
       return [null, undefined, bm]
     }
-    ;[value, refField] = readValue(definition, options, pgn, field, bs, fields)
+    ;[value, refField] = readValue(
+      definition,
+      options,
+      pgn,
+      field,
+      bs,
+      fields,
+      undefined,
+      data
+    )
   }
 
   if (options.includeByteMapping) {
@@ -1288,7 +1300,8 @@ function readValue(
   field: Field,
   bs: BitStream,
   fields: Field[] | undefined,
-  bitLength: number | undefined = undefined
+  bitLength: number | undefined = undefined,
+  data: any = undefined
 ): [any, Field | undefined] {
   if (field.FieldType == 'VARIABLE') {
     return readVariableLengthField(definition, options, pgn, field, bs)
@@ -1299,7 +1312,7 @@ function readValue(
         field.BitLengthVariable &&
         field.FieldType === 'DYNAMIC_FIELD_VALUE'
       ) {
-        bitLength = lookupKeyBitLength(pgn.fields, fields as Field[])
+        bitLength = lookupKeyBitLength(data ?? pgn.fields, fields as Field[])
       } else {
         bitLength = field.BitLength
       }
@@ -1697,6 +1710,17 @@ fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
 }
 
 function lookupKeyBitLength(data: any, fields: Field[]): number | undefined {
+  // The value's size is carried on the wire by the sibling DYNAMIC_FIELD_LENGTH
+  // field (bytes). Prefer it over the key catalog's nominal Bits so a value of
+  // any length (incl. 0) is consumed exactly, keeping the repeating list in sync.
+  const lengthField = fields.find((f) => f.FieldType === 'DYNAMIC_FIELD_LENGTH')
+  if (lengthField) {
+    const len = data[lengthField.Name] ?? data[lengthField.Id]
+    if (typeof len === 'number') {
+      return len * 8
+    }
+  }
+
   const field = fields.find((field) => field.Name === 'Key')
 
   if (field) {
