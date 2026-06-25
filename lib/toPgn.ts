@@ -515,7 +515,13 @@ export const actisenseToN2KActisenseFormat = _.flow(
   encodeN2KActisense
 )
 
-function bitIsSet(field: Field, index: number, value: string) {
+function bitIsSet(field: Field, index: number, value: any) {
+  // A BITLOOKUP value may arrive either as a raw numeric bitmask or as an
+  // array (or string) of the set enumeration names.
+  if (typeof value === 'number') {
+    return Math.floor(value / Math.pow(2, index)) % 2 === 1
+  }
+
   const enumName = getBitEnumerationName(
     field.LookupBitEnumeration as string,
     index
