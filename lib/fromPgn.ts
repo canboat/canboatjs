@@ -343,7 +343,7 @@ export class Parser extends EventEmitter {
             pgn,
             field,
             bs,
-            fields,
+            set1Fields,
             group
           )
           if (refField) {
@@ -404,7 +404,7 @@ export class Parser extends EventEmitter {
               pgn,
               field,
               bs,
-              fields,
+              set2Fields,
               group
             )
             if (refField) {
