@@ -1310,6 +1310,22 @@ function readValue(
 ): [any, Field | undefined] {
   if (field.FieldType == 'VARIABLE') {
     return readVariableLengthField(definition, options, pgn, field, bs)
+  } else if (field.FieldType === 'DECIMAL') {
+    // DECIMAL: each byte holds two decimal digits (00-99). Emit as a digit
+    // string to preserve leading zeros (e.g. coast-station identities).
+    // All-0xFF (or any byte > 99) => not available. Used by PGN 129808 (DSC).
+    const nbytes = Math.floor(
+      (bitLength === undefined ? (field.BitLength as number) : bitLength) / 8
+    )
+    let s = ''
+    let allFF = true
+    for (let i = 0; i < nbytes; i++) {
+      const b = bs.readUint8()
+      if (b !== 0xff) allFF = false
+      if (b > 99) allFF = true
+      s += String(b).padStart(2, '0')
+    }
+    return allFF ? [null, undefined] : [s, undefined]
   } else {
     let value
     if (bitLength === undefined) {
