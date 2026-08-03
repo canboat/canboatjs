@@ -16,7 +16,7 @@ module.exports = [
             snr: 31,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 4,
@@ -25,7 +25,7 @@ module.exports = [
             snr: 28,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 10,
@@ -34,7 +34,7 @@ module.exports = [
             snr: 28,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 14,
@@ -43,7 +43,7 @@ module.exports = [
             snr: 30,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null,
+            gnssSystem: null,
             snr: 30,
             rangeResiduals: 0,
             status: 'Used+Diff'
@@ -55,7 +55,7 @@ module.exports = [
             snr: 33,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 22,
@@ -64,7 +64,7 @@ module.exports = [
             snr: 31,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 25,
@@ -73,7 +73,7 @@ module.exports = [
             snr: 33,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 26,
@@ -82,7 +82,7 @@ module.exports = [
             snr: 26,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 31,
@@ -91,7 +91,7 @@ module.exports = [
             snr: 31,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 67,
@@ -100,7 +100,7 @@ module.exports = [
             snr: 32,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 68,
@@ -109,7 +109,7 @@ module.exports = [
             snr: 34,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 69,
@@ -118,7 +118,7 @@ module.exports = [
             snr: 26,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 77,
@@ -127,7 +127,7 @@ module.exports = [
             snr: 29,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 78,
@@ -136,7 +136,7 @@ module.exports = [
             snr: 27,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 79,
@@ -145,7 +145,7 @@ module.exports = [
             snr: 35,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 46,
@@ -154,7 +154,7 @@ module.exports = [
             snr: 30,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 48,
@@ -163,7 +163,7 @@ module.exports = [
             snr: 29,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 51,
@@ -172,7 +172,7 @@ module.exports = [
             snr: 35,
             rangeResiduals: 0,
             status: 'Used+Diff',
-            reserved11: null
+            gnssSystem: null
           }
         ],
         sid: 184,
@@ -200,7 +200,7 @@ module.exports = [
             snr: 33,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 10,
@@ -209,7 +209,7 @@ module.exports = [
             snr: 35,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 13,
@@ -218,7 +218,7 @@ module.exports = [
             snr: 37,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 15,
@@ -227,7 +227,7 @@ module.exports = [
             snr: 39,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 16,
@@ -236,7 +236,7 @@ module.exports = [
             snr: 31,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 18,
@@ -245,7 +245,7 @@ module.exports = [
             snr: 32,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 20,
@@ -254,7 +254,7 @@ module.exports = [
             snr: 36,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 21,
@@ -263,7 +263,7 @@ module.exports = [
             snr: 28,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 26,
@@ -272,7 +272,7 @@ module.exports = [
             snr: 35,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 27,
@@ -281,7 +281,7 @@ module.exports = [
             snr: 35,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 8,
@@ -290,7 +290,7 @@ module.exports = [
             snr: 24,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           },
           {
             prn: 87,
@@ -299,7 +299,7 @@ module.exports = [
             snr: 28,
             rangeResiduals: 0,
             status: 'Used',
-            reserved11: null
+            gnssSystem: null
           }
         ],
         reserved: null,
