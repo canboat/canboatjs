@@ -103,5 +103,51 @@ module.exports = [
       '17:29:52.265 R 19F9050A 2B 74 20 37 31 35 C9 9E',
       '17:29:52.266 R 19F9050A 2C 49 17 AE 18 6A D2 FF'
     ]
+  },
+  {
+    // Regression: a B&G Vulcan 7 sends the route name as STRING_LAU with control byte 1 and
+    // eight-bit characters — here 0xe4, latin-1 'ä'. Decoding that as ASCII strips bit 7 and
+    // turns "Hättan-Askim" into "Hdttan-Askim", which is what Signal K displayed until this was
+    // fixed. Captured off the boat 2026-08-03.
+    expected: {
+      prio: 7,
+      pgn: 129285,
+      dst: 255,
+      src: 4,
+      timestamp: '2026-08-03T14:25:48.062Z',
+      fields: {
+        startRps: null,
+        nitems: 2,
+        databaseId: null,
+        routeId: null,
+        navigationDirectionInRoute: 'Reverse',
+        supplementaryRouteWpDataAvailable: 'Off',
+        reserved: null,
+        routeName: 'Hättan-Askim',
+        reserved9: 166,
+        list: [
+          {
+            wpId: 0,
+            wpName: '',
+            wpLatitude: null,
+            wpLongitude: null
+          },
+          {
+            wpId: 1,
+            wpName: 'Hättan-Askim 165',
+            wpLatitude: 57.6036918,
+            wpLongitude: 11.8832759
+          }
+        ]
+      },
+      description: 'Navigation - Route/WP Information'
+    },
+    // The Vulcan NUL-terminates its STRING_LAU fields and counts the terminator in the length
+    // byte; the encoder omits it, so re-encoding this packet yields three bytes fewer (0x0f vs
+    // 0x0e for the route name, and the same for each waypoint name). The reader handles both,
+    // and changing the encoder would move the bytes under every other STRING_LAU encode test.
+    skipEncoderTest: true,
+    input:
+      '2026-08-03T14:25:48.062Z,7,129285,4,255,67,ff,ff,02,00,ff,ff,ff,ff,e1,0f,01,48,e4,74,74,61,6e,2d,41,73,6b,69,6d,00,a6,00,00,03,01,00,ff,ff,ff,7f,ff,ff,ff,7f,01,00,13,01,48,e4,74,74,61,6e,2d,41,73,6b,69,6d,20,31,36,35,00,36,a0,55,22,77,3e,15,07'
   }
 ]

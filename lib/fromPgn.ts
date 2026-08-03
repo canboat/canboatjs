@@ -1499,7 +1499,7 @@ fieldTypeReaders[
 
     return buf
       .toString(
-        control == 0 ? 'utf8' : 'ascii',
+        control == 0 ? 'utf8' : 'latin1',
         0,
         idx < nameLen ? idx : nameLen
       )
@@ -1537,7 +1537,7 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
     while ((c = bs.readUint8()) != 0x01) {
       buf.writeUInt8(c, idx++)
     }
-    return buf.toString('ascii', 0, idx)
+    return buf.toString('latin1', 0, idx)
   } else if (first > 0x02) {
     let len = first
     const second = bs.readUint8()
@@ -1553,7 +1553,7 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
       const c = bs.readUint8()
       buf.writeUInt8(c, idx)
     }
-    return buf.toString('ascii', 0, idx)
+    return buf.toString('latin1', 0, idx)
   }
 }
 
@@ -1584,7 +1584,7 @@ fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
     zero++
   }
   len = zero
-  return len > 0 ? buf.toString('ascii', 0, len) : undefined
+  return len > 0 ? buf.toString('latin1', 0, len) : undefined
 }
 
 fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
