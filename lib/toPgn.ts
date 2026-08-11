@@ -551,9 +551,15 @@ fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
   }
 }
 
+// PGNs that carry AIS text. AIS pads its fixed-length text fields with '@'
+// (ITU-R M.1371, Annex 8), and receivers strip that padding. Filling with 0xff
+// instead leaves the fill bytes visible on some chart plotters, which render
+// them as trailing spaces after the vessel name.
+const AIS_STRING_PGNS = [129040, 129794, 129809, 129810]
+
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
   if (field.BitLength !== undefined) {
-    let fill = 0xff
+    let fill = AIS_STRING_PGNS.includes(pgn) ? 0x40 : 0xff
     if (
       (pgn === 129810 &&
         (field.Name === 'Vendor ID' || field.Name === 'Callsign')) ||
