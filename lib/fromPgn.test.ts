@@ -44,6 +44,17 @@ describe('PGN 129808 DSC Call Information', () => {
     expect(pgn.fields.dscCategory).toBe(name)
   })
 
+  test('leaves an unavailable value null rather than post-processing it', () => {
+    // 61184 truncated where the match field starts: readField has no bits left
+    // and returns null, which must survive as null rather than be fed to a
+    // post-processor or an enum lookup.
+    const pgn: any = new FromPgn({ returnNulls: true }).parseString(
+      '2017-04-15T16:02:48.913Z,3,61184,3,255,2,3b,87'
+    )
+    expect(pgn.description).toBe('Seatalk: Wireless Keypad Control')
+    expect(pgn.fields.proprietaryId).toBeNull()
+  })
+
   test('still resolves the distress variant', () => {
     const pgn: any = new FromPgn({ useCamelCompat: true }).parseString(
       dscFrame(116, 112)

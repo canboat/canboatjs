@@ -543,15 +543,17 @@ export class Parser extends EventEmitter {
             // occupies the same bits on the same scale — the value was read
             // against the match field, so a differing width or resolution would
             // make it a misreading rather than a missing field.
-            const postProcessor = fieldTypePostProcessors[resolved.FieldType]
-            if (postProcessor) {
-              value = postProcessor(resolved, value)
-            } else if (
-              resolved.FieldType === 'LOOKUP' &&
-              (_.isUndefined(this.options.resolveEnums) ||
-                this.options.resolveEnums)
-            ) {
-              value = lookup(resolved, value)
+            if (value != null) {
+              const postProcessor = fieldTypePostProcessors[resolved.FieldType]
+              if (postProcessor) {
+                value = postProcessor(resolved, value)
+              } else if (
+                resolved.FieldType === 'LOOKUP' &&
+                (_.isUndefined(this.options.resolveEnums) ||
+                  this.options.resolveEnums)
+              ) {
+                value = lookup(resolved, value)
+              }
             }
           } else {
             // Sibling reads different bits: keep the pre-existing behaviour and
