@@ -30,7 +30,8 @@ module.exports = [
         aisMode: 'Autonomous',
         aisCommunicationState: 'ITDMA',
         reserved: null,
-        heading: null
+        heading: null,
+        sequenceId: null
       }
     },
     input:

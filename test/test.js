@@ -97,7 +97,11 @@ describe('to pgn test data converts', function () {
           var data = toPgn(test.expected)
           var str = encodeActisense({ pgn: test.expected.pgn, data })
 
-          var expected = test.input.split(',')
+          // A capture predating a later revision of the PGN is short: the
+          // device stopped transmitting where its layout ended (canboat's
+          // MinLength). Encoding always writes the full definition, so such a
+          // fixture names the frame it re-encodes to in `encoded`.
+          var expected = (test.encoded || test.input).split(',')
           var result = str.split(',')
 
           result[2].should.equal(expected[2])

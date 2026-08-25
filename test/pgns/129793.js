@@ -21,10 +21,15 @@ module.exports = [
         positionDate: '2017.04.15',
         reserved: null,
         reserved13: null,
-        gnssType: null
+        gnssType: null,
+        spare15: null,
+        reserved16: null,
+        sequenceId: null
       }
     },
     input:
-      '2017-04-15T14:58:00.590Z,7,129793,43,255,24,04,43,db,37,00,3a,06,6e,d2,04,b8,3b,17,ff,80,6f,1d,20,19,41,01,77,43,ff'
+      '2017-04-15T14:58:00.590Z,7,129793,43,255,24,04,43,db,37,00,3a,06,6e,d2,04,b8,3b,17,ff,80,6f,1d,20,19,41,01,77,43,ff',
+    encoded:
+      '2017-04-15T14:58:00.590Z,7,129793,43,255,27,04,43,db,37,00,3a,06,6e,d2,04,b8,3b,17,ff,80,6f,1d,20,19,41,01,77,43,ff,ff,ff,ff'
   }
 ]
