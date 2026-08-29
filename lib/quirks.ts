@@ -62,7 +62,7 @@ const PGN_TIME_AND_DATE = 129033
 const PGN_SYSTEM_TIME = 126992
 
 export function isEnabled(options: any, quirk: Quirk): boolean {
-  return options?.quirks !== undefined && options.quirks.indexOf(quirk) !== -1
+  return Array.isArray(options?.quirks) && options.quirks.indexOf(quirk) !== -1
 }
 
 /** Today as days since 1970-01-01, floored at MIN_REFERENCE_DAY. */

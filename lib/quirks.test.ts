@@ -90,6 +90,16 @@ describe('GPS week rollover', () => {
     )
   })
 
+  test('a missing or malformed quirks option is not a quirks list', () => {
+    // `quirks: null` used to reach indexOf() and throw.
+    const rolled = day('2026-08-29') - GPS_ROLLOVER_DAYS
+    const line = systemTimeString(0, rolled)
+    for (const options of [{}, { quirks: null }, { quirks: undefined }]) {
+      const pgn: any = new Parser(options as any).parseString(line)
+      expect(pgn.fields.date).toBe('2007.01.13')
+    }
+  })
+
   test('system time from a local clock is left alone', () => {
     // Source 5 = Local Crystal clock: not a GNSS receiver.
     const rolled = day('2026-08-29') - GPS_ROLLOVER_DAYS
