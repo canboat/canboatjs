@@ -1493,13 +1493,15 @@ fieldTypeReaders[
       buf.writeUInt8(c, idx)
     }
 
-    if (buf[buf.length - 1] === 0) {
+    // A trailing NUL terminates 8-bit text, but in UTF-16LE it is the high
+    // half of an ASCII glyph -- dropping it there loses the last character.
+    if (control != 0 && buf[buf.length - 1] === 0) {
       nameLen = nameLen - 1
     }
 
     const end = idx < nameLen ? idx : nameLen
     // Control byte 0 is UTF-16LE per the standard. It has only ever been seen
-    // on empty fields, so this path is untested against real data.
+    // on empty fields, so this path is untested against real captures.
     return (
       control == 0 ? buf.toString('utf16le', 0, end) : decodeText(buf, 0, end)
     ).trim()
