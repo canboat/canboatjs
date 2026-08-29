@@ -551,6 +551,37 @@ fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
   }
 }
 
+/**
+ * The UTF-8 bytes of a string field's value, optionally capped to a byte
+ * budget without splitting a multi-byte character.
+ *
+ * The writers used to walk the string with `charCodeAt()` and `writeUint8()`,
+ * which is wrong three ways: the code unit is truncated mod 256, so U+016B
+ * silently became 'k' rather than mojibake; the length byte was derived from
+ * `value.length`, which counts UTF-16 code units rather than bytes; and the
+ * STRING_FIX padding loop used the same count, producing a field of the wrong
+ * width and shifting every field after it.
+ *
+ * UTF-8 is also the only encoding that round-trips through the reader, which
+ * takes valid UTF-8 as UTF-8 and falls back to Latin-1 -- Latin-1 output would
+ * be re-read as UTF-8 whenever it happened to be well-formed.
+ *
+ * See canboat/canboat#864.
+ */
+const stringBytes = (value: string, maxBytes?: number): Buffer => {
+  const buf = Buffer.from(value, 'utf8')
+  if (maxBytes === undefined || buf.length <= maxBytes) {
+    return buf
+  }
+  // Cut on a character boundary: never emit a partial sequence, which the
+  // reader would see as invalid UTF-8 and quietly reinterpret as Latin-1.
+  let end = maxBytes
+  while (end > 0 && (buf[end] & 0xc0) === 0x80) {
+    end--
+  }
+  return buf.subarray(0, end)
+}
+
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
   if (field.BitLength !== undefined) {
     let fill = 0xff
@@ -571,12 +602,13 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
       value = ''
     }
     const fieldLen = field.BitLength / 8
+    const buf = stringBytes(value, fieldLen)
 
-    for (let i = 0; i < value.length; i++) {
-      bs.writeUint8(value.charCodeAt(i))
+    for (let i = 0; i < buf.length; i++) {
+      bs.writeUint8(buf[i])
     }
 
-    for (let i = 0; i < fieldLen - value.length; i++) {
+    for (let i = 0; i < fieldLen - buf.length; i++) {
       bs.writeUint8(fill)
     }
   }
@@ -586,9 +618,10 @@ fieldTypeWriters[RES_STRINGLZ] = (pgn, field, value, bs) => {
   if (_.isUndefined(value)) {
     value = ''
   }
-  bs.writeUint8(value.length)
-  for (let i = 0; i < value.length; i++) {
-    bs.writeUint8(value.charCodeAt(i))
+  const buf = stringBytes(value)
+  bs.writeUint8(buf.length)
+  for (let i = 0; i < buf.length; i++) {
+    bs.writeUint8(buf[i])
   }
   bs.writeUint8(0)
 }
@@ -597,29 +630,31 @@ fieldTypeWriters['String with start/stop byte'] = (pgn, field, value, bs) => {
   if (_.isUndefined(value)) {
     value = ''
   }
+  const buf = stringBytes(value)
   bs.writeUint8(0x02)
-  for (let i = 0; i < value.length; i++) {
-    bs.writeUint8(value.charCodeAt(i))
+  for (let i = 0; i < buf.length; i++) {
+    bs.writeUint8(buf[i])
   }
   bs.writeUint8(0x01)
 }
 
 fieldTypeWriters[RES_STRINGLAU] = (pgn, field, value, bs) => {
+  let buf = value ? stringBytes(value) : Buffer.alloc(0)
+
   if (pgn === 129041 && field.Name === 'AtoN Name' && value) {
-    if (value.length > 18) {
-      value = value.substring(0, 18)
-    } else {
-      value = value.padEnd(18, ' ')
+    // The AtoN name is a fixed 18 bytes on the wire, so pad or cut to that --
+    // in bytes, since a multi-byte character would otherwise overrun it.
+    buf = stringBytes(value, 18)
+    if (buf.length < 18) {
+      buf = Buffer.concat([buf, Buffer.alloc(18 - buf.length, 0x20)])
     }
   }
 
-  bs.writeUint8(value ? value.length + 2 : 2)
+  bs.writeUint8(buf.length + 2)
   bs.writeUint8(1)
 
-  if (value) {
-    for (let idx = 0; idx < value.length; idx++) {
-      bs.writeUint8(value.charCodeAt(idx))
-    }
+  for (let idx = 0; idx < buf.length; idx++) {
+    bs.writeUint8(buf[idx])
   }
 }
 

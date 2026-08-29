@@ -1497,16 +1497,41 @@ fieldTypeReaders[
       nameLen = nameLen - 1
     }
 
-    return buf
-      .toString(
-        control == 0 ? 'utf8' : 'ascii',
-        0,
-        idx < nameLen ? idx : nameLen
-      )
-      .trim()
+    const end = idx < nameLen ? idx : nameLen
+    // Control byte 0 is UTF-16LE per the standard. It has only ever been seen
+    // on empty fields, so this path is untested against real data.
+    return (
+      control == 0 ? buf.toString('utf16le', 0, end) : decodeText(buf, 0, end)
+    ).trim()
   } else {
     return null
   }
+}
+
+/**
+ * Decode a run of 8-bit string bytes into text.
+ *
+ * NMEA 2000 leaves the meaning of a byte >= 0x80 undefined in an 8-bit string
+ * field, and devices disagree. Captured on one bus: a Fusion sends UTF-8
+ * (`c5 ab` = U+016B) while a B&G sends Latin-1 (`e6` = U+00E6) -- in the same
+ * field type, under the same STRING_LAU control byte. So the encoding is a
+ * property of neither the field type nor the control byte and has to be decided
+ * from the bytes: well-formed UTF-8 is taken as UTF-8, anything else as Latin-1,
+ * which maps every byte to a codepoint and so cannot fail.
+ *
+ * `Buffer.toString('utf8')` substitutes U+FFFD for malformed input rather than
+ * failing, so the check is a round-trip: re-encoding the result reproduces the
+ * original bytes only if they were valid UTF-8 to begin with. A field that
+ * genuinely contains U+FFFD round-trips too, so it is not mistaken for garbage.
+ *
+ * See canboat/canboat#864.
+ */
+const decodeText = (buf: Buffer, start: number, end: number): string => {
+  const bytes = buf.subarray(start, end)
+  const utf8 = bytes.toString('utf8')
+  return Buffer.compare(Buffer.from(utf8, 'utf8'), bytes) === 0
+    ? utf8
+    : bytes.toString('latin1')
 }
 
 fieldTypeReaders[
@@ -1522,7 +1547,7 @@ fieldTypeReaders[
     buf.writeUInt8(c, idx)
   }
 
-  return buf.toString('utf-8', 0, idx)
+  return decodeText(buf, 0, idx)
 }
 
 fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
@@ -1537,7 +1562,7 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
     while ((c = bs.readUint8()) != 0x01) {
       buf.writeUInt8(c, idx++)
     }
-    return buf.toString('ascii', 0, idx)
+    return decodeText(buf, 0, idx)
   } else if (first > 0x02) {
     let len = first
     const second = bs.readUint8()
@@ -1553,7 +1578,7 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
       const c = bs.readUint8()
       buf.writeUInt8(c, idx)
     }
-    return buf.toString('ascii', 0, idx)
+    return decodeText(buf, 0, idx)
   }
 }
 
@@ -1584,7 +1609,7 @@ fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
     zero++
   }
   len = zero
-  return len > 0 ? buf.toString('ascii', 0, len) : undefined
+  return len > 0 ? decodeText(buf, 0, len) : undefined
 }
 
 fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
