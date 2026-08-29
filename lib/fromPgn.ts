@@ -38,6 +38,7 @@ import { Int64LE, Uint64LE } from 'int64-buffer'
 import { encodeCandump2 } from './stringMsg'
 import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
+import { correctDate } from './quirks'
 
 import {
   parseN2kString,
@@ -51,7 +52,17 @@ const debug = createDebug('canboatjs:fromPgn')
 const trace = createDebug('canboatjs:fromPgn:trace')
 
 export type FromPgnCallback = (msg: any, pgn: any | undefined) => void
-export type PostProcessor = (field: Field, value: any) => any
+/**
+ * Context a post-processor needs beyond the field itself: the PGN being
+ * decoded (for the fields already read) and the parser options (for the
+ * `quirks` list).
+ */
+export type PostProcessorContext = { pgn: PGN; options: any }
+export type PostProcessor = (
+  field: Field,
+  value: any,
+  context?: PostProcessorContext
+) => any
 type FieldTypeReader = (pgn: PGN, field: Field, bs: BitStream) => any
 
 const fieldTypeReaders: {
@@ -125,6 +136,11 @@ export class Parser extends EventEmitter {
 
     if (this.options.includeByteMapping === undefined) {
       this.options.includeByteMapping = false
+    }
+
+    // Device quirks, off unless asked for by name (see ./quirks).
+    if (this.options.quirks === undefined) {
+      this.options.quirks = []
     }
 
     this.name = pkg.name
@@ -470,7 +486,10 @@ export class Parser extends EventEmitter {
 
             const postProcessor = fieldTypePostProcessors[field.FieldType]
             if (postProcessor) {
-              value = postProcessor(field, value)
+              value = postProcessor(field, value, {
+                pgn,
+                options: this.options
+              })
             } else if (
               field.FieldType === 'LOOKUP' &&
               (_.isUndefined(this.options.resolveEnums) ||
@@ -1142,7 +1161,7 @@ function readField(
 
   if (refField === undefined) {
     return [
-      convertField(field, value, runPostProcessor, options),
+      convertField(field, value, runPostProcessor, options, pgn),
       undefined,
       bm
     ]
@@ -1155,14 +1174,15 @@ function convertField(
   field: Field,
   value: any,
   runPostProcessor: boolean,
-  options: any
+  options: any,
+  pgn: PGN
 ): any {
   if (value != null && value !== undefined) {
     const type = field.FieldType //hack, missing type
     const postProcessor = fieldTypePostProcessors[type]
     if (postProcessor) {
       if (runPostProcessor) {
-        value = postProcessor(field, value)
+        value = postProcessor(field, value, { pgn, options })
       }
     } else {
       if (field.Offset) {
@@ -1667,10 +1687,16 @@ function lookupKeyBitLength(data: any, fields: Field[]): number | undefined {
   }
 }
 
-fieldTypePostProcessors['DATE'] = (field, value) => {
+fieldTypePostProcessors['DATE'] = (field, value, context) => {
   if (value >= 0xfffd) {
     value = undefined
   } else {
+    // The wire value is a day count since 1970-01-01, so any quirk that
+    // shifts the date does it here, in whole days, before the date is
+    // ever formatted.
+    if (context !== undefined) {
+      value = correctDate(context.pgn, value, context.options)
+    }
     const date = new Date(value * 86400 * 1000)
     //const date = moment.unix(0).add(value+1, 'days').utc().toDate()
     value = `${date.getUTCFullYear()}.${pad2(date.getUTCMonth() + 1)}.${pad2(date.getUTCDate())}`

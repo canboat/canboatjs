@@ -11,7 +11,16 @@ import util from 'util'
 
 const argv = minimist(process.argv.slice(2), {
   alias: { h: 'help' },
-  string: ['pgn', 'manufacturer', 'src', 'file', 'dst', 'filter', 'id'],
+  string: [
+    'pgn',
+    'manufacturer',
+    'src',
+    'file',
+    'dst',
+    'filter',
+    'id',
+    'quirk'
+  ],
   boolean: [
     'n',
     'r',
@@ -58,6 +67,10 @@ Options:
   --dst <number>            filter for the given destination address
   --manufacturer <str>      filter for pgns from the given manufacturer
   --filter <js>             filter for the given JavaScript expression
+  --quirk <name>            enable a device quirk (repeatable). gps-rollover
+                            corrects GNSS dates from a receiver that never
+                            handled the GPS week rollover. Off by default;
+                            not for replaying pre-2019 captures.
   -h, --help                output usage information`)
   process.exit(1)
 }
@@ -71,6 +84,14 @@ if (argv['coalesced']) {
 
 const filter = setupFilters(argv as unknown as FilterOptions)
 
+// minimist gives a bare string for one --quirk, an array for several.
+const quirks =
+  argv['quirk'] === undefined
+    ? []
+    : Array.isArray(argv['quirk'])
+      ? argv['quirk']
+      : [argv['quirk']]
+
 const parser = new Parser({
   returnNulls: argv['n'] === true,
   littleEndianMXPGN: argv['r'] === true,
@@ -83,7 +104,8 @@ const parser = new Parser({
   format,
   resolveEnums: argv['enums'] === undefined || argv['enums'] === true,
   includeRawData: argv['include-raw-data'],
-  includeByteMapping: argv['include-byte-mapping']
+  includeByteMapping: argv['include-byte-mapping'],
+  quirks
 })
 
 parser.on('error', (pgn: PGN, error: any) => {

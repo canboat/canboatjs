@@ -384,6 +384,29 @@ parser.parseString(message)  // Parse single message
 parser.parse(buffer)         // Parse binary data
 ```
 
+#### Device quirks
+
+Known device misbehaviour that canboatjs can cover for. Every quirk is
+off by default, and takes the same name canboat's own `--quirk` flag
+uses:
+
+```javascript
+const { FromPgn, Quirk } = require('@canboat/canboatjs')
+
+const parser = new FromPgn({ quirks: [Quirk.GpsRollover] })
+```
+
+| Quirk | What it does |
+|---|---|
+| `gps-rollover` | Corrects GNSS dates from a receiver that never learned about the GPS 1024-week rollover and reports one or two epochs in the past. Applies to PGN 129029, 129033 and 126992 when its source is GPS. |
+
+`analyzerjs` exposes the same thing as `--quirk gps-rollover`
+(repeatable).
+
+Leave them off when replaying an old capture: `gps-rollover` cannot tell
+a rolled-over date from a genuinely pre-2019 one, and will move the
+whole log forward by twenty years.
+
 #### `canbus` - CAN Bus Interface
 ```javascript
 const canbus = new canbus(options)
