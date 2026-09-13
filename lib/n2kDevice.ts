@@ -426,6 +426,17 @@ function handleGroupFunction(
 }
 
 function handleISOAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
+  // Own ISO address claim echoed on N2KAnalyzerOut (SK FromPgn) or
+  // socketcan loopback is not a peer. SimpleCan drops own-src only
+  // after cansend; CanbusStream always forwards PGN 60928. Registering
+  // that echo in devices[src] while cansend is false makes
+  // sendAddressClaim treat the address as taken and call
+  // increaseOwnAddress.
+  if (isOwnIsoAddressClaim(device, n2kMsg)) {
+    device.debug('ignoring own ISO address claim from src %d', n2kMsg.src)
+    return
+  }
+
   if (device.cansend == false || n2kMsg.src != device.address) {
     if (!device.devices[n2kMsg.src!]) {
       device.debug(`registering device ${n2kMsg.src}`)
@@ -591,6 +602,18 @@ function sendPGNList(device: N2kDevice, dst: number) {
     dst
   )
   device.sendPGN(pgnList)
+}
+
+function isOwnIsoAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
+  if (n2kMsg.src != device.address) {
+    return false
+  }
+  const received = toPgn(n2kMsg)
+  const own = toPgn(device.addressClaim)
+  if (!received || !own) {
+    return false
+  }
+  return Buffer.from(received).equals(Buffer.from(own))
 }
 
 function getISOAddressClaimAsUint64(pgn: any) {

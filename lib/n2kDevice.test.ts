@@ -207,3 +207,72 @@ describe('N2kDevice address claim options', () => {
     expect(ac.fields.systemInstance).toBe(0)
   })
 })
+
+function analyzerAddressClaim(dev: CanDevice, uniqueNumber?: number) {
+  const echo = JSON.parse(JSON.stringify(dev.addressClaim))
+  echo.src = dev.address
+  echo.dst = 255
+  echo.pgn = 60928
+  if (uniqueNumber !== undefined) {
+    echo.fields.uniqueNumber = uniqueNumber
+  }
+  return echo
+}
+
+describe('N2kDevice ISO address claim echo', () => {
+  let dev: CanDevice | undefined
+
+  afterEach(() => {
+    jest.useRealTimers()
+    if (dev) {
+      dev.stop()
+      dev = undefined
+    }
+  })
+
+  test('own 60928 while cansend is false does not populate devices[preferred] or bump address', () => {
+    jest.useFakeTimers()
+    const preferredAddress = 37
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        preferredAddress,
+        uniqueNumber: 1060571,
+        addressClaimDetectionTime: 5000
+      })
+    )
+
+    expect(dev.cansend).toBe(false)
+    dev.n2kMessage(analyzerAddressClaim(dev))
+
+    expect(dev.devices[preferredAddress]).toBeUndefined()
+
+    dev.start()
+    jest.advanceTimersByTime(1000)
+
+    expect(dev.address).toBe(preferredAddress)
+    expect(dev.devices[preferredAddress]).toBeUndefined()
+  })
+
+  test('peer 60928 at the preferred address still forces increaseOwnAddress', () => {
+    jest.useFakeTimers()
+    const preferredAddress = 37
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        preferredAddress,
+        uniqueNumber: 1060571,
+        addressClaimDetectionTime: 5000
+      })
+    )
+
+    dev.n2kMessage(analyzerAddressClaim(dev, 1))
+
+    expect(dev.devices[preferredAddress]).toBeDefined()
+
+    dev.start()
+    jest.advanceTimersByTime(1000)
+
+    expect(dev.address).not.toBe(preferredAddress)
+  })
+})
