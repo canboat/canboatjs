@@ -105,3 +105,52 @@ describe('Convert Yacht Devices RAW format data', function () {
     done()
   })
 })
+
+describe('Send frames to a Yacht Devices gateway', function () {
+  const { EventEmitter } = require('events')
+  const { Ydgw02 } = require('../dist/index')
+
+  // Class B static data, part A: 27 bytes, so four frames.
+  const staticData = {
+    src: 127,
+    prio: 6,
+    dst: 255,
+    pgn: 129809,
+    fields: {
+      'Message ID': 24,
+      'Repeat Indicator': 0,
+      'User ID': 338123456,
+      Name: 'ORION',
+      'AIS Transceiver information': 0,
+      'Sequence ID': 0
+    },
+    forceSend: true
+  }
+  const frames = pgnToYdgwRawFormat(staticData)
+
+  function sendWith(batchFrames) {
+    if (batchFrames) {
+      process.env.ENABLEBATCHFRAMES = '1'
+    } else {
+      delete process.env.ENABLEBATCHFRAMES
+    }
+    const app = new EventEmitter()
+    const sent = []
+    app.on('ydwg02-out', (msg) => sent.push(msg))
+    const stream = new Ydgw02({ app }, 'udp')
+    stream.sendPGN({ ...staticData })
+    delete process.env.ENABLEBATCHFRAMES
+    return sent
+  }
+
+  it('sends each frame on its own by default', (done) => {
+    frames.length.should.equal(4)
+    sendWith(false).should.eql(frames.map((raw) => raw + '\r\n'))
+    done()
+  })
+
+  it('sends all frames of a message together with ENABLEBATCHFRAMES', (done) => {
+    sendWith(true).should.eql([frames.map((raw) => raw + '\r\n').join('')])
+    done()
+  })
+})
