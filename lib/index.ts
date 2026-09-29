@@ -97,3 +97,20 @@ export interface CanboatUtilities {
 
   removeEmulator: (id: string) => void
 }
+
+// Quick Protocol
+export { QuickCan, type QuickMessage, type QuickCanOptions } from './quickCan'
+export { toQuickPgn } from './toPgn'
+export { getQuickPgn, isQuickCanId, type QuickMessageDef } from './pgns'
+export {
+  type ParsedQuickCanId,
+  parseQuickCanId,
+  encodeQuickCanId,
+  isExtendedCanId,
+  CAN_EFF_FLAG
+} from './canId'
+export {
+  quickMessageRegistry,
+  getQuickMessageDef,
+  getQuickCanIds
+} from './quickPgns'

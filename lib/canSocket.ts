@@ -55,6 +55,7 @@ try {
 export interface CanMessage {
   id: number
   data: Buffer
+  ext: boolean // true if extended frame (29-bit), false if standard (11-bit)
 }
 
 /**
@@ -115,12 +116,13 @@ export class CanChannel extends EventEmitter {
         continue
       }
       const rawId = frame.readUInt32LE(0)
-      const id = rawId & CAN_EFF_MASK
+      const ext = (rawId & CAN_EFF_FLAG) !== 0
+      const id = ext ? rawId & CAN_EFF_MASK : rawId & 0x7ff
       const dlc = frame[4]
       const data = Buffer.from(
         frame.subarray(CAN_DATA_OFFSET, CAN_DATA_OFFSET + dlc)
       )
-      this.emit('onMessage', { id, data } as CanMessage)
+      this.emit('onMessage', { id, data, ext } as CanMessage)
     }
   }
 
@@ -160,5 +162,13 @@ export class CanChannel extends EventEmitter {
     msg.data.copy(frame, CAN_DATA_OFFSET, 0, Math.min(msg.data.length, 8))
 
     native.writeCanFrame(this.writeFd, frame)
+  }
+
+  /**
+   * Send a 11-bit standard CAN frame (Quick protocol).
+   * Convenience method that explicitly sets ext=false.
+   */
+  sendStandard(msg: { id: number; data: Buffer }): void {
+    this.send({ id: msg.id, ext: false, data: msg.data })
   }
 }

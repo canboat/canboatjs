@@ -1,11 +1,18 @@
 import { getPGNWithNumber } from '@canboat/ts-pgns'
 import _ from 'lodash'
+import { getQuickMessageDef, isQuickCanId } from './quickPgns'
+import type { QuickMessageDef } from './quickPgns'
 
 //import { createDebug } from './utilities'
 //const debug = createDebug('canboatjs:pgns')
 
 export const getPgn = getPGNWithNumber
 export const customPgns: any = {}
+
+// Quick protocol message lookups
+export const getQuickPgn = getQuickMessageDef
+export { isQuickCanId }
+export type { QuickMessageDef }
 
 export const addCustomPgns = (pgns: any, _setter: any) => {
   pgns.PGNs.forEach((pgn: any) => {

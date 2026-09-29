@@ -668,3 +668,126 @@ fieldTypeMappers['Pressure'] = (field, value) => {
   }
   return value
 }
+
+// --- Quick Protocol Encoding ---
+
+import { getQuickPgn } from './pgns'
+import type { QuickMessageDef, QuickField } from './quickPgns'
+
+/**
+ * Encode a Quick protocol message into a CAN data buffer.
+ *
+ * Quick uses 11-bit CAN IDs and little-endian byte order. Every field,
+ * including the leading 16-bit talker identifier, is written from `fields`.
+ *
+ * @param canId - 11-bit CAN ID (0x000 - 0x7FF)
+ * @param fields - field values keyed by field id
+ * @returns Buffer containing the encoded payload (max 8 bytes)
+ */
+export function toQuickPgn(
+  canId: number,
+  fields: { [key: string]: any }
+): Buffer | undefined {
+  const msgDef = getQuickPgn(canId)
+  if (!msgDef) {
+    debug('no Quick PGN definition for CAN ID 0x%s', canId.toString(16))
+    return undefined
+  }
+
+  return encodeQuickMessage(msgDef, fields)
+}
+
+/**
+ * Encode a Quick protocol message from a definition and field values.
+ */
+function encodeQuickMessage(
+  msgDef: QuickMessageDef,
+  fields: { [key: string]: any }
+): Buffer {
+  const buffer = Buffer.alloc(8)
+  let offset = 0
+
+  for (const fieldDef of msgDef.fields) {
+    const value =
+      fields[fieldDef.id] !== undefined
+        ? fields[fieldDef.id]
+        : fields[fieldDef.name]
+
+    if (value === undefined || value === null) {
+      // Fill undefined fields with 0xFF
+      const bytes = Math.ceil(fieldDef.bits / 8)
+      for (let i = 0; i < bytes && offset < 8; i++) {
+        buffer[offset++] = 0xff
+      }
+      continue
+    }
+
+    offset = writeQuickField(buffer, offset, fieldDef, value)
+  }
+
+  return buffer.slice(0, offset)
+}
+
+/**
+ * Write a single Quick protocol field to a buffer at the given offset.
+ * All multi-byte values are written little-endian.
+ */
+function writeQuickField(
+  buffer: Buffer,
+  offset: number,
+  fieldDef: QuickField,
+  value: any
+): number {
+  const bytes = Math.ceil(fieldDef.bits / 8)
+
+  if (fieldDef.type === 'BINARY' || fieldDef.type === 'STRING_FIX') {
+    if (Buffer.isBuffer(value)) {
+      value.copy(buffer, offset, 0, Math.min(value.length, bytes))
+    } else if (typeof value === 'string') {
+      // Parse hex string (space-separated bytes) back to buffer
+      const hexStr = value.replace(/\s/g, '')
+      for (let i = 0; i < bytes && i * 2 < hexStr.length; i++) {
+        buffer[offset + i] = parseInt(hexStr.substring(i * 2, i * 2 + 2), 16)
+      }
+    }
+    return offset + bytes
+  }
+
+  // Numeric field - write little-endian
+  let numValue = Number(value)
+  if (fieldDef.type === 'LOOKUP' && fieldDef.enumValues) {
+    // Accept the label string (e.g. 'feet') or the raw numeric value.
+    if (typeof value === 'string') {
+      const entry = Object.entries(fieldDef.enumValues).find(
+        ([, label]) => label === value
+      )
+      if (entry) {
+        numValue = Number(entry[0])
+      }
+    }
+  }
+  if (fieldDef.resolution) {
+    numValue = Math.round(numValue / fieldDef.resolution)
+  }
+
+  if (bytes === 1) {
+    fieldDef.signed
+      ? buffer.writeInt8(numValue, offset)
+      : buffer.writeUInt8(numValue, offset)
+  } else if (bytes === 2) {
+    fieldDef.signed
+      ? buffer.writeInt16LE(numValue, offset)
+      : buffer.writeUInt16LE(numValue, offset)
+  } else if (bytes === 3) {
+    // 24-bit little-endian (Buffer has no 24-bit writer)
+    buffer[offset] = numValue & 0xff
+    buffer[offset + 1] = (numValue >> 8) & 0xff
+    buffer[offset + 2] = (numValue >> 16) & 0xff
+  } else if (bytes === 4) {
+    fieldDef.signed
+      ? buffer.writeInt32LE(numValue, offset)
+      : buffer.writeUInt32LE(numValue, offset)
+  }
+
+  return offset + bytes
+}
