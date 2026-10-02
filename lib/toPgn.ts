@@ -617,13 +617,23 @@ fieldTypeWriters[RES_STRINGLZ] = (pgn, field, value, bs) => {
   if (value == null) {
     value = ''
   }
-  // The length byte counts the content only.
-  const buf = stringBytes(value, 0xff)
+  // [length][content][0x00], the length byte counting the content only --
+  // what every Fusion device sends. A fixed-width field is 0x00-padded to
+  // its width, with the content capped so the NUL still fits. canboat's
+  // stage_string_lz.
+  const width = field.BitLength !== undefined ? field.BitLength / 8 : undefined
+  const room = width !== undefined ? Math.max(width - 2, 0) : 0xff
+  const buf = stringBytes(value, Math.min(room, 0xff))
   bs.writeUint8(buf.length)
   for (let i = 0; i < buf.length; i++) {
     bs.writeUint8(buf[i])
   }
   bs.writeUint8(0)
+  if (width !== undefined) {
+    for (let i = buf.length + 2; i < width; i++) {
+      bs.writeUint8(0)
+    }
+  }
 }
 
 fieldTypeWriters['String with start/stop byte'] = (pgn, field, value, bs) => {
