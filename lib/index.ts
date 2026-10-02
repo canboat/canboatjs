@@ -16,7 +16,15 @@
 
 export { Parser as FromPgn } from './fromPgn'
 export type { ByteMapping, ByteMap, RepeatingByteMapping } from './fromPgn'
-export { Quirk, correctedGpsDate, GPS_ROLLOVER_DAYS } from './quirks'
+export {
+  Quirk,
+  correctedGpsDate,
+  GPS_ROLLOVER_DAYS,
+  parseQuirks,
+  parseTarget,
+  parseDevice
+} from './quirks'
+export type { Device, Target, Quirks } from './quirks'
 export { setupFilters, filterPGN } from './utilities'
 export type { FilterConfig, FilterOptions } from './utilities'
 export { CanbusStream as canbus } from './canbus'

@@ -38,7 +38,7 @@ import { Int64LE, Uint64LE } from 'int64-buffer'
 import { encodeCandump2 } from './stringMsg'
 import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
-import { correctDate } from './quirks'
+import { parseQuirks, Quirks } from './quirks'
 
 import {
   parseN2kString,
@@ -64,6 +64,14 @@ export type PostProcessor = (
   context?: PostProcessorContext
 ) => any
 type FieldTypeReader = (pgn: PGN, field: Field, bs: BitStream) => any
+
+/**
+ * The quirks each parser was configured with, keyed by its options object,
+ * which is what the field readers and post-processors are handed.
+ */
+const parsedQuirks = new WeakMap<object, Quirks>()
+const quirksOf = (options: any): Quirks | undefined =>
+  options ? parsedQuirks.get(options) : undefined
 
 const fieldTypeReaders: {
   [key: string]: FieldTypeReader
@@ -138,10 +146,12 @@ export class Parser extends EventEmitter {
       this.options.includeByteMapping = false
     }
 
-    // Device quirks, off unless asked for by name (see ./quirks).
+    // Device quirks, off unless asked for by name (see ./quirks). A bad
+    // quirk string is refused here, as canboat refuses the --quirk flag.
     if (this.options.quirks === undefined) {
       this.options.quirks = []
     }
+    parsedQuirks.set(this.options, parseQuirks(this.options.quirks))
 
     this.name = pkg.name
     this.version = pkg.version
@@ -656,6 +666,15 @@ export class Parser extends EventEmitter {
       if (bs === undefined) {
         //not done reading yet (multi-frame)
         return
+      }
+
+      // The GPS rollover quirk keys devices by ISO NAME, which is the whole
+      // PGN 60928 payload, so it learns those here as they go by.
+      if (pgn.pgn === 60928 && pgnData !== undefined) {
+        quirksOf(this.options)?.gpsRollover?.noteAddressClaim(
+          pgn.src,
+          bs.view.buffer.subarray(0, 8)
+        )
       }
 
       let res
@@ -1695,7 +1714,10 @@ fieldTypePostProcessors['DATE'] = (field, value, context) => {
     // shifts the date does it here, in whole days, before the date is
     // ever formatted.
     if (context !== undefined) {
-      value = correctDate(context.pgn, value, context.options)
+      const gpsRollover = quirksOf(context.options)?.gpsRollover
+      if (gpsRollover) {
+        value = gpsRollover.correctDate(context.pgn, value)
+      }
     }
     const date = new Date(value * 86400 * 1000)
     //const date = moment.unix(0).add(value+1, 'days').utc().toDate()

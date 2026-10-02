@@ -387,20 +387,27 @@ parser.parse(buffer)         // Parse binary data
 #### Device quirks
 
 Known device misbehaviour that canboatjs can cover for. Every quirk is
-off by default, and takes the same name canboat's own `--quirk` flag
-uses:
+off by default, and takes the same strings canboat's own `--quirk` flag
+does, with the same behaviour:
 
 ```javascript
 const { FromPgn, Quirk } = require('@canboat/canboatjs')
 
 const parser = new FromPgn({ quirks: [Quirk.GpsRollover] })
+// or with a device list
+const parser = new FromPgn({ quirks: ['gps-rollover=4,1851:491603'] })
 ```
 
 | Quirk | What it does |
 |---|---|
 | `gps-rollover` | Corrects GNSS dates from a receiver that never learned about the GPS 1024-week rollover and reports one or two epochs in the past. Applies to PGN 129029, 129033 and 126992 when its source is GPS. |
+| `gps-rollover=<device>[,<device>...]` | Also corrects every date the listed devices stamp from that clock, such as a DSC radio's 129808 Date of Receipt. A device is a source address (`4`), its manufacturer code and unique number from its address claim (`1851:491603`, which follows the device to a new address), or its ISO NAME in hex (`0x…`). AIS 129793/129794 and 127258 Age of Service are never touched: they carry another station's or a model's date. |
+| `gps-rollover=all` | Corrects every date on the bus, with the same exceptions. |
 
-`analyzerjs` exposes the same thing as `--quirk gps-rollover`
+A malformed quirk string makes the `FromPgn` constructor throw, as canboat
+refuses the flag.
+
+`analyzerjs` exposes the same thing as `--quirk gps-rollover[=…]`
 (repeatable).
 
 Leave them off when replaying an old capture: `gps-rollover` cannot tell

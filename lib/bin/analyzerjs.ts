@@ -2,6 +2,7 @@
 
 import { PGN } from '@canboat/ts-pgns'
 import { Parser } from '../fromPgn'
+import { parseQuirks } from '../quirks'
 import minimist from 'minimist'
 import readline from 'readline'
 import { printVersion } from './utils'
@@ -69,8 +70,12 @@ Options:
   --filter <js>             filter for the given JavaScript expression
   --quirk <name>            enable a device quirk (repeatable). gps-rollover
                             corrects GNSS dates from a receiver that never
-                            handled the GPS week rollover. Off by default;
-                            not for replaying pre-2019 captures.
+                            handled the GPS week rollover;
+                            gps-rollover=<device>,... also corrects every
+                            date the listed devices stamp (a device is a
+                            source address, <manufacturer>:<unique number>
+                            or 0x<NAME>), gps-rollover=all every date. Off
+                            by default; not for replaying pre-2019 captures.
   -h, --help                output usage information`)
   process.exit(1)
 }
@@ -91,6 +96,14 @@ const quirks =
     : Array.isArray(argv['quirk'])
       ? argv['quirk']
       : [argv['quirk']]
+
+// A malformed --quirk is refused up front, as canboat refuses the flag.
+try {
+  parseQuirks(quirks)
+} catch (e: any) {
+  console.error(`--quirk: ${e.message}`)
+  process.exit(1)
+}
 
 const parser = new Parser({
   returnNulls: argv['n'] === true,
