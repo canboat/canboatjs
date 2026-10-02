@@ -671,9 +671,11 @@ export class Parser extends EventEmitter {
       // The GPS rollover quirk keys devices by ISO NAME, which is the whole
       // PGN 60928 payload, so it learns those here as they go by.
       if (pgn.pgn === 60928 && pgnData !== undefined) {
+        // Only the bytes received: a claim shorter than the 8-byte NAME
+        // must fail the length check, not pick up the buffer's filler.
         quirksOf(this.options)?.gpsRollover?.noteAddressClaim(
           pgn.src,
-          bs.view.buffer.subarray(0, 8)
+          bs.view.buffer.subarray(0, Math.min(len, bs.view.buffer.length))
         )
       }
 

@@ -321,6 +321,17 @@ describe('GPS rollover by device', () => {
     }
   })
 
+  test('a short address claim teaches no name', () => {
+    // A claim declaring 4 bytes, with the rest of the VHF's NAME trailing
+    // the line: only the declared bytes are the payload, as canboat reads
+    // it, so this is no NAME at all.
+    const parser = new Parser({ quirks: ['gps-rollover=1851:491603'] })
+    const fields = claimString(4, VHF_NAME).split(',')
+    fields[5] = '4'
+    parser.parseString(fields.join(','))
+    expect(dateOfReceipt(parser)).toBe(rolled)
+  })
+
   test('the parser learns names from address claims', () => {
     const parser = new Parser({ quirks: ['gps-rollover=1851:491603'] })
     // Before the claim: not ours.
