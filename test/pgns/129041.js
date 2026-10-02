@@ -34,6 +34,10 @@ module.exports = [
       description: 'AIS Aids to Navigation (AtoN) Report'
     },
     input:
-      '2019-04-15T15:13:37.159Z,4,129041,43,255,46,15,78,3c,3a,3b,28,83,62,d2,9b,e5,5f,17,f5,ff,ff,ff,ff,ff,ff,ff,ff,4d,0e,00,00,14,01,53,43,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20'
+      '2019-04-15T15:13:37.159Z,4,129041,43,255,46,15,78,3c,3a,3b,28,83,62,d2,9b,e5,5f,17,f5,ff,ff,ff,ff,ff,ff,ff,ff,4d,0e,00,00,14,01,53,43,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20',
+    // The transponder pads the name to 18 bytes with spaces; canboat (and so
+    // canboatjs) writes a STRING_LAU at the length of its content.
+    encoded:
+      '2019-04-15T15:13:37.159Z,4,129041,43,255,30,15,78,3c,3a,3b,28,83,62,d2,9b,e5,5f,17,f5,ff,ff,ff,ff,ff,ff,ff,ff,4d,0e,00,00,04,01,53,43'
   }
 ]

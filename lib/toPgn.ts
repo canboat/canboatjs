@@ -552,8 +552,7 @@ fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
 }
 
 /**
- * The UTF-8 bytes of a string field's value, optionally capped to a byte
- * budget without splitting a multi-byte character.
+ * The UTF-8 bytes of a string field's value.
  *
  * The writers used to walk the string with `charCodeAt()` and `writeUint8()`,
  * which is wrong three ways: the code unit is truncated mod 256, so U+016B
@@ -562,19 +561,19 @@ fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
  * STRING_FIX padding loop used the same count, producing a field of the wrong
  * width and shifting every field after it.
  *
- * UTF-8 is also the only encoding that round-trips through the reader, which
- * takes valid UTF-8 as UTF-8 and falls back to Latin-1 -- Latin-1 output would
- * be re-read as UTF-8 whenever it happened to be well-formed.
- *
- * See canboat/canboat#864.
+ * UTF-8 is what canboat's encoder writes, and the only encoding that
+ * round-trips through the reader, which takes valid UTF-8 as UTF-8 and falls
+ * back to Latin-1 -- Latin-1 output would be re-read as UTF-8 whenever it
+ * happened to be well-formed. See canboat/canboat#864.
  */
-const stringBytes = (value: string, maxBytes?: number): Buffer => {
+const stringBytes = (value: string, maxBytes: number): Buffer => {
   const buf = Buffer.from(value, 'utf8')
-  if (maxBytes === undefined || buf.length <= maxBytes) {
+  if (buf.length <= maxBytes) {
     return buf
   }
-  // Cut on a character boundary: never emit a partial sequence, which the
-  // reader would see as invalid UTF-8 and quietly reinterpret as Latin-1.
+  // Too long for the field: shorten it rather than refuse the message. Cut on
+  // a character boundary -- a partial sequence is invalid UTF-8, which the
+  // reader would quietly reinterpret as Latin-1.
   let end = maxBytes
   while (end > 0 && (buf[end] & 0xc0) === 0x80) {
     end--
@@ -590,7 +589,7 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
         (field.Name === 'Vendor ID' || field.Name === 'Callsign')) ||
       (pgn === 129809 && field.Name === 'Name')
     ) {
-      if (_.isUndefined(value) || value.length == 0) {
+      if (value == null || value.length == 0) {
         {
           fill = 0x40
           value = ''
@@ -598,7 +597,7 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
       }
     }
 
-    if (value === undefined) {
+    if (value == null) {
       value = ''
     }
     const fieldLen = field.BitLength / 8
@@ -615,10 +614,11 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
 }
 
 fieldTypeWriters[RES_STRINGLZ] = (pgn, field, value, bs) => {
-  if (_.isUndefined(value)) {
+  if (value == null) {
     value = ''
   }
-  const buf = stringBytes(value)
+  // The length byte counts the content only.
+  const buf = stringBytes(value, 0xff)
   bs.writeUint8(buf.length)
   for (let i = 0; i < buf.length; i++) {
     bs.writeUint8(buf[i])
@@ -627,10 +627,10 @@ fieldTypeWriters[RES_STRINGLZ] = (pgn, field, value, bs) => {
 }
 
 fieldTypeWriters['String with start/stop byte'] = (pgn, field, value, bs) => {
-  if (_.isUndefined(value)) {
+  if (value == null) {
     value = ''
   }
-  const buf = stringBytes(value)
+  const buf = stringBytes(value, 0xff)
   bs.writeUint8(0x02)
   for (let i = 0; i < buf.length; i++) {
     bs.writeUint8(buf[i])
@@ -639,19 +639,11 @@ fieldTypeWriters['String with start/stop byte'] = (pgn, field, value, bs) => {
 }
 
 fieldTypeWriters[RES_STRINGLAU] = (pgn, field, value, bs) => {
-  let buf = value ? stringBytes(value) : Buffer.alloc(0)
-
-  if (pgn === 129041 && field.Name === 'AtoN Name' && value) {
-    // The AtoN name is a fixed 18 bytes on the wire, so pad or cut to that --
-    // in bytes, since a multi-byte character would otherwise overrun it.
-    buf = stringBytes(value, 18)
-    if (buf.length < 18) {
-      buf = Buffer.concat([buf, Buffer.alloc(18 - buf.length, 0x20)])
-    }
-  }
+  // The length byte counts itself and the control byte.
+  const buf = value ? stringBytes(value, 0xff - 2) : Buffer.alloc(0)
 
   bs.writeUint8(buf.length + 2)
-  bs.writeUint8(1)
+  bs.writeUint8(1) // 1 = ASCII / UTF-8
 
   for (let idx = 0; idx < buf.length; idx++) {
     bs.writeUint8(buf[idx])

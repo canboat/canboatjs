@@ -36,6 +36,7 @@ import { getPgn, getCustomPgn, addCustomPgns } from './pgns'
 import { BitStream, BitView } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 import { encodeCandump2 } from './stringMsg'
+import { rdsG0Char } from './charsets'
 
 import {
   parseN2kString,
@@ -1471,43 +1472,49 @@ function readVariableLengthField(
   return [null, undefined]
 }
 
-fieldTypeReaders[
-  'STRING_LAU'
-  //'ASCII or UNICODE string starting with length and control byte'
-] = (pgn, field, bs) => {
-  if (bs.bitsLeft >= 16) {
-    const len = bs.readUint8() - 2
-    const control = bs.readUint8()
-    let nameLen = len
+/*
+ * The 8-bit string readers below follow canboat's Rust decoder
+ * (crates/canboat/src/engine/decode.rs) exactly: the same charset decision,
+ * the same padding bytes, the same trim order per field type, and an empty
+ * result is "not available" (null).
+ */
 
-    if (field.Name === 'AtoN Name' && len > 20) {
-      nameLen = 20
-    } else if (len <= 0) {
-      return null
-    }
+/**
+ * The bytes canboat strips off the end of a string field: 0xff (the NMEA 2000
+ * filler), NUL, '@' (badly converted AIS text) and ASCII whitespace -- the
+ * whole C isspace() set, so Navico's newline-terminated 130847 text is trimmed
+ * too. canboat's `is_string_padding`.
+ */
+const isStringPadding = (b: number): boolean =>
+  b === 0xff ||
+  b === 0x00 ||
+  b === 0x40 ||
+  b === 0x20 ||
+  (b >= 0x09 && b <= 0x0d)
 
-    const buf = Buffer.alloc(len)
-    let idx = 0
-    for (; idx < len && bs.bitsLeft >= 8; idx++) {
-      const c = bs.readUint8()
-      buf.writeUInt8(c, idx)
-    }
-
-    // A trailing NUL terminates 8-bit text, but in UTF-16LE it is the high
-    // half of an ASCII glyph -- dropping it there loses the last character.
-    if (control != 0 && buf[buf.length - 1] === 0) {
-      nameLen = nameLen - 1
-    }
-
-    const end = idx < nameLen ? idx : nameLen
-    // Control byte 0 is UTF-16LE per the standard. It has only ever been seen
-    // on empty fields, so this path is untested against real captures.
-    return (
-      control == 0 ? buf.toString('utf16le', 0, end) : decodeText(buf, 0, end)
-    ).trim()
-  } else {
-    return null
+/** The length of `bytes` once its trailing padding run is dropped. */
+const unpaddedLength = (bytes: Buffer, len: number = bytes.length): number => {
+  while (len > 0 && isStringPadding(bytes[len - 1])) {
+    len--
   }
+  return len
+}
+
+/**
+ * Strip trailing padding from decoded text. 0xff survives as U+00FF when the
+ * bytes came through the Latin-1 path. canboat's `trim_string_padding`.
+ */
+const trimStringPadding = (s: string): string => {
+  let end = s.length
+  while (end > 0) {
+    const c = s.charCodeAt(end - 1)
+    if (c === 0xff || (c < 0x80 && isStringPadding(c))) {
+      end--
+    } else {
+      break
+    }
+  }
+  return s.substring(0, end)
 }
 
 /**
@@ -1516,40 +1523,97 @@ fieldTypeReaders[
  * NMEA 2000 leaves the meaning of a byte >= 0x80 undefined in an 8-bit string
  * field, and devices disagree. Captured on one bus: a Fusion sends UTF-8
  * (`c5 ab` = U+016B) while a B&G sends Latin-1 (`e6` = U+00E6) -- in the same
- * field type, under the same STRING_LAU control byte. So the encoding is a
- * property of neither the field type nor the control byte and has to be decided
- * from the bytes: well-formed UTF-8 is taken as UTF-8, anything else as Latin-1,
- * which maps every byte to a codepoint and so cannot fail.
+ * field type, under the same STRING_LAU control byte. So well-formed UTF-8 is
+ * taken as UTF-8, and anything else is read in the field's declared
+ * `Encoding` (RDS_G0 for Fusion's RDS text), defaulting to Latin-1, which maps
+ * every byte to a codepoint and so cannot fail. UTF-8 is tried first even
+ * when the field declares a charset, so a device that starts sending UTF-8
+ * (RDS2 does) keeps decoding with no database change. canboat's
+ * `decode_text`; see canboat/canboat#864.
  *
  * `Buffer.toString('utf8')` substitutes U+FFFD for malformed input rather than
  * failing, so the check is a round-trip: re-encoding the result reproduces the
- * original bytes only if they were valid UTF-8 to begin with. A field that
- * genuinely contains U+FFFD round-trips too, so it is not mistaken for garbage.
- *
- * See canboat/canboat#864.
+ * original bytes only if they were valid UTF-8 to begin with.
  */
-const decodeText = (buf: Buffer, start: number, end: number): string => {
-  const bytes = buf.subarray(start, end)
+const decodeText = (bytes: Buffer, encoding?: string): string => {
   const utf8 = bytes.toString('utf8')
-  return Buffer.compare(Buffer.from(utf8, 'utf8'), bytes) === 0
-    ? utf8
-    : bytes.toString('latin1')
+  if (Buffer.compare(Buffer.from(utf8, 'utf8'), bytes) === 0) {
+    return utf8
+  }
+  if (encoding === 'RDS_G0') {
+    return Array.from(bytes, rdsG0Char).join('')
+  }
+  return bytes.toString('latin1')
+}
+
+/** The Encoding a field declares, which ts-pgns types may not know yet. */
+const fieldEncoding = (field: Field): string | undefined =>
+  (field as any).Encoding
+
+/** Read up to `len` whole bytes, stopping early if the data runs out. */
+const readBytes = (bs: BitStream, len: number): Buffer => {
+  const buf = Buffer.alloc(len)
+  let idx = 0
+  for (; idx < len && bs.bitsLeft >= 8; idx++) {
+    buf[idx] = bs.readUint8()
+  }
+  return buf.subarray(0, idx)
+}
+
+fieldTypeReaders[
+  'STRING_LAU'
+  //'ASCII or UNICODE string starting with length and control byte'
+] = (pgn, field, bs) => {
+  if (bs.bitsLeft < 16) {
+    return null
+  }
+  const total = bs.readUint8()
+  const control = bs.readUint8()
+  if (total < 2) {
+    return null
+  }
+  const body = readBytes(bs, total - 2)
+
+  let s: string
+  if (control === 0) {
+    // UTF-16LE: pairs of bytes are little-endian code units; an odd trailing
+    // byte is dropped and a lone surrogate becomes U+FFFD, as Rust's
+    // from_utf16_lossy does. Not trimmed as bytes: the NUL high half of an
+    // ASCII glyph is not padding.
+    s = body.subarray(0, body.length & ~1).toString('utf16le')
+    s = (s as any).toWellFormed ? (s as any).toWellFormed() : s
+  } else {
+    // 1 = ASCII / UTF-8. A control byte of 0xff marks an unset field whose
+    // body is 0xff filler (the H5000 pilot in 126998): trim the padding off
+    // the raw bytes first, so it collapses to nothing rather than to text.
+    s = decodeText(body.subarray(0, unpaddedLength(body)), fieldEncoding(field))
+  }
+  const trimmed = trimStringPadding(s)
+  return trimmed.length > 0 ? trimmed : null
 }
 
 fieldTypeReaders[
   'STRING_LZ'
   //'ASCII string starting with length byte'
 ] = (pgn, field, bs) => {
-  const len = bs.readUint8()
-
-  const buf = Buffer.alloc(len)
-  let idx = 0
-  for (; idx < len && bs.bitsLeft >= 8; idx++) {
-    const c = bs.readUint8()
-    buf.writeUInt8(c, idx)
+  if (bs.bitsLeft < 8) {
+    return null
   }
-
-  return decodeText(buf, 0, idx)
+  // A fixed-width field (BitLength) caps the content to its own bytes; a
+  // variable one runs to the end of the data. The length byte counts the
+  // content only.
+  const region =
+    field.BitLength !== undefined
+      ? field.BitLength / 8
+      : Math.floor(bs.bitsLeft / 8)
+  const len = bs.readUint8()
+  const content = readBytes(bs, Math.min(len, region - 1))
+  if (field.BitLength !== undefined) {
+    // Consume the rest of the fixed-width field.
+    readBytes(bs, region - 1 - content.length)
+  }
+  const trimmed = trimStringPadding(decodeText(content, fieldEncoding(field)))
+  return trimmed.length > 0 ? trimmed : null
 }
 
 fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
@@ -1564,7 +1628,7 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
     while ((c = bs.readUint8()) != 0x01) {
       buf.writeUInt8(c, idx++)
     }
-    return decodeText(buf, 0, idx)
+    return decodeText(buf.subarray(0, idx))
   } else if (first > 0x02) {
     let len = first
     const second = bs.readUint8()
@@ -1580,38 +1644,22 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
       const c = bs.readUint8()
       buf.writeUInt8(c, idx)
     }
-    return decodeText(buf, 0, idx)
+    return decodeText(buf.subarray(0, idx))
   }
 }
 
 fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
-  let len = (field.BitLength as number) / 8
-  const buf = Buffer.alloc(len)
-
-  for (let i = 0; i < len && bs.bitsLeft >= 8; i++) {
-    buf.writeUInt8(bs.readUint8(), i)
+  // The declared width is a maximum: Navico's 130821 sends however much text
+  // it has, so read what is there.
+  const raw = readBytes(bs, (field.BitLength as number) / 8)
+  // Cut at the first NUL (a C string inside a fixed buffer, e.g. Raymarine
+  // and Mastervolt), then trim the padding before it.
+  const nul = raw.indexOf(0)
+  const len = unpaddedLength(raw, nul === -1 ? raw.length : nul)
+  if (len === 0) {
+    return null
   }
-
-  let lastbyte = buf[len - 1]
-  while (
-    len > 0 &&
-    (lastbyte == 0xff || lastbyte == 32 || lastbyte == 0 || lastbyte == 64)
-  ) {
-    len--
-    lastbyte = buf[len - 1]
-  }
-
-  //look for a zero byte, some proprietary Raymarine pgns do this
-  let zero = 0
-  while (zero < len) {
-    if (buf[zero] == 0) {
-      len = zero
-      break
-    }
-    zero++
-  }
-  len = zero
-  return len > 0 ? decodeText(buf, 0, len) : undefined
+  return decodeText(raw.subarray(0, len), fieldEncoding(field))
 }
 
 fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
