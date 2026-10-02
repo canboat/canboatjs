@@ -259,7 +259,9 @@ describe('GPS rollover device syntax', () => {
   })
 
   test('a bad quirk is refused when the parser is made', () => {
-    expect(() => new Parser({ quirks: ['gps-rollover=vhf'] })).toThrow()
+    expect(() => new Parser({ quirks: ['gps-rollover=vhf'] })).toThrow(
+      "Invalid quirks option: 'vhf' is not a device"
+    )
   })
 })
 
