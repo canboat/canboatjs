@@ -13,7 +13,7 @@ module.exports = [
         messageId: 'Msg 24 Part A',
         repeatIndicator: 'Second retransmission',
         e: 24,
-        userId: 338184312,
+        userId: '338184312',
         name: 'WILHELM',
         d: null,
         reserved: null

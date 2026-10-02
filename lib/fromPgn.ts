@@ -1722,6 +1722,19 @@ fieldTypePostProcessors[RES_BINARY] = (field, value) => {
   return value.toString()
 }
 
+/**
+ * An MMSI is a 9-digit string, leading zeros kept (a coast station is
+ * 00MIDxxxx), as canboat prints it. 0 is no station's MMSI -- its MID, 000,
+ * is not assigned -- and devices send it for "none", so it is not
+ * available, like the three reserved top values. canboat's decode_mmsi.
+ */
+fieldTypePostProcessors['MMSI'] = (field, value) => {
+  if (value === 0 || value >= 0xfffffffd) {
+    return null
+  }
+  return value.toString().padStart(9, '0')
+}
+
 const unknownDef = (pgn: number) => {
   return {
     PGN: pgn,
