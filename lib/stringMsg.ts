@@ -70,17 +70,63 @@ function toPaddedHexString(num: number, len: number) {
   return '0'.repeat(len - str.length) + str
 }
 
+/** canboat's RAWFRAME_MAX_SIZE: the longest fast-packet payload. */
+const PLAIN_MAX_LEN = 255 * 7
+
+/** `<timestamp>,<prio>,<pgn>,<src>,<dst>,<len>,<payload>` */
+const PLAIN_LINE =
+  /^[^,]*,( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *),(.*)$/s
+
+/**
+ * Is `input` a canboat PLAIN/FAST line, as canboat's own parser
+ * (crates/canboat/src/engine/format/plain.rs) accepts it? The timestamp is
+ * whatever precedes the first comma -- an ISO date, but also a relative
+ * `00:00:57.062` or `481.876`, or nanoseconds with a UTC offset, all found
+ * in real captures. Then prio, PGN, source, destination and length as
+ * decimal numbers, and exactly `len` two-digit hex bytes; spaces around a
+ * number or byte are tolerated, bytes past `len` are ignored.
+ */
+const isPlainLine = (input: string): boolean => {
+  const m = PLAIN_LINE.exec(input.replace(/[\r\n]+$/, ''))
+  if (!m) {
+    return false
+  }
+  const [prio, pgn, src, dst, len] = m.slice(1, 6).map((n) => Number(n.trim()))
+  if (
+    prio > 0xff ||
+    pgn > 0xffffffff ||
+    src > 0xff ||
+    dst > 0xff ||
+    len > PLAIN_MAX_LEN
+  ) {
+    return false
+  }
+  const bytes = m[6].split(',', len)
+  return (
+    bytes.length === len && bytes.every((b) => /^ *[0-9a-fA-F]{2} *$/.test(b))
+  )
+}
+
 // 2016-02-28T19:57:02.364Z,2,127250,7,255,8,ff,10,3b,ff,7f,ce,f5,fc
 export const isActisense = (input: string) =>
   (input.charAt(10) === 'T' && input.charAt(23) === 'Z') ||
-  (input.charAt(10) === '-' && input.charAt(23) === ',')
+  (input.charAt(10) === '-' && input.charAt(23) === ',') ||
+  isPlainLine(input)
 
 export const parseActisense = (input: string) => {
-  const [timestamp, prio, pgn, src, dst, len, ...data] = input.split(',')
+  const [timestamp, prio, pgn, src, dst, len, ...data] = input
+    .replace(/[\r\n]+$/, '')
+    .split(',')
   return buildMsg(
-    buildCanId(prio, pgn, dst, src),
+    buildCanId(prio.trim(), pgn.trim(), dst.trim(), src.trim()),
     'Actisense',
-    Buffer.from(data.join(''), 'hex'),
+    Buffer.from(
+      data
+        .slice(0, Number(len))
+        .map((b) => b.trim())
+        .join(''),
+      'hex'
+    ),
     { len: Number(len), timestamp }
   )
 }
