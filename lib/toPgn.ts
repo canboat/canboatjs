@@ -173,7 +173,16 @@ export function toPgn(data: any): Buffer | undefined {
             ? repeat[field.Name]
             : repeat[field.Id]
 
-        writeField(bs, pgn_number, field, data, value, fields)
+        writeField(
+          bs,
+          pgn_number,
+          field,
+          data,
+          value,
+          fields,
+          undefined,
+          repeat
+        )
       }
     })
   }
@@ -189,7 +198,16 @@ export function toPgn(data: any): Buffer | undefined {
             ? repeat[field.Name]
             : repeat[field.Id]
 
-        writeField(bs, pgn_number, field, data, value, fields)
+        writeField(
+          bs,
+          pgn_number,
+          field,
+          data,
+          value,
+          fields,
+          undefined,
+          repeat
+        )
       }
     })
   }
@@ -243,13 +261,16 @@ function writeField(
   data: any,
   value: any,
   fields: Field[],
-  bitLength: number | undefined = undefined
+  bitLength: number | undefined = undefined,
+  // The repeating-set record being written, which holds a dynamic value's
+  // key; data, the whole message, holds it otherwise.
+  record: any = data
 ) {
   //const startPos = bs.byteIndex
 
   if (bitLength === undefined) {
     if (field.BitLengthVariable && field.FieldType === 'DYNAMIC_FIELD_VALUE') {
-      bitLength = lookupKeyBitLength(data, fields)
+      bitLength = lookupKeyBitLength(record, fields)
     } else {
       bitLength = field.BitLength
     }
@@ -273,7 +294,7 @@ function writeField(
     }
   } else {
     if (field.FieldType === 'DYNAMIC_FIELD_VALUE' && _.isString(value)) {
-      value = dynamicLookupValue(data, fields, value)
+      value = dynamicLookupValue(record, fields, value)
     }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {

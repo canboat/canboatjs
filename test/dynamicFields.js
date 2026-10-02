@@ -1,7 +1,7 @@
 const chai = require('chai')
 chai.Should()
 
-const { FromPgn } = require('../dist/index')
+const { FromPgn, toPgn } = require('../dist/index')
 
 // Key / length / value records decode as canboat decodes them
 // (decode_dynamic_field_value in crates/canboat/src/engine/decode.rs); each
@@ -62,5 +62,23 @@ describe('dynamic field values', () => {
     fields.list
       .map((r) => r.value)
       .should.deep.equal(['34 12', undefined, 'aa bb'])
+  })
+
+  it('encodes each record of a repeating set against its own key', () => {
+    const data = toPgn({
+      pgn: 130824,
+      prio: 7,
+      src: 16,
+      dst: 255,
+      fields: {
+        manufacturerCode: 'B & G',
+        industryCode: 'Marine Industry',
+        list: [
+          { key: 'Target Boat Speed', length: 2, value: 80 },
+          { key: 'Polar Performance', length: 2, value: 100 }
+        ]
+      }
+    })
+    Buffer.from(data).toString('hex').should.equal('7d997d2050007c206400')
   })
 })
