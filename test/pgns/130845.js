@@ -10,15 +10,14 @@ module.exports = [
       fields: {
         manufacturerCode: 'Simrad',
         industryCode: 'Marine Industry',
-        displayGroup: 'Default',
+        networkGroup: 'Default',
         key: 'Backlight level',
-        minlength: 1,
+        operation: 'Set',
         value: 88,
-        spare9: 0,
         address: null,
-        repeatIndicator: null,
-        reserved: null,
-        reserved7: null
+        instance: null,
+        source: null,
+        reserved: null
       }
     },
     input:
@@ -35,15 +34,14 @@ module.exports = [
       fields: {
         manufacturerCode: 'Simrad',
         industryCode: 'Marine Industry',
-        displayGroup: 'Default',
+        networkGroup: 'Default',
         key: 'Backlight level',
-        minlength: 1,
+        operation: 'Set',
         value: 88,
-        spare9: 0,
         address: null,
-        repeatIndicator: null,
-        reserved: null,
-        reserved7: null
+        instance: null,
+        source: null,
+        reserved: null
       }
     },
     input:

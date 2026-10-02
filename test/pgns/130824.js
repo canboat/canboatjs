@@ -10,12 +10,12 @@ module.exports = [
       fields: {
         manufacturerCode: 'Maretron',
         industryCode: 'Marine Industry',
-        field4: 0,
-        field5: 0,
+        annunciatorInstance: 0,
+        annunciatorState: 0,
         reserved: null,
-        field6: null,
+        pattern: null,
         field7: null,
-        field8: null
+        alertId: null
       }
     },
     input:
