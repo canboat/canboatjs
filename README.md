@@ -412,8 +412,8 @@ refuses the flag.
 (repeatable).
 
 Leave them off when replaying an old capture: `gps-rollover` cannot tell
-a rolled-over date from a genuinely pre-2019 one, and will move the
-whole log forward by twenty years.
+a rolled-over date from a genuinely pre-2019 one, and will move every
+date it corrects forward by twenty years.
 
 #### `canbus` - CAN Bus Interface
 ```javascript
