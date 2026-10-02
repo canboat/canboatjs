@@ -30,7 +30,7 @@ import {
   TransmissionInterval,
   IsoControl,
   EquipmentStatus,
-  YesNo,
+  YesNo1Bit,
   PGN_126996
 } from '@canboat/ts-pgns'
 import { EventEmitter } from 'node:events'
@@ -134,7 +134,7 @@ export class N2kDevice extends EventEmitter {
           deviceInstanceUpper,
           systemInstance,
           industryGroup: 4, // Marine
-          arbitraryAddressCapable: YesNo.Yes
+          arbitraryAddressCapable: YesNo1Bit.Yes
         },
         255
       )
