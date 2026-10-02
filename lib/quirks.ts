@@ -362,14 +362,25 @@ export type Quirks = { gpsRollover?: GpsRollover }
 
 /**
  * Parse the `quirks` option: a list of `gps-rollover` or
- * `gps-rollover=<devices>` strings, as canboat's `--quirk` takes them.
+ * `gps-rollover=<devices>` strings, as canboat's `--quirk` takes them (a
+ * single string is taken as a list of one; null or undefined is none).
  * Throws on an unknown quirk or a malformed device list, as canboat
  * refuses the flag. A later `gps-rollover` replaces an earlier one.
  */
 export function parseQuirks(quirks: unknown): Quirks {
   const res: Quirks = {}
-  if (!Array.isArray(quirks)) {
+  // No quirks; a single string is a one-quirk list. Anything else is
+  // refused rather than silently ignored.
+  if (quirks === undefined || quirks === null) {
     return res
+  }
+  if (typeof quirks === 'string') {
+    quirks = [quirks]
+  }
+  if (!Array.isArray(quirks)) {
+    throw new Error(
+      `quirks must be a list of quirk strings, not ${typeof quirks}`
+    )
   }
   for (const q of quirks) {
     const s = String(q)

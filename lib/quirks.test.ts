@@ -247,6 +247,17 @@ describe('GPS rollover device syntax', () => {
     expect(() => parseQuirks(['wmm'])).toThrow(/unknown quirk 'wmm'/)
   })
 
+  test('a single quirk string is a list of one', () => {
+    expect(parseQuirks('gps-rollover=4').gpsRollover?.target).toEqual([
+      { address: 4 }
+    ])
+  })
+
+  test('a quirks option that is not a list is refused', () => {
+    expect(() => parseQuirks(5)).toThrow(/list of quirk strings/)
+    expect(() => parseQuirks({ 'gps-rollover': true })).toThrow()
+  })
+
   test('a bad quirk is refused when the parser is made', () => {
     expect(() => new Parser({ quirks: ['gps-rollover=vhf'] })).toThrow()
   })
