@@ -10,166 +10,90 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_and_test:
-    name: 'Build & Test'
+  dependent:
+    # One job per dependent, so a broken one is named in its own check and
+    # never hides the others behind it.
+    name: 'dependents (${{ matrix.repo }})'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # ref:   branch to test (default branch when empty)
+        # links: packages to link in (default @canboat/canboatjs); all in one
+        #        `npm link`, since a later `npm link` drops the earlier ones
+        # build / test: run `npm run build` / `npm test`
+        include:
+          - repo: SignalK/n2k-signalk
+            build: true
+            test: true
+          - repo: SignalK/signalk-to-nmea2000
+            test: true
+          - repo: sbender9/signalk-n2k-switching
+            links: '@canboat/canboatjs @canboat/ts-pgns'
+            build: true
+          - repo: sbender9/signalk-n2k-displays
+            build: true
+          - repo: sbender9/signalk-n2k-switching-emulator
+            ref: main
+            build: true
+          - repo: sbender9/signalk-alarm-silencer
+            ref: ts-pgns
+            build: true
+          - repo: sbender9/signalk-fusion-stereo
+            ref: master
+            build: true
+          - repo: sbender9/signalk-yd-alarm-button
+            ref: ts-pgns
+            build: true
+          - repo: sbender9/signalk-n2kais-to-nmea0183
+            build: true
+            test: true
+          - repo: SignalK/signalk-autopilot
+            links: '@canboat/ts-pgns'
+            build: true
+            test: true
 
     steps:
     - name: Checkout canboatjs
       uses: actions/checkout@v4
       with:
         path: ./canboatjs
-  
+
     - name: Use Node.js 22.x
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '22.x'
-        
+
     - name: Build canboatjs
+      # Register canboatjs and the ts-pgns it resolved as the global links, so
+      # a dependent's `npm link @canboat/ts-pgns` gets the definitions this
+      # canboatjs is tested with rather than whatever npm has as latest.
       run: |
         npm install
         npm run build
         npm link
+        (cd node_modules/@canboat/ts-pgns && npm link)
       working-directory: ./canboatjs
 
-    - name: Checkout n2k-signalk
+    - name: Checkout ${{ matrix.repo }}
       uses: actions/checkout@v4
       with:
-        repository: SignalK/n2k-signalk
-        path: ./n2k-signalk
+        repository: ${{ matrix.repo }}
+        ref: ${{ matrix.ref }}
+        path: ./dependent
 
-    - name: Build & Test n2k-signalk
+    - name: Install ${{ matrix.repo }}
       run: |
         npm install
-        npm link @canboat/canboatjs
-        npm run build
-        npm test
-      working-directory: ./n2k-signalk
+        npm link ${{ matrix.links || '@canboat/canboatjs' }}
+      working-directory: ./dependent
 
-    - name: Checkout signalk-to-nmea2000
-      uses: actions/checkout@v4
-      with:
-        repository: SignalK/signalk-to-nmea2000
-        path: ./signalk-to-nmea2000
+    - name: Build ${{ matrix.repo }}
+      if: matrix.build
+      run: npm run build
+      working-directory: ./dependent
 
-    - name: Build & Test signalk-to-nmea2000
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm test
-      working-directory: ./signalk-to-nmea2000
-
-    - name: Checkout signalk-n2k-switching
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-n2k-switching
-        path: ./signalk-n2k-switching
-
-    - name: Build signalk-n2k-switching
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm link @canboat/ts-pgns
-        npm run build
-      working-directory: ./signalk-n2k-switching
-
-    - name: Checkout signalk-n2k-displays
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-n2k-displays
-        path: ./signalk-n2k-displays
-
-    - name: Build signalk-n2k-displays
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm run build
-      working-directory: ./signalk-n2k-displays
-
-    - name: Checkout signalk-n2k-switching-emulator
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-n2k-switching-emulator
-        ref: main
-        path: ./signalk-n2k-switching-emulator
-
-    - name: Build signalk-n2k-switching-emulator
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm run build
-      working-directory: ./signalk-n2k-switching-emulator
-
-    - name: Checkout signalk-alarm-silencer
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-alarm-silencer
-        ref: ts-pgns
-        path: ./signalk-alarm-silencer
-
-    - name: Build signalk-alarm-silencer
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm run build
-      working-directory: ./signalk-alarm-silencer
-
-    - name: Checkout signalk-fusion-stereo
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-fusion-stereo
-        ref: master
-        path: ./signalk-fusion-stereo
-
-    - name: Build signalk-fusion-stereo
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm run build
-      working-directory: ./signalk-fusion-stereo
-
-    - name: Checkout signalk-yd-alarm-button
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-yd-alarm-button
-        ref: ts-pgns
-        path: ./signalk-yd-alarm-button
-
-    - name: Build signalk-yd-alarm-button
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm run build
-      working-directory: ./signalk-yd-alarm-button
-
-    - name: Checkout signalk-n2kais-to-nmea0183
-      uses: actions/checkout@v4
-      with:
-        repository: sbender9/signalk-n2kais-to-nmea0183
-        path: ./signalk-n2kais-to-nmea0183
-
-    - name: Build signalk-n2kais-to-nmea0183
-      run: |
-        npm install
-        npm link @canboat/canboatjs
-        npm run build
-        npm test
-      working-directory: ./signalk-n2kais-to-nmea0183
-
-    - name: Checkout signalk-autopilot
-      if: always()
-      uses: actions/checkout@v4
-      with:
-        repository: SignalK/signalk-autopilot
-        path: ./signalk-autopilot
-
-    - name: Build signalk-autopilot
-      id: test_signalk_autopilot
-      if: always()
-      run: |
-        npm install
-        npm link @canboat/ts-pgns
-        npm run build
-        npm test
-      working-directory: ./signalk-autopilot
-
+    - name: Test ${{ matrix.repo }}
+      if: matrix.test
+      run: npm test
+      working-directory: ./dependent
