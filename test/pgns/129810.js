@@ -12,6 +12,7 @@ module.exports = [
         userId: 338254261,
         typeOfShip: 'Pleasure',
         vendorId: 'GARMIN',
+        callsign: null,
         length: 14,
         beam: 27,
         positionReferenceFromStarboard: 25,

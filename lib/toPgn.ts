@@ -551,6 +551,36 @@ fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
   }
 }
 
+/**
+ * The UTF-8 bytes of a string field's value.
+ *
+ * The writers used to walk the string with `charCodeAt()` and `writeUint8()`,
+ * which is wrong three ways: the code unit is truncated mod 256, so U+016B
+ * silently became 'k' rather than mojibake; the length byte was derived from
+ * `value.length`, which counts UTF-16 code units rather than bytes; and the
+ * STRING_FIX padding loop used the same count, producing a field of the wrong
+ * width and shifting every field after it.
+ *
+ * UTF-8 is what canboat's encoder writes, and the only encoding that
+ * round-trips through the reader, which takes valid UTF-8 as UTF-8 and falls
+ * back to Latin-1 -- Latin-1 output would be re-read as UTF-8 whenever it
+ * happened to be well-formed. See canboat/canboat#864.
+ */
+const stringBytes = (value: string, maxBytes: number): Buffer => {
+  const buf = Buffer.from(value, 'utf8')
+  if (buf.length <= maxBytes) {
+    return buf
+  }
+  // Too long for the field: shorten it rather than refuse the message. Cut on
+  // a character boundary -- a partial sequence is invalid UTF-8, which the
+  // reader would quietly reinterpret as Latin-1.
+  let end = maxBytes
+  while (end > 0 && (buf[end] & 0xc0) === 0x80) {
+    end--
+  }
+  return buf.subarray(0, end)
+}
+
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
   if (field.BitLength !== undefined) {
     let fill = 0xff
@@ -559,7 +589,7 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
         (field.Name === 'Vendor ID' || field.Name === 'Callsign')) ||
       (pgn === 129809 && field.Name === 'Name')
     ) {
-      if (_.isUndefined(value) || value.length == 0) {
+      if (value == null || value.length == 0) {
         {
           fill = 0x40
           value = ''
@@ -567,59 +597,66 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
       }
     }
 
-    if (value === undefined) {
+    if (value == null) {
       value = ''
     }
     const fieldLen = field.BitLength / 8
+    const buf = stringBytes(value, fieldLen)
 
-    for (let i = 0; i < value.length; i++) {
-      bs.writeUint8(value.charCodeAt(i))
+    for (let i = 0; i < buf.length; i++) {
+      bs.writeUint8(buf[i])
     }
 
-    for (let i = 0; i < fieldLen - value.length; i++) {
+    for (let i = 0; i < fieldLen - buf.length; i++) {
       bs.writeUint8(fill)
     }
   }
 }
 
 fieldTypeWriters[RES_STRINGLZ] = (pgn, field, value, bs) => {
-  if (_.isUndefined(value)) {
+  if (value == null) {
     value = ''
   }
-  bs.writeUint8(value.length)
-  for (let i = 0; i < value.length; i++) {
-    bs.writeUint8(value.charCodeAt(i))
+  // [length][content][0x00], the length byte counting the content only --
+  // what every Fusion device sends. A fixed-width field is 0x00-padded to
+  // its width, with the content capped so the NUL still fits. canboat's
+  // stage_string_lz.
+  const width = field.BitLength !== undefined ? field.BitLength / 8 : undefined
+  const room = width !== undefined ? Math.max(width - 2, 0) : 0xff
+  const buf = stringBytes(value, Math.min(room, 0xff))
+  bs.writeUint8(buf.length)
+  for (let i = 0; i < buf.length; i++) {
+    bs.writeUint8(buf[i])
   }
   bs.writeUint8(0)
+  if (width !== undefined) {
+    for (let i = buf.length + 2; i < width; i++) {
+      bs.writeUint8(0)
+    }
+  }
 }
 
 fieldTypeWriters['String with start/stop byte'] = (pgn, field, value, bs) => {
-  if (_.isUndefined(value)) {
+  if (value == null) {
     value = ''
   }
+  const buf = stringBytes(value, 0xff)
   bs.writeUint8(0x02)
-  for (let i = 0; i < value.length; i++) {
-    bs.writeUint8(value.charCodeAt(i))
+  for (let i = 0; i < buf.length; i++) {
+    bs.writeUint8(buf[i])
   }
   bs.writeUint8(0x01)
 }
 
 fieldTypeWriters[RES_STRINGLAU] = (pgn, field, value, bs) => {
-  if (pgn === 129041 && field.Name === 'AtoN Name' && value) {
-    if (value.length > 18) {
-      value = value.substring(0, 18)
-    } else {
-      value = value.padEnd(18, ' ')
-    }
-  }
+  // The length byte counts itself and the control byte.
+  const buf = value ? stringBytes(value, 0xff - 2) : Buffer.alloc(0)
 
-  bs.writeUint8(value ? value.length + 2 : 2)
-  bs.writeUint8(1)
+  bs.writeUint8(buf.length + 2)
+  bs.writeUint8(1) // 1 = ASCII / UTF-8
 
-  if (value) {
-    for (let idx = 0; idx < value.length; idx++) {
-      bs.writeUint8(value.charCodeAt(idx))
-    }
+  for (let idx = 0; idx < buf.length; idx++) {
+    bs.writeUint8(buf[idx])
   }
 }
 
