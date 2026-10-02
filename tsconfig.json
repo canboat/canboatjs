@@ -5,6 +5,7 @@
     "rootDir": "${configDir}/lib",
     "allowJs": true,
     "typeRoots": ["./node_modules/@types"],
+    "types": ["node", "jest"],
     "resolveJsonModule": true,
     "composite": true,
     "declaration": true,
