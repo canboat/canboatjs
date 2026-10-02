@@ -22,7 +22,7 @@ describe('dynamic field values', () => {
     bandg.list[0].should.deep.equal({
       key: 'Race Timer',
       length: 4,
-      value: '-00:05:00.000'
+      value: -300
     })
     bandg.list[2].should.deep.equal({
       key: 'Rudder Angle',

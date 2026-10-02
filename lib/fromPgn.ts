@@ -1870,7 +1870,9 @@ function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
     if (isDynamicSentinel(raw, bits, signed)) {
       return null
     }
-    return formatDuration(raw * (entry.Resolution ?? 1), entry.Resolution)
+    // Seconds, as canboat gives a TIME or DURATION in JSON
+    // (canboat/canboat#967): a Race Timer of -300000 ms is -300.
+    return roundToResolution(raw * (entry.Resolution ?? 1), entry.Resolution)
   }
   if (type === 'DATE') {
     const raw = readDynamicBits(bs, bits, false)
@@ -1933,11 +1935,7 @@ function scaleDynamicNumber(raw: number, entry: DynamicFieldType): number {
   if (resolution === 1 && entry.Unit === undefined) {
     return raw
   }
-  let precision = 0
-  for (let r = resolution; r > 0.0 && r < 1.0; r = r * 10.0) {
-    precision++
-  }
-  let value = Number.parseFloat((raw * resolution).toFixed(precision))
+  let value = roundToResolution(raw * resolution, resolution)
   if (entry.Unit === 'kWh') {
     value *= 3.6e6 // 1 kWh = 3.6 MJ.
   } else if (entry.Unit === 'Ah') {
@@ -1946,21 +1944,13 @@ function scaleDynamicNumber(raw: number, entry: DynamicFieldType): number {
   return value
 }
 
-/**
- * A duration as canboat prints one: [-]HH:MM:SS with as many decimals as
- * the resolution has, hours not wrapped at 24.
- */
-function formatDuration(seconds: number, resolution: number | undefined) {
+/** A value rounded to as many decimals as its resolution has. */
+function roundToResolution(value: number, resolution: number | undefined) {
   let precision = 0
   for (let r = resolution ?? 1; r > 0.0 && r < 1.0; r = r * 10.0) {
     precision++
   }
-  const sign = seconds < 0 ? '-' : ''
-  const abs = Math.abs(seconds)
-  const whole = Math.trunc(abs)
-  const frac = Math.round((abs - whole) * 10 ** precision)
-  const hms = `${sign}${pad2(Math.floor(whole / 3600))}:${pad2(Math.floor(whole / 60) % 60)}:${pad2(whole % 60)}`
-  return precision > 0 ? `${hms}.${String(frac).padStart(precision, '0')}` : hms
+  return Number.parseFloat(value.toFixed(precision))
 }
 
 fieldTypePostProcessors['DATE'] = (field, value, context) => {
