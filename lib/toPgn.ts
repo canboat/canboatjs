@@ -19,6 +19,7 @@ import {
   PGN,
   getEnumerationValue,
   getFieldTypeEnumerationValue,
+  getFieldTypeEnumeration,
   getBitEnumerationName,
   getFieldTypeEnumerationBits
 } from '@canboat/ts-pgns'
@@ -271,6 +272,9 @@ function writeField(
       //FIXME: error! should not happen
     }
   } else {
+    if (field.FieldType === 'DYNAMIC_FIELD_VALUE' && _.isString(value)) {
+      value = dynamicLookupValue(data, fields, value)
+    }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {
       value = fieldTypeMappers[type](field, value)
@@ -414,6 +418,31 @@ function lookupKeyBitLength(data: any, fields: Field[]) {
     }
     return getFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
   }
+}
+
+/**
+ * A DYNAMIC_FIELD_VALUE given as the name its key's lookup gives it, as
+ * the decoder reports a LOOKUP value ("90%" for a Simnet Backlight level),
+ * goes on the wire as that name's number. Any other value is written as is.
+ */
+function dynamicLookupValue(data: any, fields: Field[], value: string) {
+  const field = fields.find((field) => field.Name === 'Key')
+  if (field === undefined) {
+    return value
+  }
+  let key = data['Key'] ?? data['key']
+  if (typeof key === 'string') {
+    key = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, key)
+  }
+  const entry = getFieldTypeEnumeration(
+    field.LookupFieldTypeEnumeration
+  )?.EnumFieldTypeValues.find((v) => v.value === key) as
+    | { LookupEnumeration?: string }
+    | undefined
+  if (entry?.LookupEnumeration === undefined) {
+    return value
+  }
+  return getEnumerationValue(entry.LookupEnumeration, value) ?? value
 }
 
 /*

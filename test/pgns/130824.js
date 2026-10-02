@@ -24,11 +24,10 @@ module.exports = [
   {
     // B&G "key-value data" is a repeating field set of
     // {key (DYNAMIC_FIELD_KEY), length (DYNAMIC_FIELD_LENGTH), value
-    // (DYNAMIC_FIELD_VALUE)} triplets. The value's bit length is carried by the
-    // sibling length field, so it must be resolved from the current repetition's
-    // accumulated fields, not the top-level pgn.fields. This exercises decoding
-    // the value of each list entry (Target Boat Speed = 80, Polar Performance =
-    // 100); previously the value was dropped and the list de-synced.
+    // (DYNAMIC_FIELD_VALUE)} triplets. Each value is sized by its own record's
+    // length and decoded as its key's type: Target Boat Speed is 80 x 0.01 m/s,
+    // Polar Performance 100 x 0.1 %, as canboat decodes them. Previously the
+    // value was dropped and the list de-synced.
     expected: {
       timestamp: '2024-01-01T12:00:00.000Z',
       prio: 7,
@@ -41,8 +40,8 @@ module.exports = [
         reserved: null,
         industryCode: 'Marine Industry',
         list: [
-          { key: 'Target Boat Speed', length: 2, value: 80 },
-          { key: 'Polar Performance', length: 2, value: 100 }
+          { key: 'Target Boat Speed', length: 2, value: 0.8 },
+          { key: 'Polar Performance', length: 2, value: 10 }
         ]
       }
     },

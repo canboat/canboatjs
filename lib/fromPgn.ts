@@ -24,8 +24,7 @@ import {
   getEnumerationName,
   getBitEnumerationName,
   getFieldTypeEnumerationName,
-  getFieldTypeEnumerationValue,
-  getFieldTypeEnumerationBits,
+  getFieldTypeEnumeration,
   findFallBackPGN
 } from '@canboat/ts-pgns'
 import { createDebug, byteString, isPGNProprietary } from './utilities'
@@ -311,9 +310,7 @@ export class Parser extends EventEmitter {
             true,
             pgn,
             field,
-            bs,
-            set1Fields,
-            group
+            bs
           )
           if (refField) {
             group.parameterId = refField.Id
@@ -372,9 +369,7 @@ export class Parser extends EventEmitter {
               true,
               pgn,
               field,
-              bs,
-              set2Fields,
-              group
+              bs
             )
             if (refField) {
               group.parameterId = refField.Id
@@ -440,8 +435,7 @@ export class Parser extends EventEmitter {
         !hasMatch,
         pgn,
         field,
-        bs,
-        fields
+        bs
       )
       let value = valueRes
 
@@ -1139,15 +1133,26 @@ function readField(
   runPostProcessor: boolean,
   pgn: PGN,
   field: Field,
-  bs: BitStream,
-  fields: Field[] | undefined = undefined,
-  data: any = undefined
+  bs: BitStream
 ): [any, Field | undefined, ByteMapping | undefined] {
   let value
   let refField: Field | undefined = undefined
   let bm: ByteMapping | undefined = undefined
 
   const start = bs.index
+
+  if (field.FieldType === 'DYNAMIC_FIELD_VALUE') {
+    value = readDynamicFieldValue(pgn, options, bs)
+    if (options.includeByteMapping) {
+      bm = {
+        bytes: Array.from(
+          bs.view.buffer.subarray(start / 8, Math.ceil(bs.index / 8))
+        ),
+        value: value
+      }
+    }
+    return [value, undefined, bm]
+  }
 
   const reader = fieldTypeReaders[field.FieldType]
   if (reader) {
@@ -1171,16 +1176,13 @@ function readField(
 
       return [null, undefined, bm]
     }
-    ;[value, refField] = readValue(
-      definition,
-      options,
-      pgn,
-      field,
-      bs,
-      fields,
-      undefined,
-      data
-    )
+    ;[value, refField] = readValue(definition, options, pgn, field, bs)
+    if (
+      field.FieldType === 'DYNAMIC_FIELD_KEY' ||
+      field.FieldType === 'DYNAMIC_FIELD_LENGTH'
+    ) {
+      noteDynamicField(pgn, field, value)
+    }
   }
 
   if (options.includeByteMapping) {
@@ -1299,23 +1301,14 @@ function readValue(
   pgn: PGN,
   field: Field,
   bs: BitStream,
-  fields: Field[] | undefined,
-  bitLength: number | undefined = undefined,
-  data: any = undefined
+  bitLength: number | undefined = undefined
 ): [any, Field | undefined] {
   if (field.FieldType == 'VARIABLE') {
     return readVariableLengthField(definition, options, pgn, field, bs)
   } else {
     let value
     if (bitLength === undefined) {
-      if (
-        field.BitLengthVariable &&
-        field.FieldType === 'DYNAMIC_FIELD_VALUE'
-      ) {
-        bitLength = lookupKeyBitLength(data ?? pgn.fields, fields as Field[])
-      } else {
-        bitLength = field.BitLength
-      }
+      bitLength = field.BitLength
 
       if (bitLength === undefined) {
         //FIXME?? error? mesg? should never happen
@@ -1709,27 +1702,253 @@ fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
   return value
 }
 
-function lookupKeyBitLength(data: any, fields: Field[]): number | undefined {
-  // The value's size is carried on the wire by the sibling DYNAMIC_FIELD_LENGTH
-  // field (bytes). Prefer it over the key catalog's nominal Bits so a value of
-  // any length (incl. 0) is consumed exactly, keeping the repeating list in sync.
-  const lengthField = fields.find((f) => f.FieldType === 'DYNAMIC_FIELD_LENGTH')
-  if (lengthField) {
-    const len = data[lengthField.Name] ?? data[lengthField.Id]
-    if (typeof len === 'number') {
-      return len * 8
+/*
+ * DYNAMIC_FIELD_KEY / DYNAMIC_FIELD_LENGTH / DYNAMIC_FIELD_VALUE, as canboat
+ * decodes them (decode_dynamic_field_key, decode_dynamic_field_length and
+ * decode_dynamic_field_value in canboat's engine/decode.rs).
+ *
+ * The key resolves to an entry of the field's LookupFieldTypeEnumeration,
+ * which gives the value its type, width, resolution and unit; the length,
+ * when the PGN has one, gives its width in bytes on the wire and wins over
+ * the entry's. Both are noted per message and taken by the value, so a
+ * repeating set of key/length/value records decodes each record against its
+ * own key.
+ */
+
+// The entry type as canboat.json carries it; ts-pgns' EnumFieldTypeValue
+// declares only part of it.
+type DynamicFieldType = {
+  name: string
+  value: number
+  FieldType: string
+  Bits: string
+  Signed?: boolean
+  Resolution?: number
+  Unit?: string
+  LookupEnumeration?: string
+}
+
+type DynamicFieldContext = {
+  entry?: DynamicFieldType
+  lengthBytes?: number
+}
+
+const dynamicFieldContexts = new WeakMap<PGN, DynamicFieldContext>()
+
+const dynamicFieldTypes = new Map<string, Map<number, DynamicFieldType>>()
+
+function dynamicFieldType(
+  enumName: string,
+  value: number
+): DynamicFieldType | undefined {
+  let entries = dynamicFieldTypes.get(enumName)
+  if (entries === undefined) {
+    entries = new Map()
+    const values = getFieldTypeEnumeration(enumName)?.EnumFieldTypeValues ?? []
+    for (const v of values as DynamicFieldType[]) {
+      entries.set(v.value, v)
     }
+    dynamicFieldTypes.set(enumName, entries)
+  }
+  return entries.get(value)
+}
+
+/** Note what a DYNAMIC_FIELD_KEY or DYNAMIC_FIELD_LENGTH tells the value. */
+function noteDynamicField(pgn: PGN, field: Field, value: any) {
+  let ctx = dynamicFieldContexts.get(pgn)
+  if (ctx === undefined) {
+    ctx = {}
+    dynamicFieldContexts.set(pgn, ctx)
+  }
+  if (field.FieldType === 'DYNAMIC_FIELD_KEY') {
+    ctx.entry =
+      typeof value === 'number' && field.LookupFieldTypeEnumeration
+        ? dynamicFieldType(field.LookupFieldTypeEnumeration, value)
+        : undefined
+    return
+  }
+  // A length that is a sentinel cannot size the value.
+  const f = field as Field & {
+    UnknownValue?: number
+    OutOfRangeValue?: number
+    ReservedValue?: number
+    DynamicFieldLengthOverhead?: number
+  }
+  if (
+    typeof value !== 'number' ||
+    value === f.UnknownValue ||
+    value === f.OutOfRangeValue ||
+    value === f.ReservedValue
+  ) {
+    return
+  }
+  // The length may also count a per-record header between it and the
+  // value (Navico 130822/130823: a class byte and a 16-bit data type).
+  ctx.lengthBytes = value - (f.DynamicFieldLengthOverhead ?? 0)
+}
+
+/**
+ * Read a DYNAMIC_FIELD_VALUE. Returns undefined when the field is left out:
+ * an explicit length of zero, or a value the message ends in the middle of
+ * (how a device ends a repeating list it could not fit).
+ */
+function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
+  const { entry, lengthBytes } = dynamicFieldContexts.get(pgn) ?? {}
+  dynamicFieldContexts.delete(pgn)
+
+  if (lengthBytes === 0) {
+    return undefined
+  }
+  const remaining = bs.bitsLeft
+  let bits =
+    lengthBytes !== undefined
+      ? lengthBytes * 8
+      : entry !== undefined
+        ? Number(entry.Bits)
+        : 0
+  if (bits < 0) {
+    // A length below the record's own header: the rest of the message.
+    return readDynamicBinary(bs, remaining)
+  }
+  const end = bs.index + remaining
+  if (Math.floor(end / 8) < Math.floor((bs.index + bits) / 8)) {
+    bs.readBits(remaining % 8, false)
+    bs.readArrayBuffer(Math.floor(remaining / 8))
+    return undefined
+  }
+  if (bits > remaining) {
+    // Ends inside the last, partly used byte: nothing to decode.
+    bs.readBits(remaining, false)
+    return null
+  }
+  if (entry === undefined) {
+    // No type to decode against. Without a length either, the value is
+    // the rest of the message (PGN 130845 with a key it does not know).
+    if (bits === 0 && lengthBytes === undefined) {
+      bits = remaining
+    }
+    return readDynamicBinary(bs, bits)
   }
 
-  const field = fields.find((field) => field.Name === 'Key')
-
-  if (field) {
-    let val: any = data['Key'] || data['key']
-    if (typeof val === 'string') {
-      val = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
-    }
-    return getFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
+  const type = entry.FieldType
+  if (
+    type.startsWith('NUMBER') ||
+    type.startsWith('FIX') ||
+    type.startsWith('UFIX')
+  ) {
+    // No top-of-range sentinel: canboat prints an all-ones dynamic value
+    // as the number it is (B&G "Trip 2 Time" before a trip starts).
+    const raw = readDynamicBits(
+      bs,
+      bits,
+      entry.Signed === true || type.startsWith('FIX')
+    )
+    return scaleDynamicNumber(raw, entry)
   }
+  if (type === 'LOOKUP') {
+    const raw = readDynamicBits(bs, bits, false)
+    if (!entry.LookupEnumeration) {
+      return readDynamicBinaryValue(raw, bits)
+    }
+    const name = getEnumerationName(entry.LookupEnumeration, raw)
+    if (name === undefined) {
+      // An unnamed value in the top of the range is not available, as for
+      // any lookup (canboat's fieldPrintLookup).
+      const band = bits > 2 ? 2 : 1
+      if (bits > 1 && raw >= 2 ** bits - 1 - band) {
+        return null
+      }
+      return raw
+    }
+    return _.isUndefined(options.resolveEnums) || options.resolveEnums
+      ? name
+      : raw
+  }
+  if (type === 'DURATION' || type === 'TIME') {
+    const signed =
+      entry.Signed === true ||
+      entry.name === 'Race Timer' ||
+      entry.name === 'Timezone offset'
+    const raw = readDynamicBits(bs, bits, signed)
+    return formatDuration(raw * (entry.Resolution ?? 1), entry.Resolution)
+  }
+  if (type === 'DATE') {
+    const raw = readDynamicBits(bs, bits, false)
+    const date = new Date(raw * 86400 * 1000)
+    return `${date.getUTCFullYear()}.${pad2(date.getUTCMonth() + 1)}.${pad2(date.getUTCDate())}`
+  }
+  if (type === 'ISO_NAME' && bits === 64) {
+    const lo = readDynamicBits(bs, 32, false)
+    const hi = readDynamicBits(bs, 32, false)
+    // A NAME reserves its top two values.
+    if (hi === 0xffffffff && lo >= 0xfffffffe) {
+      return null
+    }
+    return hi * 2 ** 32 + lo
+  }
+  return readDynamicBinary(bs, bits)
+}
+
+/** Read up to 32 bits, or the low 53 of a wider value, as a number. */
+function readDynamicBits(bs: BitStream, bits: number, signed: boolean): number {
+  if (bits <= 32) {
+    return bits === 0 ? 0 : bs.readBits(bits, signed)
+  }
+  const lo = bs.readBits(32, false) >>> 0
+  const hi = bs.readBits(bits - 32, signed)
+  return hi * 2 ** 32 + lo
+}
+
+function readDynamicBinaryValue(raw: number, bits: number): string {
+  const bytes: number[] = []
+  for (let i = 0; i < Math.ceil(bits / 8); i++) {
+    bytes.push(Math.floor(raw / 2 ** (8 * i)) & 0xff)
+  }
+  return byteString(Buffer.from(bytes), ' ')
+}
+
+function readDynamicBinary(bs: BitStream, bits: number): string | null {
+  const bytes = Math.floor(bits / 8)
+  const data = Buffer.from(bs.readArrayBuffer(bytes))
+  if (bits % 8 > 0) {
+    bs.readBits(bits % 8, false)
+  }
+  return bytes > 0 ? byteString(data, ' ') : null
+}
+
+function scaleDynamicNumber(raw: number, entry: DynamicFieldType): number {
+  const resolution = entry.Resolution ?? 1
+  if (resolution === 1 && entry.Unit === undefined) {
+    return raw
+  }
+  let precision = 0
+  for (let r = resolution; r > 0.0 && r < 1.0; r = r * 10.0) {
+    precision++
+  }
+  let value = Number.parseFloat((raw * resolution).toFixed(precision))
+  if (entry.Unit === 'kWh') {
+    value *= 3.6e6 // 1 kWh = 3.6 MJ.
+  } else if (entry.Unit === 'Ah') {
+    value *= 3600.0 // 1 Ah = 3600 C.
+  }
+  return value
+}
+
+/**
+ * A duration as canboat prints one: [-]HH:MM:SS with as many decimals as
+ * the resolution has, hours not wrapped at 24.
+ */
+function formatDuration(seconds: number, resolution: number | undefined) {
+  let precision = 0
+  for (let r = resolution ?? 1; r > 0.0 && r < 1.0; r = r * 10.0) {
+    precision++
+  }
+  const sign = seconds < 0 ? '-' : ''
+  const abs = Math.abs(seconds)
+  const whole = Math.trunc(abs)
+  const frac = Math.round((abs - whole) * 10 ** precision)
+  const hms = `${sign}${pad2(Math.floor(whole / 3600))}:${pad2(Math.floor(whole / 60) % 60)}:${pad2(whole % 60)}`
+  return precision > 0 ? `${hms}.${String(frac).padStart(precision, '0')}` : hms
 }
 
 fieldTypePostProcessors['DATE'] = (field, value, context) => {
