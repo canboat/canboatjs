@@ -1,0 +1,5 @@
+# canboat analyzer/tests/j1939-iso-tp.in (candump), converted to PLAIN by canboat convert --to plain
+,6,130885,33,255,8,11,22,33,44,55,66,77,88
+,7,60416,33,255,8,20,0c,00,02,ff,45,ff,01
+,7,60160,33,255,8,01,a1,a2,a3,a4,a5,a6,a7
+,7,60160,33,255,8,02,a8,a9,aa,ab,ac,ff,ff
