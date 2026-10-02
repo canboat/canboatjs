@@ -1973,23 +1973,16 @@ fieldTypePostProcessors['DATE'] = (field, value, context) => {
   return value
 }
 
+/**
+ * A TIME (of day) or DURATION is a number of seconds, as canboat gives it
+ * in JSON (canboat/canboat#967): System Time 09:10:20.2240 is 33020.224,
+ * a Race Timer of -300000 ms is -300.
+ */
 fieldTypePostProcessors['TIME'] = (field, value) => {
   if (value >= 0xfffffffd) {
-    value = undefined
-  } else {
-    let seconds = value * (field.Resolution as number)
-    let minutes = seconds / 60
-    seconds = seconds % 60
-    const hours = Math.floor(minutes / 60)
-    minutes = Math.floor(minutes % 60)
-
-    value = `${pad2(hours)}:${pad2(minutes)}:${pad2(Math.floor(seconds))}`
-
-    if (seconds % 1 > 0) {
-      value = value + (seconds % 1).toFixed(5).substring(1)
-    }
+    return undefined
   }
-  return value
+  return roundToResolution(value * (field.Resolution ?? 1), field.Resolution)
 }
 
 fieldTypePostProcessors['DURATION'] = fieldTypePostProcessors['TIME']

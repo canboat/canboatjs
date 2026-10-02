@@ -10,7 +10,7 @@ module.exports = [
       fields: {
         instance: 3,
         stateOfCharge: 100,
-        timeRemaining: '00:20:00',
+        timeRemaining: 1200,
         dcType: null,
         remainingCapacity: null,
         rippleVoltage: null,

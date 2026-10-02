@@ -9,7 +9,7 @@ module.exports = [
       description: 'System Time',
       fields: {
         date: '2017.04.15',
-        time: '14:57:57',
+        time: 53877,
         reserved: null,
         sid: null,
         source: null

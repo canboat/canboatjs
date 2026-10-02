@@ -15,7 +15,7 @@ module.exports = [
         latitude: 38.97897,
         positionAccuracy: 'High',
         raim: 'in use',
-        positionTime: '14:58:00',
+        positionTime: 53880,
         communicationState: 82201,
         aisTransceiverInformation: 'Channel A VDL reception',
         positionDate: '2017.04.15',

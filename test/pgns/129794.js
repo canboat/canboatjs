@@ -20,7 +20,7 @@ module.exports = [
         positionReferenceFromStarboard: 0,
         positionReferenceFromBow: 9,
         etaDate: '2018.03.01',
-        etaTime: '06:00:00',
+        etaTime: 21600,
         draft: 4.2,
         destination: 'BALTIMORE',
         aisVersionIndicator: 'ITU-R M.1371-1',

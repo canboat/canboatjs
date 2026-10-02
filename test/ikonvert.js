@@ -19,7 +19,7 @@ const pgns = [
         Reserved1: 6,
         SID: 119,
         Source: 13,
-        Time: '55:11:40.08140'
+        Time: 198700.0814
       },
       description: 'System Time'
     }
@@ -35,7 +35,7 @@ const pgns = [
       fields: {
         SID: 81,
         Date: '2018.10.19',
-        Time: '16:35:36.87010',
+        Time: 59736.8701,
         'GNSS type': 'GPS',
         Method: 'no GNSS',
         Integrity: 'No integrity checking',
@@ -48,7 +48,7 @@ const pgns = [
           {
             'Reference Station Type': 'GPS',
             'Reference Station ID': 0,
-            'Age of DGNSS Corrections': '00:00:00'
+            'Age of DGNSS Corrections': 0
           }
         ]
       },

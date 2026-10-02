@@ -743,17 +743,32 @@ fieldTypeMappers['DATE'] = (field, value) => {
   return value
 }
 
+/**
+ * A TIME or DURATION in seconds, as the decoder gives it, read leniently:
+ * a number of seconds, also as text ("300", "-1.5"), or a clock
+ * "[-]HH:MM", "[-]HH:MM:SS" or "[-]HH:MM:SS.fff", as canboatjs and
+ * canboat wrote it before.
+ */
 fieldTypeMappers['TIME'] = (field, value) => {
-  if (_.isString(value)) {
-    const split = value.split(':')
-
-    const hours = Number(split[0])
-    const minutes = Number(split[1])
-    const seconds = Number(split[2])
-
-    value = hours * 60 * 60 + minutes * 60 + seconds
+  if (!_.isString(value)) {
+    return value
   }
-  return value
+  const text = value.trim()
+  if (text !== '' && Number.isFinite(Number(text))) {
+    return Number(text)
+  }
+  const negative = text.startsWith('-')
+  const parts = (negative ? text.slice(1) : text).split(':')
+  if (
+    parts.length < 2 ||
+    parts.length > 3 ||
+    !parts.every((p) => /^\d+(\.\d+)?$/.test(p))
+  ) {
+    return value
+  }
+  const [hours, minutes, seconds = 0] = parts.map(Number)
+  const total = hours * 3600 + minutes * 60 + seconds
+  return negative ? -total : total
 }
 
 fieldTypeMappers['DURATION'] = fieldTypeMappers['TIME']
