@@ -37,6 +37,7 @@ import { BitStream, BitView } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 import { encodeCandump2 } from './stringMsg'
 import { rdsG0Char } from './charsets'
+import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
 
 import {
   parseN2kString,
@@ -65,14 +66,6 @@ const FORMAT_PLAIN = 0
 const FORMAT_COALESCED = 1
 const RES_BINARY = 'Binary data'
 
-const FASTPACKET_INDEX = 0
-const FASTPACKET_SIZE = 1
-const FASTPACKET_BUCKET_0_SIZE = 6
-const FASTPACKET_BUCKET_N_SIZE = 7
-const FASTPACKET_BUCKET_0_OFFSET = 2
-const FASTPACKET_BUCKET_N_OFFSET = 1
-const FASTPACKET_MAX_INDEX = 0x1f
-
 export type ByteMapping = {
   bytes: number[]
   value?: number | string | null
@@ -95,6 +88,7 @@ export class Parser extends EventEmitter {
   license: string
   format: number
   devices: { [key: number]: { [key: number]: any } }
+  private reassembler: Reassembler
   mixedFormat: boolean
 
   constructor(opts: any = {}) {
@@ -139,6 +133,7 @@ export class Parser extends EventEmitter {
     this.license = pkg.license
     this.format = this.options.format === undefined ? -1 : this.options.format
     this.devices = {}
+    this.reassembler = new Reassembler()
     this.mixedFormat = this.options.mixedFormat || false
 
     if (this.options.onPropertyValues) {
@@ -208,90 +203,37 @@ export class Parser extends EventEmitter {
       }
       return bs
     } else if (pgnData.Type === 'Fast') {
-      //partial packet
+      // One frame of a fast-packet message: slot it in by its index, as
+      // canboat does, so frames that arrive out of order still assemble.
       this.format = FORMAT_PLAIN
-
-      if (this.devices[pgn.src!] === undefined) {
-        this.devices[pgn.src!] = {}
-      }
-      let packet = this.devices[pgn.src!][pgn.pgn]
-
-      if (!packet) {
-        packet = { bufferSize: 0, lastPacket: 0, src: [] }
-        this.devices[pgn.src!][pgn.pgn] = packet
-      }
-      if (sourceString) {
-        packet.src.push(sourceString)
-      }
-
-      const start = bs.byteIndex
-      const packetIndex = bs.view.buffer.readUInt8(FASTPACKET_INDEX)
-      const bucket = packetIndex & FASTPACKET_MAX_INDEX
-
-      trace(`${pgn.pgn} partial ${packetIndex} ${bucket} ${packet.size}`)
-
-      if (bucket == 0) {
-        packet.size = bs.view.buffer.readUInt8(FASTPACKET_SIZE)
-        const newSize = packet.size + FASTPACKET_BUCKET_N_SIZE
-        if (newSize > packet.bufferSize) {
-          const newBuf = Buffer.alloc(newSize)
-          packet.bufferSize = newSize
-          if (packet.buffer) {
-            packet.buffer.copy(newBuf)
-          }
-          packet.buffer = newBuf
-        }
-        bs.view.buffer.copy(packet.buffer, 0, FASTPACKET_BUCKET_0_OFFSET, 8)
-        trace(
-          `${pgn.pgn} targetStart: 0 sourceStart: ${FASTPACKET_BUCKET_0_OFFSET}`
-        )
-      } else if (!packet.buffer) {
-        //we got a non-zero bucket, but we never got the zero bucket
-        debug(
-          `PGN ${pgn.pgn} malformed packet for ${pgn.src} received; got a non-zero bucket first`
-        )
+      const res = this.reassembler.push(
+        {
+          pgn: pgn.pgn,
+          src: pgn.src!,
+          dst: pgn.dst!,
+          prio: pgn.prio!,
+          timestamp: pgn.timestamp,
+          data: Buffer.from(
+            bs.view.buffer.subarray(0, Math.min(len, bs.view.buffer.length))
+          ),
+          input: sourceString ? [sourceString] : undefined
+        },
+        'Fast'
+      )
+      if (res.kind === 'error') {
+        debug(`PGN ${pgn.pgn} from ${pgn.src}: ${res.message}`)
         cb && cb(`Could not parse ${JSON.stringify(pgn)}`, undefined)
-        bs.byteIndex = start
-        delete this.devices[pgn.src!][pgn.pgn]
         return
-      } else {
-        if (packet.lastPacket + 1 != packetIndex) {
-          debug(
-            `PGN ${pgn.pgn} malformed packet for ${pgn.src} received; expected ${packet.lastPacket + 1} but got ${packetIndex}`
-          )
-          cb && cb(`Could not parse ${JSON.stringify(pgn)}`, undefined)
-          bs.byteIndex = start
-          delete this.devices[pgn.src!][pgn.pgn]
-          return
-        } else {
-          trace(
-            `${pgn.pgn} targetStart: ${FASTPACKET_BUCKET_0_SIZE + FASTPACKET_BUCKET_N_SIZE * (bucket - 1)} sourceStart: ${FASTPACKET_BUCKET_N_OFFSET} sourceEned: ${FASTPACKET_BUCKET_N_SIZE}`
-          )
-          bs.view.buffer.copy(
-            packet.buffer,
-            FASTPACKET_BUCKET_0_SIZE + FASTPACKET_BUCKET_N_SIZE * (bucket - 1),
-            FASTPACKET_BUCKET_N_OFFSET,
-            8
-          )
-        }
       }
-      packet.lastPacket = packetIndex
-      if (
-        FASTPACKET_BUCKET_0_SIZE + FASTPACKET_BUCKET_N_SIZE * bucket <
-        packet.size
-      ) {
-        // Packet is not complete yet
+      if (res.kind !== 'complete') {
         trace(`${pgn.pgn} not complete`)
         return
       }
-      const view = new BitView(packet.buffer)
-      bs = new BitStream(view)
       trace(`${pgn.pgn} done`)
       if (this.options.includeInputData) {
-        pgn.input = packet.src
+        pgn.input = res.frame.input
       }
-      delete this.devices[pgn.src!][pgn.pgn]
-      return bs
+      return new BitStream(new BitView(res.frame.data))
     } else if (sourceString && this.options.includeInputData) {
       pgn.input = [sourceString]
     }
@@ -634,6 +576,47 @@ export class Parser extends EventEmitter {
     }
 
     try {
+      // ISO TP transport frames are plumbing for a longer message: hand
+      // them to the reassembler and decode the PGN they carry once it is
+      // complete, as canboat does.
+      if (
+        (pgn.pgn === PGN_ISO_TP_CM || pgn.pgn === PGN_ISO_TP_DT) &&
+        !coalesced &&
+        len <= 8
+      ) {
+        const res = this.reassembler.push(
+          {
+            pgn: pgn.pgn,
+            src: pgn.src,
+            dst: pgn.dst!,
+            prio: pgn.prio!,
+            timestamp: pgn.timestamp,
+            data: Buffer.from(
+              packetBs.view.buffer.subarray(
+                0,
+                Math.min(len, packetBs.view.buffer.length)
+              )
+            ),
+            input: sourceString ? [sourceString] : undefined
+          },
+          'Single'
+        )
+        if (res.kind !== 'complete') {
+          return
+        }
+        pgn.pgn = res.frame.pgn
+        pgn.dst = res.frame.dst
+        pgn.prio = res.frame.prio
+        pgn.timestamp = res.frame.timestamp
+        packetBs = new BitStream(new BitView(res.frame.data))
+        len = res.frame.data.length
+        coalesced = true
+        if (this.options.includeInputData && res.frame.input) {
+          ;(pgn as any).input = res.frame.input
+          sourceString = undefined
+        }
+      }
+
       const pgnList = this.getPGNDefinitionList(pgn)
 
       const [unknownPGN, pgnData, bs] = this.readPGN(
