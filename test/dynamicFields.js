@@ -11,7 +11,7 @@ function decode(line) {
 }
 
 describe('dynamic field values', () => {
-  // B&G key-value data: Race Timer -300000 ms, Trip 2 Time all ones,
+  // B&G key-value data: Race Timer -300000 ms, Trip 2 Time all ones (unset),
   // Rudder Angle -1000 x 0.0001 rad, Altitude with length 0, and a Target
   // Boat Speed of length 2 that the message cuts off after one byte.
   const bandg = decode(
@@ -31,8 +31,15 @@ describe('dynamic field values', () => {
     })
   })
 
-  it('keeps an all-ones value as the number it is', () => {
-    bandg.list[1].value.should.equal('1193:02:47.295')
+  it('leaves out a top-of-range value: it is not available', () => {
+    bandg.list[1].should.deep.equal({ key: 'Trip 2 Time', length: 4 })
+    // Rudder Angle, signed 16 bits: 0x7fff, 0x7ffe and 0x7ffd are not
+    // available, out of range and reserved; 0x7ffc is a reading.
+    decode(
+      '2026-09-24T00:00:00.000Z,3,130824,16,255,18,7d,99,0b,20,ff,7f,0b,20,fe,7f,0b,20,fd,7f,0b,20,fc,7f'
+    )
+      .list.map((r) => r.value)
+      .should.deep.equal([undefined, undefined, undefined, 3.2764])
   })
 
   it('leaves out a value of length 0', () => {

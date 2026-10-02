@@ -1836,14 +1836,11 @@ function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
     type.startsWith('FIX') ||
     type.startsWith('UFIX')
   ) {
-    // No top-of-range sentinel: canboat prints an all-ones dynamic value
-    // as the number it is (B&G "Trip 2 Time" before a trip starts).
-    const raw = readDynamicBits(
-      bs,
-      bits,
-      entry.Signed === true || type.startsWith('FIX')
-    )
-    return scaleDynamicNumber(raw, entry)
+    const signed = entry.Signed === true || type.startsWith('FIX')
+    const raw = readDynamicBits(bs, bits, signed)
+    return isDynamicSentinel(raw, bits, signed)
+      ? null
+      : scaleDynamicNumber(raw, entry)
   }
   if (type === 'LOOKUP') {
     const raw = readDynamicBits(bs, bits, false)
@@ -1870,6 +1867,9 @@ function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
       entry.name === 'Race Timer' ||
       entry.name === 'Timezone offset'
     const raw = readDynamicBits(bs, bits, signed)
+    if (isDynamicSentinel(raw, bits, signed)) {
+      return null
+    }
     return formatDuration(raw * (entry.Resolution ?? 1), entry.Resolution)
   }
   if (type === 'DATE') {
@@ -1887,6 +1887,18 @@ function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
     return hi * 2 ** 32 + lo
   }
   return readDynamicBinary(bs, bits)
+}
+
+/**
+ * Whether a dynamic number or duration is one of the top-of-range values
+ * a field of its width reserves (not available, out of range, reserved),
+ * as canboat's dynamic_sentinel: an unstarted B&G Trip 2 Time
+ * (0xffffffff) is not a time.
+ */
+function isDynamicSentinel(raw: number, bits: number, signed: boolean) {
+  const reserved = bits >= 8 ? 3 : bits >= 4 ? 2 : bits >= 2 ? 1 : 0
+  const max = 2 ** (signed ? bits - 1 : bits) - 1
+  return raw > max - reserved
 }
 
 /** Read up to 32 bits, or the low 53 of a wider value, as a number. */
