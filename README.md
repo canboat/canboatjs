@@ -394,8 +394,9 @@ does, with the same behaviour:
 const { FromPgn, Quirk } = require('@canboat/canboatjs')
 
 const parser = new FromPgn({ quirks: [Quirk.GpsRollover] })
+
 // or with a device list
-const parser = new FromPgn({ quirks: ['gps-rollover=4,1851:491603'] })
+const targeted = new FromPgn({ quirks: ['gps-rollover=4,1851:491603'] })
 ```
 
 | Quirk | What it does |
