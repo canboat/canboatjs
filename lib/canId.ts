@@ -15,6 +15,30 @@ export type CanID = {
   dst: number
 }
 
+// Quick protocol: 11-bit standard CAN IDs with direct mapping
+export type ParsedQuickCanId = {
+  canId: number // 11-bit CAN ID (0x000 - 0x7FF)
+  isExtended: false
+}
+
+export const CAN_EFF_FLAG = 0x80000000
+
+// Check if a raw CAN ID has the extended frame format flag set
+export const isExtendedCanId = (id: number): boolean =>
+  (id & CAN_EFF_FLAG) !== 0
+
+// Parse a 11-bit standard CAN ID (Quick protocol)
+export const parseQuickCanId = (id: number): ParsedQuickCanId => ({
+  canId: id & 0x7ff,
+  isExtended: false
+})
+
+// Encode a Quick protocol CAN ID (11-bit, no EFF flag)
+export const encodeQuickCanId = (canId: number): number => canId & 0x7ff
+
+export const quickCanIdString = (canId: number) =>
+  canId.toString(16).padStart(3, '0')
+
 // Decode CAN Identifier (canId). ISO 11783 (CAN 2.0 B Extended Frame Format)
 export const parseCanId = (id: number): ParsedCanID => {
   const PF = (id >> 16) & 0xff // PDU Format

@@ -32,7 +32,7 @@ import { createDebug, byteString, isPGNProprietary } from './utilities'
 import { EventEmitter } from 'events'
 import pkg from '../package.json'
 import _ from 'lodash'
-import { getPgn, getCustomPgn, addCustomPgns } from './pgns'
+import { getPgn, getCustomPgn, addCustomPgns, getQuickPgn } from './pgns'
 import { BitStream, BitView } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 import { encodeCandump2 } from './stringMsg'
@@ -52,6 +52,23 @@ const trace = createDebug('canboatjs:fromPgn:trace')
 export type FromPgnCallback = (msg: any, pgn: any | undefined) => void
 export type PostProcessor = (field: Field, value: any) => any
 type FieldTypeReader = (pgn: PGN, field: Field, bs: BitStream) => any
+
+/**
+ * Normalise a Quick frame payload to a Buffer.
+ *
+ * A Buffer is used as-is; an array is taken as byte values; a string is taken as
+ * hex, whitespace allowed. Buffer.from(string) would silently utf8-encode a hex
+ * string and decode it to nonsense, so a string is never passed through blind.
+ */
+function toPayloadBuffer(data: Buffer | number[] | string): Buffer {
+  if (Buffer.isBuffer(data)) {
+    return data
+  }
+  if (Array.isArray(data)) {
+    return Buffer.from(data)
+  }
+  return Buffer.from(String(data).replace(/\s+/g, ''), 'hex')
+}
 
 const fieldTypeReaders: {
   [key: string]: FieldTypeReader
@@ -780,6 +797,11 @@ export class Parser extends EventEmitter {
   }
 
   parse(data: any, cb: FromPgnCallback | undefined = undefined) {
+    // Quick protocol: 11-bit CAN frames with direct mapping
+    if (data && data.protocol === 'quick') {
+      return this.parseQuickFrame(data, cb)
+    }
+
     if (_.isString(data)) {
       return this.parseString(data, cb)
     } else if (_.isBuffer(data)) {
@@ -793,6 +815,140 @@ export class Parser extends EventEmitter {
         cb,
         data.sourceString
       )
+    }
+  }
+
+  /**
+   * Parse a Quick protocol frame.
+   * Quick uses 11-bit CAN IDs with direct mapping and little-endian byte order.
+   * Every field, including the leading 16-bit talker identifier, is decoded from
+   * the payload; an 11-bit identifier carries no priority, destination or source
+   * of its own, so none is synthesised.
+   */
+  parseQuickFrame(data: any, cb: FromPgnCallback | undefined) {
+    try {
+      const canId = data.canId & 0x7ff
+      const msgDef = getQuickPgn(canId)
+
+      if (!msgDef) {
+        this.emit(
+          'warning',
+          data,
+          `no Quick PGN definition for CAN ID 0x${canId.toString(16)}`
+        )
+        cb &&
+          cb(
+            `no Quick PGN definition for CAN ID 0x${canId.toString(16)}`,
+            undefined
+          )
+        return undefined
+      }
+
+      const buffer = toPayloadBuffer(data.data)
+
+      // Build the result object compatible with NMEA2000 output format
+      const result: any = {
+        pgn: canId, // use CAN ID as PGN for Quick protocol
+        timestamp: data.timestamp || new Date().toISOString(),
+        protocol: 'quick',
+        fields: {}
+      }
+
+      // Every field comes out of the payload, in order. The talker identifier
+      // is the first of them, not something bolted on from the frame.
+      const bs = new BitStream(new BitView(buffer))
+
+      for (const fieldDef of msgDef.fields) {
+        if (bs.bitsLeft < fieldDef.bits) {
+          break // not enough data for this field
+        }
+
+        let value: any
+
+        if (fieldDef.type === 'BINARY') {
+          // Read raw bytes
+          const bytes = Math.ceil(fieldDef.bits / 8)
+          const rawBytes = bs.readArrayBuffer(bytes)
+          value = Buffer.from(rawBytes).toString('hex').toUpperCase()
+          // Format as space-separated hex bytes for consistency
+          const hexBytes: string[] = []
+          for (let i = 0; i < rawBytes.length; i++) {
+            hexBytes.push(rawBytes[i].toString(16).padStart(2, '0'))
+          }
+          value = hexBytes.join(' ')
+        } else if (fieldDef.type === 'STRING_FIX') {
+          const bytes = Math.ceil(fieldDef.bits / 8)
+          const rawBytes = bs.readArrayBuffer(bytes)
+          value = Buffer.from(rawBytes).toString('ascii').replace(/\0+$/, '')
+        } else if (fieldDef.type === 'LOOKUP') {
+          const bytes = Math.ceil(fieldDef.bits / 8)
+          let rawValue: number
+          if (bytes === 1) {
+            rawValue = bs.readUint8()
+          } else if (bytes === 2) {
+            rawValue = bs.readUint16()
+          } else {
+            rawValue = bs.readBits(fieldDef.bits, false)
+          }
+          value =
+            fieldDef.enumValues && fieldDef.enumValues[rawValue] !== undefined
+              ? fieldDef.enumValues[rawValue]
+              : rawValue
+        } else {
+          // Numeric field - read little-endian
+          const bytes = Math.ceil(fieldDef.bits / 8)
+
+          if (bytes === 1) {
+            value = fieldDef.signed ? bs.readInt8() : bs.readUint8()
+          } else if (bytes === 2) {
+            value = fieldDef.signed ? bs.readInt16() : bs.readUint16()
+          } else if (bytes === 3) {
+            // 24-bit: read manually in little-endian
+            const b0 = bs.readUint8()
+            const b1 = bs.readUint8()
+            const b2 = bs.readUint8()
+            value = b0 | (b1 << 8) | (b2 << 16)
+            if (fieldDef.signed && value & 0x800000) {
+              value -= 0x1000000
+            }
+          } else if (bytes === 4) {
+            value = fieldDef.signed ? bs.readInt32() : bs.readUint32()
+          } else {
+            value = bs.readBits(fieldDef.bits, fieldDef.signed)
+          }
+
+          // Apply resolution if specified
+          if (fieldDef.resolution && typeof value === 'number') {
+            value = value * fieldDef.resolution
+            // Round to avoid floating point artifacts
+            const precision =
+              fieldDef.resolution < 1
+                ? Math.ceil(-Math.log10(fieldDef.resolution))
+                : 0
+            value = Number.parseFloat(value.toFixed(precision))
+          }
+        }
+
+        // Set field on result using both camelCase id and name for compatibility
+        if (
+          value !== undefined &&
+          (value !== null || this.options.returnNulls)
+        ) {
+          result.fields[fieldDef.id] = value
+          if (this.options.useCamelCompat) {
+            result.fields[fieldDef.name] = value
+          }
+        }
+      }
+
+      this.emit('pgn', result)
+      cb && cb(undefined, result)
+
+      return result
+    } catch (error) {
+      this.emit('error', data, error)
+      cb && cb(error, undefined)
+      return undefined
     }
   }
 

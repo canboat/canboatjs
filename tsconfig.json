@@ -17,4 +17,10 @@
     "files": true
   },
   "include": ["./lib/**/*"],
+  // Test files sit next to their sources in lib/ so jest picks them up, but they
+  // must not be compiled into dist/: the .ts ones reference test-runner globals
+  // that @tsconfig/node20 excludes via "types": ["node"], and the .js ones
+  // would still be emitted because allowJs is on. Shipping either would pull
+  // jest/mocha into every consumer of the published package.
+  "exclude": ["./lib/**/*.test.*"]
 }
