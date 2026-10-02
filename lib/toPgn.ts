@@ -455,11 +455,11 @@ function dynamicLookupValue(data: any, fields: Field[], value: string) {
   if (typeof key === 'string') {
     key = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, key)
   }
-  const entry = getFieldTypeEnumeration(
-    field.LookupFieldTypeEnumeration
-  )?.EnumFieldTypeValues.find((v) => v.value === key) as
-    | { LookupEnumeration?: string }
-    | undefined
+  type Entry = { value: number; LookupEnumeration?: string }
+  const entries: Entry[] =
+    getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
+      ?.EnumFieldTypeValues ?? []
+  const entry = entries.find((v) => v.value === key)
   if (entry?.LookupEnumeration === undefined) {
     return value
   }
