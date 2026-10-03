@@ -295,6 +295,9 @@ function writeField(
   } else {
     if (field.FieldType === 'DYNAMIC_FIELD_VALUE' && _.isString(value)) {
       value = dynamicLookupValue(record, fields, value)
+      if (_.isString(value)) {
+        value = dynamicStringValue(record, value)
+      }
     }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {
@@ -464,6 +467,24 @@ function dynamicLookupValue(data: any, fields: Field[], value: string) {
     return value
   }
   return getEnumerationValue(entry.LookupEnumeration, value) ?? value
+}
+
+/**
+ * A DYNAMIC_FIELD_VALUE string that no lookup resolved: a number written
+ * as text, or bytes in hex as the decoder gives the value of a key it has
+ * no type for ("2d 7d 10 14"). Anything else would reach the bit writer,
+ * which turns a string into 0, so it is refused.
+ */
+function dynamicStringValue(record: any, value: string): number | Buffer {
+  const text = value.trim()
+  if (text !== '' && Number.isFinite(Number(text))) {
+    return Number(text)
+  }
+  if (/^[0-9a-f]{2}([ ,][0-9a-f]{2})*$/i.test(text)) {
+    return Buffer.from(text.split(/[ ,]/).map((b) => parseInt(b, 16)))
+  }
+  const key = record['Key'] ?? record['key']
+  throw new Error(`Invalid value for key ${key}: '${value}'`)
 }
 
 /*

@@ -88,4 +88,30 @@ describe('dynamic field values', () => {
     })
     Buffer.from(data).toString('hex').should.equal('7d997d2050007c206400')
   })
+
+  it('encodes the hex bytes of a key it has no type for, and refuses junk', () => {
+    const msg = (value) => ({
+      pgn: 130845,
+      prio: 3,
+      src: 2,
+      dst: 255,
+      fields: {
+        manufacturerCode: 'Simrad',
+        industryCode: 'Marine Industry',
+        address: 255,
+        instance: 255,
+        networkGroup: 'Default',
+        source: 255,
+        key: 17671,
+        operation: 'Set',
+        value
+      }
+    })
+    Buffer.from(toPgn(msg('2d 7d 10 14')))
+      .toString('hex')
+      .should.equal('419fffff01ff074500012d7d1014')
+    ;(() => toPgn(msg('banana'))).should.throw(
+      "Invalid value for key 17671: 'banana'"
+    )
+  })
 })
