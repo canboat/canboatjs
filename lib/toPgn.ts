@@ -311,7 +311,10 @@ function writeField(
       value = lookup(field, value)
     }
 
-    if (field.FieldType == 'NUMBER' && _.isString(value)) {
+    if (
+      (field.FieldType == 'NUMBER' || field.FieldType === 'FLOAT') &&
+      _.isString(value)
+    ) {
       value = Number(value)
     }
 
@@ -326,7 +329,11 @@ function writeField(
     }
 
     if (field.Resolution && typeof value === 'number') {
-      value = Number((value / field.Resolution).toFixed(0))
+      // A FLOAT carries its fraction on the wire: no rounding to a count.
+      value =
+        field.FieldType === 'FLOAT'
+          ? value / field.Resolution
+          : Number((value / field.Resolution).toFixed(0))
     }
 
     if (field.FieldType && fieldTypeWriters[field.FieldType]) {
@@ -656,6 +663,15 @@ const stringBytes = (value: string, maxBytes: number): Buffer => {
     end--
   }
   return buf.subarray(0, end)
+}
+
+// An IEEE-754 single; not available is all ones (a NaN), as canboat sends it.
+fieldTypeWriters['FLOAT'] = (pgn, field, value, bs) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    bs.writeFloat32(value)
+  } else {
+    bs.writeUint32(0xffffffff)
+  }
 }
 
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {

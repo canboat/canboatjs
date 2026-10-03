@@ -1679,6 +1679,17 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
   }
 }
 
+// An IEEE-754 single. NMEA 2000 sends a FLOAT that is not available as a
+// NaN (canboat's decode_float).
+fieldTypeReaders['FLOAT'] = (pgn, field, bs) => {
+  if (bs.bitsLeft < 32) {
+    bs.readBits(bs.bitsLeft, false)
+    return null
+  }
+  const value = bs.readFloat32()
+  return Number.isNaN(value) ? null : value
+}
+
 fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
   // The declared width is a maximum: Navico's 130821 sends however much text
   // it has, so read what is there.
@@ -2007,6 +2018,18 @@ fieldTypePostProcessors[RES_BINARY] = (field, value) => {
  * is not assigned -- and devices send it for "none", so it is not
  * available, like the three reserved top values. canboat's decode_mmsi.
  */
+// A FLOAT in SI, through its resolution and unit like a number, with the
+// six significant digits canboat prints it with (%g) rather than rounded
+// to a count of its resolution.
+fieldTypePostProcessors['FLOAT'] = (field, value) => {
+  let resolution = Number(field.Resolution ?? 1)
+  const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+  if (si !== undefined) {
+    resolution = (resolution * si.mul) / si.div
+  }
+  return Number.parseFloat((value * resolution).toPrecision(6))
+}
+
 fieldTypePostProcessors['MMSI'] = (field, value) => {
   if (value === 0 || value >= 0xfffffffd) {
     return null
