@@ -26,7 +26,7 @@ module.exports = [
     // {key (DYNAMIC_FIELD_KEY), length (DYNAMIC_FIELD_LENGTH), value
     // (DYNAMIC_FIELD_VALUE)} triplets. Each value is sized by its own record's
     // length and decoded as its key's type: Target Boat Speed is 80 x 0.01 m/s,
-    // Polar Performance 100 x 0.1 %, as canboat decodes them. Previously the
+    // Polar Performance 100 x 0.1 % = 0.1, as canboat decodes them. Previously the
     // value was dropped and the list de-synced.
     expected: {
       timestamp: '2024-01-01T12:00:00.000Z',
@@ -41,12 +41,11 @@ module.exports = [
         industryCode: 'Marine Industry',
         list: [
           { key: 'Target Boat Speed', length: 2, value: 0.8 },
-          { key: 'Polar Performance', length: 2, value: 10 }
+          { key: 'Polar Performance', length: 2, value: 0.1 }
         ]
       }
     },
     input:
-      '2024-01-01T12:00:00.000Z,7,130824,16,255,10,7d,99,7d,20,50,00,7c,20,64,00',
-    skipEncoderTest: true
+      '2024-01-01T12:00:00.000Z,7,130824,16,255,10,7d,99,7d,20,50,00,7c,20,64,00'
   }
 ]

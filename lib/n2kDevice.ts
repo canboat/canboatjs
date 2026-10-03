@@ -171,7 +171,7 @@ export class N2kDevice extends EventEmitter {
       this.productInfo.dst = 255
     } else {
       this.productInfo = new PGN_126996({
-        nmea2000Version: 1300,
+        nmea2000Version: 2.1, // 2.100, as canboat announces; the field counts in 0.001
         productCode: 667, // Just made up..
         modelId: 'signalk-server',
         softwareVersionCode: getServerVersion(options),

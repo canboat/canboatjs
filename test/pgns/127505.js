@@ -10,8 +10,8 @@ module.exports = [
       fields: {
         instance: 0,
         type: 'Fuel',
-        level: 56.264,
-        capacity: 49,
+        level: 0.56264,
+        capacity: 0.049,
         reserved: null
       }
     },

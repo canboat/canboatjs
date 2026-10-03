@@ -38,6 +38,12 @@ import { encodeCandump2 } from './stringMsg'
 import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
 import { parseQuirks, Quirks } from './quirks'
+import {
+  roundToDecimals,
+  scaleOf,
+  siConversion,
+  timeDecimalsFor
+} from './units'
 
 import {
   parseN2kString,
@@ -1250,21 +1256,16 @@ function convertField(
         //console.log(`Bad field ${field.Name} ${max - value}`)
         value = null
       }
-      if (field.Resolution && typeof value === 'number') {
-        let resolution = field.Resolution
-
-        if (_.isString(resolution)) {
-          resolution = Number.parseFloat(resolution)
-        }
-
-        value = value * resolution
-
-        let precision = 0
-        for (let r = resolution; r > 0.0 && r < 1.0; r = r * 10.0) {
-          precision++
-        }
-
-        value = Number.parseFloat(value.toFixed(precision))
+      if (
+        typeof value === 'number' &&
+        (field.Resolution ||
+          siConversion(field.Unit, (field as any).PhysicalQuantity) !==
+            undefined)
+      ) {
+        // In SI, as canboat's fixupUnit scales the resolution, with the
+        // decimals canboat gives it; both worked out once per field.
+        const { resolution, decimals } = scaleOf(field as any)
+        value = roundToDecimals(value * resolution, decimals)
       }
 
       if (
@@ -1288,12 +1289,6 @@ function convertField(
         }
         }
       */
-
-      if (field.Unit === 'kWh') {
-        value *= 3.6e6 // 1 kWh = 3.6 MJ.
-      } else if (field.Unit === 'Ah') {
-        value *= 3600.0 // 1 Ah = 3600 C.
-      }
     }
   }
   // Numeric fields must never emit NaN: downstream consumers (e.g. databases
@@ -1688,6 +1683,17 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
   }
 }
 
+// An IEEE-754 single. NMEA 2000 sends a FLOAT that is not available as a
+// NaN (canboat's decode_float).
+fieldTypeReaders['FLOAT'] = (pgn, field, bs) => {
+  if (bs.bitsLeft < 32) {
+    bs.readBits(bs.bitsLeft, false)
+    return null
+  }
+  const value = bs.readFloat32()
+  return Number.isNaN(value) ? null : value
+}
+
 fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
   // The declared width is a maximum: Navico's 130821 sends however much text
   // it has, so read what is there.
@@ -1882,7 +1888,10 @@ function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
     }
     // Seconds, as canboat gives a TIME or DURATION in JSON
     // (canboat/canboat#967): a Race Timer of -300000 ms is -300.
-    return roundToResolution(raw * (entry.Resolution ?? 1), entry.Resolution)
+    return roundToDecimals(
+      raw * (entry.Resolution ?? 1),
+      timeDecimalsFor(entry.Resolution)
+    )
   }
   if (type === 'DATE') {
     const raw = readDynamicBits(bs, bits, false)
@@ -1945,22 +1954,10 @@ function scaleDynamicNumber(raw: number, entry: DynamicFieldType): number {
   if (resolution === 1 && entry.Unit === undefined) {
     return raw
   }
-  let value = roundToResolution(raw * resolution, resolution)
-  if (entry.Unit === 'kWh') {
-    value *= 3.6e6 // 1 kWh = 3.6 MJ.
-  } else if (entry.Unit === 'Ah') {
-    value *= 3600.0 // 1 Ah = 3600 C.
-  }
-  return value
-}
-
-/** A value rounded to as many decimals as its resolution has. */
-function roundToResolution(value: number, resolution: number | undefined) {
-  let precision = 0
-  for (let r = resolution ?? 1; r > 0.0 && r < 1.0; r = r * 10.0) {
-    precision++
-  }
-  return Number.parseFloat(value.toFixed(precision))
+  // In SI, as for any other field. A key's entry names no physical
+  // quantity, so its degrees stay degrees, as in canboat.
+  const scale = scaleOf(entry)
+  return roundToDecimals(raw * scale.resolution, scale.decimals)
 }
 
 fieldTypePostProcessors['DATE'] = (field, value, context) => {
@@ -1992,7 +1989,10 @@ fieldTypePostProcessors['TIME'] = (field, value) => {
   if (value >= 0xfffffffd) {
     return undefined
   }
-  return roundToResolution(value * (field.Resolution ?? 1), field.Resolution)
+  return roundToDecimals(
+    value * (field.Resolution ?? 1),
+    timeDecimalsFor(field.Resolution)
+  )
 }
 
 fieldTypePostProcessors['DURATION'] = fieldTypePostProcessors['TIME']
@@ -2026,6 +2026,18 @@ fieldTypePostProcessors[RES_BINARY] = (field, value) => {
  * is not assigned -- and devices send it for "none", so it is not
  * available, like the three reserved top values. canboat's decode_mmsi.
  */
+// A FLOAT in SI, through its resolution and unit like a number, with the
+// six significant digits canboat prints it with (%g) rather than rounded
+// to a count of its resolution.
+fieldTypePostProcessors['FLOAT'] = (field, value) => {
+  let resolution = Number(field.Resolution ?? 1)
+  const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+  if (si !== undefined) {
+    resolution = (resolution * si.mul) / si.div
+  }
+  return Number.parseFloat((value * resolution).toPrecision(6))
+}
+
 fieldTypePostProcessors['MMSI'] = (field, value) => {
   if (value === 0 || value >= 0xfffffffd) {
     return null

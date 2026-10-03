@@ -9,7 +9,7 @@ module.exports = [
       description: 'DC Detailed Status',
       fields: {
         instance: 3,
-        stateOfCharge: 100,
+        stateOfCharge: 1,
         timeRemaining: 1200,
         dcType: null,
         remainingCapacity: null,

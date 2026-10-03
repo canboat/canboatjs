@@ -11,8 +11,8 @@ module.exports = [
         sid: 23,
         instance: 0,
         source: 'Outside',
-        actualHumidity: 60.116,
-        setHumidity: 78.068,
+        actualHumidity: 0.60116,
+        setHumidity: 0.78068,
         reserved: null
       }
     },

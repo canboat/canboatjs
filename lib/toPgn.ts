@@ -20,12 +20,12 @@ import {
   getEnumerationValue,
   getFieldTypeEnumerationValue,
   getFieldTypeEnumeration,
-  getBitEnumerationName,
-  getFieldTypeEnumerationBits
+  getBitEnumerationName
 } from '@canboat/ts-pgns'
 import { getField } from './fromPgn'
 import { getPgn, getCustomPgn } from './pgns'
 import _ from 'lodash'
+import { scaleOf, siConversion } from './units'
 import { BitStream } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 import {
@@ -293,10 +293,19 @@ function writeField(
       //FIXME: error! should not happen
     }
   } else {
-    if (field.FieldType === 'DYNAMIC_FIELD_VALUE' && _.isString(value)) {
-      value = dynamicLookupValue(record, fields, value)
+    if (field.FieldType === 'DYNAMIC_FIELD_VALUE') {
+      // A lookup name gives the raw code; a number, also one written as
+      // text, is in SI and takes the key's scaling off.
       if (_.isString(value)) {
-        value = dynamicStringValue(record, value)
+        value = dynamicLookupValue(record, fields, value)
+        if (_.isString(value)) {
+          value = dynamicStringValue(record, value)
+          if (typeof value === 'number') {
+            value = dynamicScaledValue(record, fields, value)
+          }
+        }
+      } else if (typeof value === 'number') {
+        value = dynamicScaledValue(record, fields, value)
       }
     }
     const type = field.FieldType
@@ -310,12 +319,29 @@ function writeField(
       value = lookup(field, value)
     }
 
-    if (field.FieldType == 'NUMBER' && _.isString(value)) {
+    if (
+      (field.FieldType == 'NUMBER' || field.FieldType === 'FLOAT') &&
+      _.isString(value)
+    ) {
       value = Number(value)
     }
 
+    // The value is SI, as the decoder gives it: back to the unit the
+    // database states the resolution in (J to kWh, ratio to %, ...)
+    // before the resolution comes off.
+    if (typeof value === 'number') {
+      const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+      if (si !== undefined) {
+        value = (value * si.div) / si.mul
+      }
+    }
+
     if (field.Resolution && typeof value === 'number') {
-      value = Number((value / field.Resolution).toFixed(0))
+      // A FLOAT carries its fraction on the wire: no rounding to a count.
+      value =
+        field.FieldType === 'FLOAT'
+          ? value / field.Resolution
+          : Number((value / field.Resolution).toFixed(0))
     }
 
     if (field.FieldType && fieldTypeWriters[field.FieldType]) {
@@ -327,11 +353,6 @@ function writeField(
         }
         */
 
-      if (field.Unit === 'kWh') {
-        value /= 3.6e6 // 1 kWh = 3.6 MJ.
-      } else if (field.Unit === 'Ah') {
-        value /= 3600.0 // 1 Ah = 3600 C.
-      }
       if (field.Offset) {
         value -= field.Offset
       }
@@ -433,15 +454,8 @@ function lookup(field: Field, stringValue: string) {
 }
 
 function lookupKeyBitLength(data: any, fields: Field[]) {
-  const field = fields.find((field) => field.Name === 'Key')
-
-  if (field) {
-    let val = data['Key'] || data['key']
-    if (typeof val === 'string') {
-      val = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
-    }
-    return getFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
-  }
+  const entry = dynamicKeyEntry(data, fields)
+  return entry?.Bits === undefined ? undefined : Number(entry.Bits)
 }
 
 /**
@@ -450,23 +464,59 @@ function lookupKeyBitLength(data: any, fields: Field[]) {
  * goes on the wire as that name's number. Any other value is written as is.
  */
 function dynamicLookupValue(data: any, fields: Field[], value: string) {
-  const field = fields.find((field) => field.Name === 'Key')
-  if (field === undefined) {
-    return value
-  }
-  let key = data['Key'] ?? data['key']
-  if (typeof key === 'string') {
-    key = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, key)
-  }
-  type Entry = { value: number; LookupEnumeration?: string }
-  const entries: Entry[] =
-    getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
-      ?.EnumFieldTypeValues ?? []
-  const entry = entries.find((v) => v.value === key)
+  const entry = dynamicKeyEntry(data, fields)
   if (entry?.LookupEnumeration === undefined) {
     return value
   }
   return getEnumerationValue(entry.LookupEnumeration, value) ?? value
+}
+
+type DynamicKeyEntry = {
+  value: number
+  FieldType?: string
+  Bits?: string
+  Resolution?: number
+  Unit?: string
+  LookupEnumeration?: string
+}
+
+/**
+ * The LookupFieldTypeEnumeration entry the record's DYNAMIC_FIELD_KEY
+ * selects, by name or number: the key field is found by its type, so
+ * Victron's registerId and Navico's sourceSettingId count as well as Key.
+ */
+function dynamicKeyEntry(
+  data: any,
+  fields: Field[]
+): DynamicKeyEntry | undefined {
+  const field = fields.find((f) => f.FieldType === 'DYNAMIC_FIELD_KEY')
+  if (field?.LookupFieldTypeEnumeration === undefined) {
+    return undefined
+  }
+  let key = data[field.Name] ?? data[field.Id]
+  if (typeof key === 'string') {
+    key = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, key)
+  }
+  const entries: DynamicKeyEntry[] =
+    getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
+      ?.EnumFieldTypeValues ?? []
+  return entries.find((v) => v.value === key)
+}
+
+/**
+ * A dynamic number or duration in SI, as the decoder gives it, back to
+ * the count its key's entry puts on the wire: Polar Performance 0.1 (a
+ * ratio) is 100 x 0.1 %.
+ */
+function dynamicScaledValue(data: any, fields: Field[], value: number) {
+  const entry = dynamicKeyEntry(data, fields)
+  if (
+    entry === undefined ||
+    !/^(NUMBER|FIX|UFIX|DURATION|TIME)/.test(entry.FieldType ?? '')
+  ) {
+    return value
+  }
+  return Math.round(value / scaleOf(entry).resolution)
 }
 
 /**
@@ -650,6 +700,15 @@ const stringBytes = (value: string, maxBytes: number): Buffer => {
     end--
   }
   return buf.subarray(0, end)
+}
+
+// An IEEE-754 single; not available is all ones (a NaN), as canboat sends it.
+fieldTypeWriters['FLOAT'] = (pgn, field, value, bs) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    bs.writeFloat32(value)
+  } else {
+    bs.writeUint32(0xffffffff)
+  }
 }
 
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {

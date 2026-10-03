@@ -8,9 +8,9 @@ module.exports = [
       timestamp: '2020-03-31T02:34:18.529Z',
       fields: {
         instance: 224,
-        tripFuelUsed: 9,
-        fuelRateAverage: -3100.2,
-        instantaneousFuelEconomy: -0.1,
+        tripFuelUsed: 0.009,
+        fuelRateAverage: -0.0008611667,
+        instantaneousFuelEconomy: -2.78e-8,
         fuelRateEconomy: null
       },
       description: 'Trip Parameters, Engine'
