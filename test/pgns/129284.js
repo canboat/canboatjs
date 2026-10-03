@@ -14,7 +14,7 @@ module.exports = [
         perpendicularCrossed: 'No',
         arrivalCircleEntered: 'No',
         calculationType: 'Great Circle',
-        etaTime: '15:19:50',
+        etaTime: 55190,
         etaDate: '2017.04.15',
         bearingOriginToDestinationWaypoint: 2.0961,
         bearingPositionToDestinationWaypoint: 2.0961,

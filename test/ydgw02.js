@@ -47,7 +47,7 @@ describe('Convert Yacht Devices RAW format data', function () {
         fields: {
           SID: 0,
           Date: '2019.02.17',
-          Time: '16:29:28',
+          Time: 59368,
           Latitude: 33.08757283333333,
           Longitude: -97.02051133333333,
           Altitude: 148.94,

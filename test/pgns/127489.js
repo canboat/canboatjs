@@ -14,7 +14,7 @@ module.exports = [
         alternatorPotential: 13.82,
         discreteStatus1: ['Over Temperature', 'Low Oil Pressure'],
         discreteStatus2: [],
-        totalEngineHours: '00:10:00',
+        totalEngineHours: 600,
         coolantPressure: null,
         engineLoad: null,
         engineTorque: null,
