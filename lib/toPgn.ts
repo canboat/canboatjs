@@ -334,6 +334,11 @@ function writeField(
       if (si !== undefined) {
         value = (value * si.div) / si.mul
       }
+      // canboat's Offset is in the field's own units, so remove it before
+      // scaling to the raw value.
+      if (field.Offset) {
+        value -= field.Offset
+      }
     }
 
     if (field.Resolution && typeof value === 'number') {
@@ -352,10 +357,6 @@ function writeField(
         value = Number(value)
         }
         */
-
-      if (field.Offset) {
-        value -= field.Offset
-      }
 
       if (field.FieldType === 'VARIABLE') {
         writeVariableLengthField(bs, pgn_number, data, field, value, fields)
