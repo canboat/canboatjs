@@ -277,6 +277,17 @@ function writeField(
   }
 
   // console.log(`${field.Name}:${value}(${bitLength}-${field.Resolution})`)
+  if (
+    (value === undefined || value === null) &&
+    field.FieldType === 'VARIABLE'
+  ) {
+    // A group function parameter's value: its width comes from the target
+    // field, so without a value nothing would be written and every later
+    // byte would shift (#458). canboat's encoder refuses it too.
+    const target = data.pgn ?? data.PGN
+    const parameter = record.parameter ?? record.Parameter
+    throw new Error(`Parameter ${parameter} of PGN ${target} has no value`)
+  }
   if (value === undefined || value === null) {
     if (field.FieldType && fieldTypeWriters[field.FieldType]) {
       fieldTypeWriters[field.FieldType](pgn_number, field, value, bs)
@@ -434,6 +445,22 @@ function writeVariableLengthField(
   )
 
   if (refField) {
+    // As canboat's encoder: a key/value field's value is bytes, not a
+    // number. It used to go out silently wrong (#458), typically because
+    // the target PGN has several variants and the pairs did not pick the
+    // intended one.
+    const target = pgn.pgn ?? pgn.PGN
+    if (
+      refField.FieldType === 'DYNAMIC_FIELD_VALUE' &&
+      !Buffer.isBuffer(value)
+    ) {
+      throw new Error(
+        `Parameter ${(refField as any).Order} of PGN ${target} is a key/value field ` +
+          `(${refField.Name}) and needs its value bytes. If another variant ` +
+          'of the PGN is meant, give its manufacturer (parameter 1) and ' +
+          'industry (parameter 3) first'
+      )
+    }
     let bits
 
     if (refField.BitLength !== undefined) {
