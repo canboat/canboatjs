@@ -454,8 +454,11 @@ export class Parser extends EventEmitter {
         if (field.BitLength === 8 && field.Match === 255) {
           value = 255
         }
+        // A variant that ends before this field cannot describe a message
+        // that has it (Airmar's 4-field catch-all against a filter command)
         pgnList = pgnList.filter(
           (f) =>
+            f.Fields[i] !== undefined &&
             (f.Fields[i].Match == value || f.Fields[i].Match === undefined) &&
             f.Fallback !== true
         )
