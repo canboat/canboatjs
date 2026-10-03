@@ -525,9 +525,31 @@ export class Parser extends EventEmitter {
           pgnData = pgnList[0]
           fields = pgnData.Fields
           //console.log(`using ${JSON.stringify(pgnData, null, 2)}`)
-          value = pgnData.Fields[i].Description
-          if (value == null) {
-            value = pgnData.Fields[i].Match
+          const resolved = pgnData.Fields[i]
+          if (resolved.Match !== undefined) {
+            value = resolved.Description
+            if (value == null) {
+              value = resolved.Match
+            }
+          } else if (
+            resolved.BitLength === field.BitLength &&
+            Number(resolved.Resolution ?? 1) ===
+              Number(field.Resolution ?? 1) &&
+            Number(resolved.Offset ?? 0) === Number(field.Offset ?? 0) &&
+            !!resolved.Signed === !!field.Signed
+          ) {
+            // Resolved to a non-match sibling: the field carries a real value
+            // here, so keep what readField decoded and convert it as any
+            // other field (post-processing, scaling to SI, lookup), which
+            // hasMatch skipped. Only safe when the sibling occupies the same
+            // bits on the same scale — the value was read against the match
+            // field, so a differing width or resolution would make it a
+            // misreading rather than a missing field.
+            value = convertField(resolved, value, true, this.options, pgn)
+          } else {
+            // Sibling reads different bits: keep the pre-existing behaviour and
+            // drop the value rather than report a misreading.
+            value = undefined
           }
           RepeatingFields = pgnData.RepeatingFieldSet1Size ?? 0
           totalRepeatingFields =
