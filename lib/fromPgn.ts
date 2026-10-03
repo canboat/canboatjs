@@ -38,6 +38,7 @@ import { encodeCandump2 } from './stringMsg'
 import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
 import { parseQuirks, Quirks } from './quirks'
+import { roundToResolution, siConversion } from './units'
 
 import {
   parseN2kString,
@@ -1254,14 +1255,13 @@ function convertField(
           resolution = Number.parseFloat(resolution)
         }
 
-        value = value * resolution
-
-        let precision = 0
-        for (let r = resolution; r > 0.0 && r < 1.0; r = r * 10.0) {
-          precision++
+        // In SI: the resolution scaled to it, as canboat's fixupUnit does.
+        const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+        if (si !== undefined) {
+          resolution = (resolution * si.mul) / si.div
         }
 
-        value = Number.parseFloat(value.toFixed(precision))
+        value = roundToResolution(value * resolution, resolution)
       }
 
       if (
@@ -1285,12 +1285,6 @@ function convertField(
         }
         }
       */
-
-      if (field.Unit === 'kWh') {
-        value *= 3.6e6 // 1 kWh = 3.6 MJ.
-      } else if (field.Unit === 'Ah') {
-        value *= 3600.0 // 1 Ah = 3600 C.
-      }
     }
   }
   // Numeric fields must never emit NaN: downstream consumers (e.g. databases
@@ -1942,22 +1936,12 @@ function scaleDynamicNumber(raw: number, entry: DynamicFieldType): number {
   if (resolution === 1 && entry.Unit === undefined) {
     return raw
   }
-  let value = roundToResolution(raw * resolution, resolution)
-  if (entry.Unit === 'kWh') {
-    value *= 3.6e6 // 1 kWh = 3.6 MJ.
-  } else if (entry.Unit === 'Ah') {
-    value *= 3600.0 // 1 Ah = 3600 C.
-  }
-  return value
-}
-
-/** A value rounded to as many decimals as its resolution has. */
-function roundToResolution(value: number, resolution: number | undefined) {
-  let precision = 0
-  for (let r = resolution ?? 1; r > 0.0 && r < 1.0; r = r * 10.0) {
-    precision++
-  }
-  return Number.parseFloat(value.toFixed(precision))
+  // In SI, as for any other field. A key's entry names no physical
+  // quantity, so its degrees stay degrees, as in canboat.
+  const si = siConversion(entry.Unit)
+  const siResolution =
+    si === undefined ? resolution : (resolution * si.mul) / si.div
+  return roundToResolution(raw * siResolution, siResolution)
 }
 
 fieldTypePostProcessors['DATE'] = (field, value, context) => {

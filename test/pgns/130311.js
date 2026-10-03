@@ -9,7 +9,7 @@ module.exports = [
       description: 'Environmental Parameters',
       fields: {
         sid: 20,
-        humidity: 56.068,
+        humidity: 0.56068,
         atmosphericPressure: null,
         humiditySource: null,
         temperature: null,

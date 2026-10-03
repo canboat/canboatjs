@@ -26,6 +26,7 @@ import {
 import { getField } from './fromPgn'
 import { getPgn, getCustomPgn } from './pgns'
 import _ from 'lodash'
+import { siConversion } from './units'
 import { BitStream } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 import {
@@ -314,6 +315,16 @@ function writeField(
       value = Number(value)
     }
 
+    // The value is SI, as the decoder gives it: back to the unit the
+    // database states the resolution in (J to kWh, ratio to %, ...)
+    // before the resolution comes off.
+    if (typeof value === 'number') {
+      const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+      if (si !== undefined) {
+        value = (value * si.div) / si.mul
+      }
+    }
+
     if (field.Resolution && typeof value === 'number') {
       value = Number((value / field.Resolution).toFixed(0))
     }
@@ -327,11 +338,6 @@ function writeField(
         }
         */
 
-      if (field.Unit === 'kWh') {
-        value /= 3.6e6 // 1 kWh = 3.6 MJ.
-      } else if (field.Unit === 'Ah') {
-        value /= 3600.0 // 1 Ah = 3600 C.
-      }
       if (field.Offset) {
         value -= field.Offset
       }
