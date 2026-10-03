@@ -322,6 +322,18 @@ describe('N2kDevice address claim, as canboat runs it', () => {
     expect(d.address).toBe(43)
   })
 
+  test('stops sending after losing its address until the new claim settles', () => {
+    const d = device(42)
+    d.start()
+    jest.advanceTimersByTime(1250)
+    expect(d.cansend).toBe(true)
+    d.n2kMessage(peerClaim(d, 42, 0))
+    expect(d.address).toBe(43)
+    expect(d.cansend).toBe(false)
+    jest.advanceTimersByTime(250)
+    expect(d.cansend).toBe(true)
+  })
+
   test('keeps its address against a higher NAME and claims it again', () => {
     const d = device(42)
     d.start()

@@ -469,6 +469,7 @@ function answerClaimRequest(device: N2kDevice) {
 function runClaim(device: N2kDevice, step: (now: number) => ClaimOutput[]) {
   const wasClaimed = device.claim.isClaimed()
   const wasState = device.claim.state
+  const wasAddress = device.claim.claimAddress()
   const out = step(Date.now())
   device.address = device.claim.claimAddress()
   sendClaimOutputs(device, out)
@@ -485,6 +486,12 @@ function runClaim(device: N2kDevice, step: (now: number) => ClaimOutput[]) {
       wasState !== ClaimState.Scanning
     ) {
       device.foundConflict = true
+      // Lost the address: nothing goes out from the new one until its
+      // claim settles (onAddressClaimed sends again). Having won, the
+      // address stays ours and sending goes on while it is re-claimed.
+      if (device.claim.claimAddress() !== wasAddress) {
+        device.cansend = false
+      }
     }
   }
   scheduleClaim(device)
