@@ -383,3 +383,74 @@ describe('N2kDevice address claim, as canboat runs it', () => {
     expect(claimsSent()).toEqual([42])
   })
 })
+
+describe('N2kDevice answers requests as canboat does', () => {
+  let dev: CanDevice | undefined
+  let sent: any[]
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    sent = []
+    dev = new CanDevice(
+      { sendPGN: (pgn: any) => sent.push({ ...pgn }) },
+      makeOptions({
+        preferredAddress: 42,
+        app: {
+          on: () => undefined,
+          removeListener: () => undefined,
+          emit: () => undefined
+        }
+      })
+    )
+    dev.start()
+    jest.advanceTimersByTime(1250) // claimed 42
+    jest.advanceTimersByTime(1000) // past the startup Product Information
+    sent = []
+  })
+
+  afterEach(() => {
+    dev?.stop()
+    dev = undefined
+    jest.useRealTimers()
+  })
+
+  const request = (pgn: number, dst: number) =>
+    dev!.n2kMessage({ pgn: 59904, src: 7, dst, fields: { pgn } } as any)
+  const sentPgns = () => sent.map((p) => p.pgn)
+
+  test('NAKs an unsupported request only when it was addressed to us', () => {
+    request(130306, 255)
+    expect(sentPgns()).toEqual([])
+    request(130306, 42)
+    expect(sentPgns()).toEqual([59392])
+    expect(sent[0].dst).toBe(7)
+  })
+
+  test('answers a Heartbeat request', () => {
+    request(126993, 255)
+    expect(sentPgns()).toEqual([126993])
+  })
+
+  test('answers Product Information once a second', () => {
+    request(126996, 255)
+    request(126996, 42)
+    expect(sentPgns()).toEqual([126996])
+    jest.advanceTimersByTime(1000)
+    request(126996, 255)
+    expect(sentPgns()).toEqual([126996, 126996])
+  })
+
+  test('answers a group function only when it was addressed to us', () => {
+    const groupFunction = (dst: number) =>
+      dev!.n2kMessage({
+        pgn: 126208,
+        src: 7,
+        dst,
+        fields: { functionCode: 'Request', pgn: 130306 }
+      } as any)
+    groupFunction(255)
+    expect(sentPgns()).toEqual([])
+    groupFunction(42)
+    expect(sentPgns()).toEqual([126208])
+  })
+})
