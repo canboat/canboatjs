@@ -1236,12 +1236,13 @@ function convertField(
         value = postProcessor(field, value, { pgn, options })
       }
     } else {
-      if (field.Offset) {
-        value += field.Offset
-      }
+      // canboat's Offset is in the field's own units (after Resolution),
+      // so compare the raw value against the raw equivalent of RangeMax.
+      const offset = field.Offset ? Number(field.Offset) : 0
+      const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
       let max
       if (typeof field.RangeMax !== 'undefined' && field.Resolution) {
-        max = field.RangeMax / field.Resolution
+        max = (field.RangeMax - offset) / Number(field.Resolution)
       }
       if (
         options.checkForInvalidFields !== false &&
@@ -1256,16 +1257,15 @@ function convertField(
         //console.log(`Bad field ${field.Name} ${max - value}`)
         value = null
       }
-      if (
-        typeof value === 'number' &&
-        (field.Resolution ||
-          siConversion(field.Unit, (field as any).PhysicalQuantity) !==
-            undefined)
-      ) {
+      if (typeof value === 'number' && (field.Resolution || si !== undefined)) {
         // In SI, as canboat's fixupUnit scales the resolution, with the
-        // decimals canboat gives it; both worked out once per field.
+        // decimals canboat gives it; both worked out once per field. The
+        // Offset is in the database's unit, so it is converted alike.
         const { resolution, decimals } = scaleOf(field as any)
-        value = roundToDecimals(value * resolution, decimals)
+        const siOffset = si !== undefined ? (offset * si.mul) / si.div : offset
+        value = roundToDecimals(value * resolution + siOffset, decimals)
+      } else if (offset && typeof value === 'number') {
+        value += offset
       }
 
       if (
