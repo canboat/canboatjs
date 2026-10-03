@@ -222,7 +222,7 @@ const definitions = {
   ]
 }
 
-describe.skip('custom pgns', function () {
+describe('custom pgns', function () {
   const propertyValues = new PropertyValues()
 
   propertyValues.emitPropertyValue({
@@ -264,7 +264,8 @@ describe.skip('custom pgns', function () {
   })
 
   it(`custom pgn callback works`, function (done) {
-    definitions.callback = (pgn) => {
+    // The callback belongs to the PGN definition it decodes against.
+    definitions.PGNs[0].callback = (pgn) => {
       try {
         delete pgn.input
         pgn.should.jsonEqual(expected)
@@ -286,6 +287,7 @@ var expected = {
   src: 172,
   dst: 255,
   pgn: 127999,
+  id: 'myHeadingTrackControl',
   description: 'Heading/Track control',
   fields: {
     'Rudder Limit Exceeded': 'No',
