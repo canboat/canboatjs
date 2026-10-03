@@ -1370,6 +1370,11 @@ function readValue(
         return [null, undefined]
       }
     }
+    // J1939 Excess-K notation: a Signed field with an Offset holds an
+    // unsigned raw value, the offset making it signed (canboat's
+    // extractNumber), so it is read unsigned at any width.
+    const excessK = !!field.Signed && !!field.Offset
+    const signed = !!field.Signed && !excessK
     try {
       if (
         field.FieldType === FieldType.Binary &&
@@ -1379,7 +1384,7 @@ function readValue(
         const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
         return [byteString(Buffer.from(data), ' '), undefined]
       } else if (bitLength === 8) {
-        if (field.Signed) {
+        if (signed) {
           value = bs.readInt8()
           value = value === 0x7f ? null : value
         } else {
@@ -1387,7 +1392,7 @@ function readValue(
           value = value === 0xff ? null : value
         }
       } else if (bitLength == 16) {
-        if (field.Signed) {
+        if (signed) {
           value = bs.readInt16()
           value = value === 0x7fff ? null : value
         } else {
@@ -1402,7 +1407,7 @@ function readValue(
         //debug(`24 bit ${b1.toString(16)} ${b2.toString(16)} ${b3.toString(16)}`)
         value = (b3 << 16) + (b2 << 8) + b1
 
-        if (field.Signed) {
+        if (signed) {
           // Check if the sign bit (bit 23) is set
           if (value & 0x800000) {
             // Convert to signed 24-bit value by sign extending
@@ -1415,7 +1420,7 @@ function readValue(
 
         //debug(`value ${value.toString(16)}`)
       } else if (bitLength == 32) {
-        if (field.Signed) {
+        if (signed) {
           value = bs.readInt32()
           value = value === 0x7fffffff ? null : value
         } else {
@@ -1426,7 +1431,7 @@ function readValue(
         const a = bs.readUint32()
         const b = bs.readUint16()
 
-        if (field.Signed) {
+        if (signed) {
           value = a == 0xffffffff && b == 0x7fff ? null : new Int64LE(b, a)
         } else {
           value = a == 0xffffffff && b == 0xffff ? null : new Int64LE(b, a)
@@ -1435,7 +1440,7 @@ function readValue(
         const x = bs.readUint32()
         const y = bs.readUint32()
 
-        if (field.Signed) {
+        if (signed) {
           value =
             (x === 0xffffffff || x === 0xfffffffe) && y == 0x7fffffff
               ? null
@@ -1447,11 +1452,11 @@ function readValue(
               : new Uint64LE(y, x)
         }
       } else if (bitLength <= 64) {
-        value = bs.readBits(bitLength, field.Signed)
+        value = bs.readBits(bitLength, signed)
         if (
           field.FieldType !== 'LOOKUP' &&
           bitLength > 1 &&
-          isMax(bitLength, value, field.Signed as boolean)
+          isMax(bitLength, value, signed)
         ) {
           const fullRange =
             //field.FieldType !== 'LOOKUP' &&
@@ -1487,6 +1492,30 @@ function readValue(
         `Error reading field ${field.Name} of type ${field.FieldType} with bit length ${bitLength} from PGN ${pgn.pgn}: ${error}`
       )
       return [null, undefined]
+    }
+
+    // The values above an Excess-K field's range are its "not available",
+    // "error" and reserved codes, as canboat has them: not readings, even
+    // when the range is not otherwise checked. Up to 48 bits the raw value
+    // is exact as a number; like canboat (range_max_sentinel), 64-bit
+    // fields are not checked.
+    if (excessK && value != null && field.RangeMax !== undefined) {
+      const raw =
+        typeof value === 'number'
+          ? value
+          : bitLength === 48
+            ? Number(value.toString())
+            : undefined
+      if (
+        raw !== undefined &&
+        raw >
+          Math.round(
+            (Number(field.RangeMax) - Number(field.Offset)) /
+              Number(field.Resolution ?? 1)
+          )
+      ) {
+        value = null
+      }
     }
 
     if (
