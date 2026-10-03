@@ -46,7 +46,12 @@ export class CanDevice extends N2kDevice {
   }
 
   sendPGN(pgn: PGN, src: number | undefined = undefined) {
-    pgn.src = src || this.address
+    // An explicit src (the null address 254 while claiming) must reach the
+    // wire: the bus stamps our address on everything else.
+    pgn.src = src !== undefined ? src : this.address
+    if (src !== undefined) {
+      ;(pgn as any).forceSrc = true
+    }
     this.debug('Sending PGN %j', pgn)
     this.canbus.sendPGN(pgn, true)
   }

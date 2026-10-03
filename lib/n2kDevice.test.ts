@@ -252,3 +252,108 @@ describe('N2kDevice unique number', () => {
     dev.stop()
   })
 })
+
+describe('N2kDevice address claim, as canboat runs it', () => {
+  let dev: CanDevice | undefined
+  let sent: any[]
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    sent = []
+  })
+
+  afterEach(() => {
+    if (dev) {
+      dev.stop()
+      dev = undefined
+    }
+    jest.useRealTimers()
+  })
+
+  const device = (preferredAddress: number) => {
+    dev = new CanDevice(
+      { sendPGN: (pgn: any) => sent.push({ ...pgn }) },
+      makeOptions({
+        preferredAddress,
+        uniqueNumber: 12345,
+        app: {
+          on: () => undefined,
+          removeListener: () => undefined,
+          emit: () => undefined
+        }
+      })
+    )
+    return dev
+  }
+  const claimsSent = () => sent.filter((p) => p.pgn === 60928).map((p) => p.src)
+  // A claim for `src` by another device; its NAME is ours with another
+  // unique number: lower for 0, higher for 0x1fffff.
+  const peerClaim = (d: CanDevice, src: number, uniqueNumber: number) => {
+    const claim = JSON.parse(JSON.stringify(d.addressClaim))
+    claim.fields.uniqueNumber = uniqueNumber
+    claim.src = src
+    claim.dst = 255
+    claim.pgn = 60928
+    return claim
+  }
+
+  test('asks from the null address, then claims after the scan', () => {
+    const d = device(42)
+    d.start()
+    expect(sent[0].pgn).toBe(59904)
+    expect(sent[0].src).toBe(254)
+    expect(sent[0].forceSrc).toBe(true)
+    jest.advanceTimersByTime(1000)
+    expect(claimsSent()).toEqual([42])
+    expect(d.cansend).toBe(false)
+    jest.advanceTimersByTime(250)
+    expect(d.cansend).toBe(true)
+    expect(d.address).toBe(42)
+  })
+
+  test('loses its address to a lower NAME while the claim is pending', () => {
+    const d = device(42)
+    d.start()
+    jest.advanceTimersByTime(1100) // claim sent, not settled
+    d.n2kMessage(peerClaim(d, 42, 0))
+    expect(claimsSent()).toEqual([42, 43])
+    jest.advanceTimersByTime(250)
+    expect(d.cansend).toBe(true)
+    expect(d.address).toBe(43)
+  })
+
+  test('keeps its address against a higher NAME and claims it again', () => {
+    const d = device(42)
+    d.start()
+    jest.advanceTimersByTime(1250)
+    d.n2kMessage(peerClaim(d, 42, 0x1fffff))
+    expect(claimsSent()).toEqual([42, 42])
+    expect(d.cansend).toBe(true) // still sending while it re-claims
+    jest.advanceTimersByTime(250)
+    expect(d.address).toBe(42)
+  })
+
+  test('ignores its own claim, from any address', () => {
+    const d = device(42)
+    d.start()
+    jest.advanceTimersByTime(1250)
+    d.n2kMessage(peerClaim(d, 42, 12345))
+    d.n2kMessage(peerClaim(d, 41, 12345))
+    expect(claimsSent()).toEqual([42])
+    expect(d.devices[41]).toBeUndefined()
+  })
+
+  test('answers a claim request while its claim is still pending', () => {
+    const d = device(42)
+    d.start()
+    jest.advanceTimersByTime(1100)
+    sent = []
+    d.n2kMessage({
+      pgn: 59904,
+      src: 7,
+      dst: 255,
+      fields: { pgn: 60928 }
+    } as any)
+    expect(claimsSent()).toEqual([42])
+  })
+})
