@@ -712,6 +712,31 @@ fieldTypeWriters['FLOAT'] = (pgn, field, value, bs) => {
   }
 }
 
+// DECIMAL: two decimal digits per byte, first digits first, as fromPgn
+// reads them: "2350763930" is 23 50 76 39 30. A shorter number is padded
+// with leading zeros; an unset value is all 0xff (not available).
+fieldTypeWriters['DECIMAL'] = (pgn, field, value, bs) => {
+  const bits = field.BitLength ?? 0
+  const nbytes = Math.floor(bits / 8)
+  if (value == null) {
+    for (let i = 0; i < nbytes; i++) {
+      bs.writeUint8(0xff)
+    }
+  } else {
+    const digits = String(value).trim()
+    if (!/^[0-9]+$/.test(digits) || digits.length > nbytes * 2) {
+      throw new Error(`Invalid value for ${field.Name}: '${value}'`)
+    }
+    const padded = digits.padStart(nbytes * 2, '0')
+    for (let i = 0; i < nbytes; i++) {
+      bs.writeUint8(Number(padded.slice(i * 2, i * 2 + 2)))
+    }
+  }
+  if (bits % 8 > 0) {
+    bs.writeBits(0xff, bits % 8)
+  }
+}
+
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
   if (field.BitLength !== undefined) {
     let fill = 0xff
