@@ -34,20 +34,29 @@ jest.mock('serialport', () => {
     unpipe() {}
     pipe() {}
     write() {}
-    // Like serialport: the lock is released, and the callback called, once
+    closing = false
+    // Like serialport 11: isOpen turns false and closing true as soon as a
+    // close starts; the lock is released, and the callback called, once
     // the close has completed.
     close(cb?: (err?: Error) => void) {
+      this.isOpen = false
+      this.closing = true
       setImmediate(() => {
+        this.closing = false
         if (failCloses > 0) {
           failCloses--
+          this.isOpen = true
           cb && cb(new Error('close failed'))
           return
         }
-        locked.delete(this.path)
-        this.isOpen = false
-        this.emit('close')
+        this.finishClose()
         cb && cb()
       })
+    }
+    finishClose() {
+      locked.delete(this.path)
+      this.closing = false
+      this.emit('close')
     }
   }
   return { SerialPort }
@@ -116,5 +125,31 @@ describe('ActisenseStream reconnect', () => {
     expect(first.isOpen).toBe(false)
     expect(opened).toHaveLength(2)
     expect(lockErrors).toEqual([])
+  })
+
+  test('waits for a close serialport has started itself', async () => {
+    const first = opened[0]
+    // serialport is closing the port: no longer open, not yet closed.
+    first.isOpen = false
+    first.closing = true
+    first.emit('error', new Error('device lost'))
+    jest.advanceTimersByTime(5000)
+    await settle()
+    expect(opened).toHaveLength(1) // nothing opened while it closes
+    first.finishClose()
+    await settle()
+    expect(opened).toHaveLength(2)
+    expect(opened[1].isOpen).toBe(true)
+    expect(lockErrors).toEqual([])
+  })
+
+  test('reconnects at the first deadline when an error and a close both ask', async () => {
+    const first = opened[0]
+    first.emit('error', new Error('write failed'))
+    first.emit('close')
+    // The first reconnect is 1.5 s out; the close does not push it back.
+    jest.advanceTimersByTime(1500)
+    await settle()
+    expect(opened).toHaveLength(2)
   })
 })

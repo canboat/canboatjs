@@ -112,6 +112,17 @@ ActisenseStream.prototype.start = function (this: any) {
     // which reconnects again, while the old port goes on reading with
     // nobody listening (#454). Close it first, and open once it is closed;
     // if the close fails, keep the port and try closing it again later.
+    if (old.closing) {
+      // serialport is already closing it (isOpen turns false as soon as a
+      // close starts): wait for that close to finish.
+      this.closingPort = old
+      old.once('close', () => {
+        this.closingPort = undefined
+        this.serial = null
+        this.start()
+      })
+      return
+    }
     if (old.isOpen) {
       this.closingPort = old
       old.close((err: any) => {
@@ -292,6 +303,11 @@ ActisenseStream.prototype.sendPGN = function (this: any, pgn: PGN) {
 }
 
 ActisenseStream.prototype.scheduleReconnect = function () {
+  // One reconnect at a time: an error is followed by a close, and both ask
+  // for one. Keep the reconnect already planned, and its backoff.
+  if (this.reconnectTimer) {
+    return
+  }
   if (this.options.reconnect === undefined || this.options.reconnect === true) {
     this.reconnectDelay *= this.reconnectDelay < 60 * 1000 ? 1.5 : 1
     const msg = `Not connected (retry delay ${(
@@ -299,11 +315,6 @@ ActisenseStream.prototype.scheduleReconnect = function () {
     ).toFixed(0)} s)`
     this.debug(msg)
     this.setProviderStatus(msg)
-    // One reconnect at a time: an error is followed by a close, and both
-    // ask for one.
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-    }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = undefined
       this.start()
