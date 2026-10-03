@@ -72,4 +72,39 @@ describe('J1939 Excess-K power fields', function () {
       toPgn({ pgn: 127251, fields: { sid: 0, rate: null } }).toString('hex')
     ).to.equal('00ffffff7fffffff')
   })
+
+  for (const raw of [0xfffffffd, 0xfffffffe, 0xffffffff]) {
+    it(`rejects reserved raw ${raw} also without the range check`, function () {
+      // The reserved codes are recognised from the raw value, as canboat
+      // does, not only by the optional range validation.
+      const bytes = Buffer.alloc(4)
+      bytes.writeUInt32LE(raw)
+      const data = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'))
+      const p = new FromPgn({ useCamel: true, checkForInvalidFields: false })
+      const result = p.parseString(
+        `2026-09-24T00:00:00.000Z,3,65029,132,255,8,${data.join(',')},e8,97,35,77`
+      )
+      expect(result.fields).to.deep.equal({ apparentPower: 1000 })
+    })
+  }
+
+  it('encodes the whole range as unsigned raw values, and reads it back', function () {
+    for (const [watts, hex] of [
+      [-2000000000, '00000000'],
+      [-500, '0c923577'],
+      [1000, 'e8973577'],
+      [2294967292, 'fcffffff']
+    ]) {
+      const data = Buffer.from(
+        toPgn({ pgn: 65029, fields: { realPower: watts, apparentPower: 1000 } })
+      )
+      expect(data.subarray(0, 4).toString('hex')).to.equal(hex)
+      const line =
+        '2026-09-24T00:00:00.000Z,3,65029,132,255,8,' +
+        Array.from(data, (b) => b.toString(16).padStart(2, '0')).join(',')
+      expect(
+        new FromPgn({ useCamel: true }).parseString(line).fields.realPower
+      ).to.equal(watts)
+    }
+  })
 })

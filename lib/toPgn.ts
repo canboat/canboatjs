@@ -286,7 +286,7 @@ function writeField(
       for (let i = 0; i < bytes - 1; i++) {
         bs.writeUint8(0xff)
       }
-      bs.writeUint8(field.Signed && !field.Offset ? 0x7f : 0xff)
+      bs.writeUint8(field.Signed && !field.Offset ? 0x7f : 0xff) // Excess-K: unsigned
     } else if (bitLength !== undefined) {
       bs.writeBits(0xffffffff, bitLength)
     } else {
@@ -364,20 +364,23 @@ function writeField(
         value.copy(bs.view.buffer, bs.byteIndex)
         bs.byteIndex += value.length
       } else if (bitLength !== undefined) {
+        // An Excess-K field (Signed with an Offset) holds an unsigned raw
+        // value, as the decoder reads it.
+        const signed = !!field.Signed && !field.Offset
         if (bitLength === 8) {
-          if (field.Signed) {
+          if (signed) {
             bs.writeInt8(value)
           } else {
             bs.writeUint8(value)
           }
         } else if (bitLength === 16) {
-          if (field.Signed) {
+          if (signed) {
             bs.writeInt16(value)
           } else {
             bs.writeUint16(value)
           }
         } else if (bitLength === 32) {
-          if (field.Signed) {
+          if (signed) {
             bs.writeInt32(value)
           } else {
             bs.writeUint32(value)
@@ -399,7 +402,7 @@ function writeField(
           }
         } else if (bitLength === 64) {
           let num
-          if (field.Signed) {
+          if (signed) {
             num = new Int64LE(value)
           } else {
             num = new Uint64LE(value)
