@@ -795,6 +795,11 @@ export class Parser extends EventEmitter {
         res.timestamp = new Date().toISOString()
       }
       this.emit('pgn', res)
+      // A custom PGN definition's callback (see addCustomPgns).
+      const callback = (pgnData as any)?.callback
+      if (typeof callback === 'function') {
+        callback(res)
+      }
       cb && cb(undefined, res)
 
       return res
