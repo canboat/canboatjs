@@ -1266,15 +1266,25 @@ function convertField(
       if (typeof field.RangeMax !== 'undefined' && field.Resolution) {
         max = (field.RangeMax - offset) / Number(field.Resolution)
       }
+      // Below RangeMin is no reading either (a latitude of -111, #393).
+      // RangeMin need not be a whole number of steps (-pi at 0.0001), so
+      // the nearest raw value still counts as in range.
+      let min
+      if (typeof field.RangeMin !== 'undefined' && field.Resolution) {
+        min = Math.round(
+          (Number(field.RangeMin) - offset) / Number(field.Resolution)
+        )
+      }
       if (
         options.checkForInvalidFields !== false &&
-        max !== undefined &&
+        (max !== undefined || min !== undefined) &&
         field.FieldType !== 'LOOKUP' &&
         field.FieldType !== 'DYNAMIC_FIELD_KEY' &&
         field.FieldType !== 'PGN' &&
         field.BitLength !== undefined &&
         field.BitLength > 1 &&
-        max - value < 0
+        ((max !== undefined && max - value < 0) ||
+          (min !== undefined && value - min < 0))
       ) {
         //console.log(`Bad field ${field.Name} ${max - value}`)
         value = null

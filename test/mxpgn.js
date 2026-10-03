@@ -6,6 +6,10 @@ chai.use(require('chai-json-equal'))
 const { FromPgn } = require('../dist/index')
 
 describe('from mxpgn data converts', function () {
+  // This capture is in MXPGN's last-byte-first order, which the
+  // littleEndianMXPGN option reads; the test after the next one has the same
+  // position first-byte-first, read without it. Paired the other way round,
+  // both decoded to an impossible latitude of -99.76.
   it(`from 129025 converts`, function (done) {
     var mxpgn = '$MXPGN,01F801,2801,C1308AC40C5DE343*19'
     var expected = {
@@ -14,13 +18,13 @@ describe('from mxpgn data converts', function () {
       dst: 255,
       prio: 2,
       fields: {
-        Latitude: -99.7576511,
-        Longitude: 113.8973964
+        Latitude: 20.7479619,
+        Longitude: -105.3783356
       },
       description: 'Position, Rapid Update'
     }
 
-    var fromPgn = new FromPgn({ useCamel: false })
+    var fromPgn = new FromPgn({ littleEndianMXPGN: true, useCamel: false })
 
     fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
@@ -57,13 +61,13 @@ describe('from mxpgn data converts', function () {
       dst: 255,
       prio: 2,
       fields: {
-        Latitude: -99.7576511,
-        Longitude: 113.8973964
+        Latitude: 20.7479619,
+        Longitude: -105.3783356
       },
       description: 'Position, Rapid Update'
     }
 
-    var fromPgn = new FromPgn({ useCamel: false })
+    var fromPgn = new FromPgn({ littleEndianMXPGN: true, useCamel: false })
 
     fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
@@ -99,13 +103,13 @@ describe('from mxpgn data converts', function () {
       dst: 255,
       prio: 2,
       fields: {
-        Latitude: -99.7576511,
-        Longitude: 113.8973964
+        Latitude: 20.7479619,
+        Longitude: -105.3783356
       },
       description: 'Position, Rapid Update'
     }
 
-    var fromPgn = new FromPgn({ littleEndianMXPGN: true, useCamel: false })
+    var fromPgn = new FromPgn({ useCamel: false })
 
     fromPgn.on('error', (pgn, error) => {
       console.error(`Error parsing ${pgn.pgn} ${error}`)
