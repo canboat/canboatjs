@@ -15,7 +15,7 @@
  */
 
 import { PGN } from '@canboat/ts-pgns'
-import { createDebug } from './utilities'
+import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
 import { Transform } from 'stream'
 import { toPgn, pgnToiKonvertSerialFormat } from './toPgn'
 import { Parser } from './fromPgn'
@@ -71,18 +71,28 @@ export function iKonvertStream(this: any, options: any) {
   const that = this
 
   if (this.options.app) {
-    options.app.on(this.options.outEevent || 'nmea2000out', (msg: string) => {
-      if (typeof msg === 'string') {
-        that.sendActisensePGN(msg)
-      } else {
-        that.sendPGN(msg)
+    subscribeApp(
+      this,
+      options.app,
+      this.options.outEevent || 'nmea2000out',
+      (msg: string) => {
+        if (typeof msg === 'string') {
+          that.sendActisensePGN(msg)
+        } else {
+          that.sendPGN(msg)
+        }
+        options.app.emit('connectionwrite', { providerId: options.providerId })
       }
-      options.app.emit('connectionwrite', { providerId: options.providerId })
-    })
-    options.app.on(options.jsonOutEvent || 'nmea2000JsonOut', (msg: PGN) => {
-      that.sendPGN(msg)
-      options.app.emit('connectionwrite', { providerId: options.providerId })
-    })
+    )
+    subscribeApp(
+      this,
+      options.app,
+      options.jsonOutEvent || 'nmea2000JsonOut',
+      (msg: PGN) => {
+        that.sendPGN(msg)
+        options.app.emit('connectionwrite', { providerId: options.providerId })
+      }
+    )
 
     this.isSetup = false
     //this.cansend = true
@@ -279,4 +289,6 @@ iKonvertStream.prototype._transform = function (
   done()
 }
 
-iKonvertStream.prototype.end = function () {}
+iKonvertStream.prototype.end = function () {
+  unsubscribeApp(this)
+}
