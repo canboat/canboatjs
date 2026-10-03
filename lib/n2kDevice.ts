@@ -571,6 +571,11 @@ function handleProductInformation(device: N2kDevice, n2kMsg: PGN_126996) {
 */
 
 function sendHeartbeat(device: N2kDevice) {
+  // Only from an address we own, as canboat: not while a claim settles,
+  // nor after one failed.
+  if (!device.claim.isClaimed()) {
+    return
+  }
   device.heartbeatCounter = device.heartbeatCounter + 1
   if (device.heartbeatCounter > 252) {
     device.heartbeatCounter = 0

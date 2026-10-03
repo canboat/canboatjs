@@ -334,6 +334,20 @@ describe('N2kDevice address claim, as canboat runs it', () => {
     expect(d.cansend).toBe(true)
   })
 
+  test('sends no heartbeat while a new claim settles', () => {
+    const d = device(42)
+    d.start()
+    jest.advanceTimersByTime(1250) // claimed: heartbeats every minute from now
+    jest.advanceTimersByTime(60 * 1000 - 50)
+    d.n2kMessage(peerClaim(d, 42, 0)) // lose 42; 43 settles in 250 ms
+    sent = []
+    jest.advanceTimersByTime(100) // the heartbeat timer fires meanwhile
+    expect(sent.filter((p) => p.pgn === 126993)).toEqual([])
+    jest.advanceTimersByTime(60 * 1000)
+    const heartbeats = sent.filter((p) => p.pgn === 126993)
+    expect(heartbeats.map((p) => p.src)).toEqual([43])
+  })
+
   test('keeps its address against a higher NAME and claims it again', () => {
     const d = device(42)
     d.start()

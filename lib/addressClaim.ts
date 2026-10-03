@@ -52,8 +52,7 @@ export enum ClaimState {
 
 /** What to put on the bus: an ISO Request for 60928, or our claim. */
 export type ClaimOutput =
-  | { kind: 'request'; src: number; dst: number }
-  | { kind: 'claim'; src: number }
+  { kind: 'request'; src: number; dst: number } | { kind: 'claim'; src: number }
 
 export class AddressClaim {
   readonly name: bigint
