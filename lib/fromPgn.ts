@@ -1310,6 +1310,34 @@ function readValue(
 ): [any, Field | undefined] {
   if (field.FieldType == 'VARIABLE') {
     return readVariableLengthField(definition, options, pgn, field, bs)
+  } else if (field.FieldType === 'DECIMAL') {
+    // DECIMAL: each byte holds two decimal digits (00-99). Emit as a digit
+    // string to preserve leading zeros (e.g. coast-station identities).
+    // All-0xFF (or any byte > 99) => not available. Used by PGN 129808 (DSC).
+    const actualBitLength =
+      bitLength === undefined ? field.BitLength : bitLength
+    // Guard against truncated packets: this block runs outside the try/catch
+    // that protects the other field types, so an underflow here would throw.
+    if (actualBitLength === undefined || bs.bitsLeft < actualBitLength) {
+      return [null, undefined]
+    }
+    const nbytes = Math.floor(actualBitLength / 8)
+    let s = ''
+    // Any byte > 99 (which includes 0xFF) marks the whole field as unavailable.
+    // Use a latching flag that never resets, so a valid byte after an invalid
+    // one cannot mask it (e.g. [0xFF, 0x12] must yield null, not "25518").
+    let isValid = true
+    for (let i = 0; i < nbytes; i++) {
+      const b = bs.readUint8()
+      if (b > 99) isValid = false
+      s += String(b).padStart(2, '0')
+    }
+    // Consume any non-byte-aligned remainder so downstream fields stay aligned.
+    const remainder = actualBitLength % 8
+    if (remainder > 0) {
+      bs.readBits(remainder, false)
+    }
+    return isValid ? [s, undefined] : [null, undefined]
   } else {
     let value
     if (bitLength === undefined) {
