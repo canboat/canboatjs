@@ -35,13 +35,13 @@ import {
 } from '@canboat/ts-pgns'
 import { EventEmitter } from 'node:events'
 import _ from 'lodash'
-import { Uint64LE } from 'int64-buffer'
 import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
 import packageJson from '../package.json'
 import { getPersistedData, savePersistedData } from './persist'
 import { machineUniqueNumber } from './machineId'
 import { createDebug } from './utilities'
+import { AddressClaim, ClaimOutput, ClaimState } from './addressClaim'
 
 const deviceTransmitPGNs = [60928, 59904, 126996, 126464]
 
@@ -56,10 +56,10 @@ export class N2kDevice extends EventEmitter {
   heartbeatCounter: number
   devices: any
   sentAvailable: boolean
-  addressClaimDetectionTime: number
   transmitPGNs: number[]
-  addressClaimSentAt?: number
-  addressClaimChecker?: any
+  /** The ISO 11783-5 claim, as canboat runs it (see addressClaim.ts). */
+  claim!: AddressClaim
+  claimTimer?: ReturnType<typeof setTimeout>
   heartbeatInterval?: any
   debug: any
 
@@ -215,15 +215,17 @@ export class N2kDevice extends EventEmitter {
         : options.preferredAddress
     }
     this.address = address!
+    this.claim = new AddressClaim(
+      ownName(this),
+      this.address,
+      ownName(this) >> 63n === 1n,
+      options.addressClaimDetectionTime
+    )
     this.cansend = false
     this.foundConflict = false
     this.heartbeatCounter = 0
     this.devices = {}
     this.sentAvailable = false
-    this.addressClaimDetectionTime =
-      options.addressClaimDetectionTime !== undefined
-        ? options.addressClaimDetectionTime
-        : 5000
 
     if (!options.disableDefaultTransmitPGNs) {
       this.transmitPGNs = _.union(deviceTransmitPGNs, defaultTransmitPGNs)
@@ -237,10 +239,7 @@ export class N2kDevice extends EventEmitter {
   }
 
   start() {
-    sendISORequest(this, 60928, 254)
-    setTimeout(() => {
-      sendAddressClaim(this)
-    }, 1000)
+    runClaim(this, (now) => this.claim.start(now))
   }
 
   stop() {
@@ -248,9 +247,9 @@ export class N2kDevice extends EventEmitter {
       clearInterval(this.heartbeatInterval)
       this.heartbeatInterval = undefined
     }
-    if (this.addressClaimChecker) {
-      clearTimeout(this.addressClaimChecker)
-      this.addressClaimChecker = undefined
+    if (this.claimTimer) {
+      clearTimeout(this.claimTimer)
+      this.claimTimer = undefined
     }
     this.cansend = false
   }
@@ -289,9 +288,15 @@ export class N2kDevice extends EventEmitter {
   }
 
   n2kMessage(pgn: PGN) {
-    if (pgn.dst == 255 || (this.cansend && pgn.dst == this.address)) {
+    if (pgn.dst == 255 || pgn.dst == this.address) {
       try {
-        if (pgn.pgn == 59904 && this.cansend) {
+        if (
+          pgn.pgn == 59904 &&
+          Number((pgn as PGN_59904).fields.pgn) == 60928
+        ) {
+          // Answerable while the claim is still settling, as canboat does.
+          answerClaimRequest(this)
+        } else if (pgn.pgn == 59904 && this.cansend) {
           handleISORequest(this, pgn)
         } else if (pgn.pgn == 126208 && this.cansend) {
           handleGroupFunction(this, pgn as PGN_126208_NmeaRequestGroupFunction)
@@ -342,14 +347,6 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
       break
     case 126998: // Config Information request
       sendConfigInformation(device)
-      break
-    case 60928: // ISO address claim request
-      device.debug('sending address claim')
-      device.sendPGN(device.addressClaim as PGN)
-      device.options?.app?.emit(
-        device.options.analyzerOutEvent || 'N2KAnalyzerOut',
-        device.addressClaim
-      )
       break
     case 126464:
       sendPGNList(device, n2kMsg.src!)
@@ -437,44 +434,130 @@ function handleGroupFunction(
 }
 
 function handleISOAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
-  if (device.cansend == false || n2kMsg.src != device.address) {
-    if (!device.devices[n2kMsg.src!]) {
-      device.debug(`registering device ${n2kMsg.src}`)
-      device.devices[n2kMsg.src!] = { addressClaim: n2kMsg }
-      if (device.cansend) {
-        //sendISORequest(device, 126996, undefined, n2kMsg.src)
-      }
-    }
+  const theirName = nameOf(n2kMsg)
+  if (theirName === undefined) {
     return
   }
-
-  device.debug('Checking ISO address claim. %j', n2kMsg)
-
-  const uint64ValueFromReceivedClaim = getISOAddressClaimAsUint64(n2kMsg)
-  const uint64ValueFromOurOwnClaim = getISOAddressClaimAsUint64(
-    device.addressClaim
+  if (theirName !== device.claim.name) {
+    // Who is on the bus, for the PGNs that look a device up by address.
+    device.devices[n2kMsg.src!] = {
+      ...device.devices[n2kMsg.src!],
+      addressClaim: n2kMsg
+    }
+  }
+  runClaim(device, (now) =>
+    device.claim.onAddressClaim(now, n2kMsg.src!, theirName)
   )
+}
 
-  if (uint64ValueFromOurOwnClaim < uint64ValueFromReceivedClaim) {
-    device.debug(
-      `Address conflict detected! Kept our address as ${device.address}.`
+function answerClaimRequest(device: N2kDevice) {
+  const answer = device.claim.respondToClaimRequest()
+  if (answer !== undefined) {
+    sendClaimOutputs(device, [answer])
+    device.options?.app?.emit(
+      device.options.analyzerOutEvent || 'N2KAnalyzerOut',
+      device.addressClaim
     )
-    sendAddressClaim(device) // We have smaller address claim data -> we can keep our address -> re-claim it
-  } else if (uint64ValueFromOurOwnClaim > uint64ValueFromReceivedClaim) {
-    device.foundConflict = true
-    increaseOwnAddress(device) // We have bigger address claim data -> we have to change our address
-    device.debug(
-      `Address conflict detected!  trying address ${device.address}.`
-    )
-    sendAddressClaim(device)
   }
 }
 
-function increaseOwnAddress(device: N2kDevice) {
-  const start = device.address
-  do {
-    device.address = (device.address + 1) % 253
-  } while (device.address != start && device.devices[device.address])
+/**
+ * Run one step of the claim (start, a claim heard, a deadline) and act on
+ * it: send what it asks for, follow its address, and announce the device
+ * the moment the address becomes ours.
+ */
+function runClaim(device: N2kDevice, step: (now: number) => ClaimOutput[]) {
+  const wasClaimed = device.claim.isClaimed()
+  const wasState = device.claim.state
+  const wasAddress = device.claim.claimAddress()
+  const out = step(Date.now())
+  device.address = device.claim.claimAddress()
+  sendClaimOutputs(device, out)
+
+  if (!wasClaimed && device.claim.isClaimed()) {
+    onAddressClaimed(device)
+  }
+  if (wasState !== device.claim.state) {
+    if (device.claim.state === ClaimState.Failed) {
+      device.cansend = false
+      device.setError('no NMEA 2000 address could be claimed')
+    } else if (
+      device.claim.state === ClaimState.Pending &&
+      wasState !== ClaimState.Scanning
+    ) {
+      device.foundConflict = true
+      // Lost the address: nothing goes out from the new one until its
+      // claim settles (onAddressClaimed sends again). Having won, the
+      // address stays ours and sending goes on while it is re-claimed.
+      if (device.claim.claimAddress() !== wasAddress) {
+        device.cansend = false
+      }
+    }
+  }
+  scheduleClaim(device)
+}
+
+function scheduleClaim(device: N2kDevice) {
+  if (device.claimTimer) {
+    clearTimeout(device.claimTimer)
+    device.claimTimer = undefined
+  }
+  if (device.claim.isTiming()) {
+    device.claimTimer = setTimeout(
+      () => {
+        device.claimTimer = undefined
+        runClaim(device, (now) => device.claim.tick(now))
+      },
+      Math.max(0, device.claim.deadline - Date.now())
+    )
+  }
+}
+
+function sendClaimOutputs(device: N2kDevice, out: ClaimOutput[]) {
+  for (const o of out) {
+    if (o.kind === 'request') {
+      device.debug(`Sending ISO request for 60928 from ${o.src}`)
+      sendISORequest(device, 60928, o.src, o.dst)
+    } else {
+      device.debug(`Sending address claim ${o.src}`)
+      device.sendPGN(device.addressClaim, o.src)
+    }
+  }
+}
+
+function onAddressClaimed(device: N2kDevice) {
+  device.debug('claimed address %d', device.address)
+  const version = packageJson ? packageJson.version : 'unknown'
+  device.setStatus(`Claimed address ${device.address} (canboatjs v${version})`)
+  device.savePersistedData('lastAddress', device.address)
+
+  device.cansend = true
+  announceStartupMessages(device)
+  if (!device.sentAvailable) {
+    if (device.options.app) {
+      device.options.app.emit('nmea2000OutAvailable')
+    }
+    device.emit('nmea2000OutAvailable')
+    device.sentAvailable = true
+  }
+  if (!device.heartbeatInterval) {
+    device.heartbeatInterval = setInterval(() => {
+      sendHeartbeat(device)
+    }, 60 * 1000)
+  }
+}
+
+/** The 64-bit NAME an address claim carries, as arbitration compares it. */
+function nameOf(claim: any): bigint | undefined {
+  const data = toPgn(claim)
+  if (!data || data.length < 8) {
+    return undefined
+  }
+  return Buffer.from(data).readBigUInt64LE(0)
+}
+
+function ownName(device: N2kDevice): bigint {
+  return nameOf(device.addressClaim) ?? 0n
 }
 
 /*
@@ -488,6 +571,11 @@ function handleProductInformation(device: N2kDevice, n2kMsg: PGN_126996) {
 */
 
 function sendHeartbeat(device: N2kDevice) {
+  // Only from an address we own, as canboat: not while a claim settles,
+  // nor after one failed.
+  if (!device.claim.isClaimed()) {
+    return
+  }
   device.heartbeatCounter = device.heartbeatCounter + 1
   if (device.heartbeatCounter > 252) {
     device.heartbeatCounter = 0
@@ -505,46 +593,6 @@ function sendHeartbeat(device: N2kDevice) {
 function announceStartupMessages(device: N2kDevice) {
   sendProductInformation(device)
   sendConfigInformation(device)
-}
-
-function sendAddressClaim(device: N2kDevice) {
-  if (device.devices[device.address]) {
-    //someone already has this address, so find a free one
-    increaseOwnAddress(device)
-  }
-  device.debug(`Sending address claim ${device.address}`)
-  device.sendPGN(device.addressClaim)
-  const version = packageJson ? packageJson.version : 'unknown'
-  device.setStatus(`Claimed address ${device.address} (canboatjs v${version})`)
-  device.addressClaimSentAt = Date.now()
-  if (device.addressClaimChecker) {
-    clearTimeout(device.addressClaimChecker)
-  }
-
-  device.addressClaimChecker = setTimeout(() => {
-    //if ( Date.now() - device.addressClaimSentAt > 1000 ) {
-    //device.addressClaimChecker = null
-    device.debug('claimed address %d', device.address)
-
-    device.savePersistedData('lastAddress', device.address)
-
-    device.cansend = true
-    announceStartupMessages(device)
-    if (!device.sentAvailable) {
-      if (device.options.app) {
-        device.options.app.emit('nmea2000OutAvailable')
-      }
-      device.emit('nmea2000OutAvailable')
-      device.sentAvailable = true
-    }
-    //sendISORequest(device, 126996)
-    if (!device.heartbeatInterval) {
-      device.heartbeatInterval = setInterval(() => {
-        sendHeartbeat(device)
-      }, 60 * 1000)
-    }
-    //}
-  }, device.addressClaimDetectionTime)
 }
 
 function sendISORequest(
@@ -602,8 +650,4 @@ function sendPGNList(device: N2kDevice, dst: number) {
     dst
   )
   device.sendPGN(pgnList)
-}
-
-function getISOAddressClaimAsUint64(pgn: any) {
-  return new Uint64LE(toPgn(pgn)!)
 }
