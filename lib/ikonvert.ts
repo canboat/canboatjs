@@ -182,8 +182,29 @@ iKonvertStream.prototype._transform = function (
   let line = chunk.toString().trim()
   line = line.substring(0, line.length) // take off the \r
 
+  // An iKonvert that reboots while it streams frames, as an already
+  // initialised one does on N2NET_OFFLINE, splices its boot banner onto
+  // the unfinished frame line, without a line end (#387). As canboat:
+  // find the banner wherever it is in the line.
+  const banner = line.indexOf('$PDGY,TEXT,')
+  if (banner > 0) {
+    this.debug(`boot banner after a cut-off line: ${line}`)
+    line = line.substring(banner)
+  }
+
   if (line.startsWith('$PDGY,TEXT')) {
     this.debug(line)
+    if (this.isSetup) {
+      // The banner after setup: the device rebooted and is offline again.
+      // Initialise it again, as canboat does; it is already offline, so
+      // this banner answers the first step.
+      this.debug('iKonvert rebooted, initialising again')
+      this.isSetup = false
+      this.cansend = false
+      this.state = 0
+      this.expecting = true
+      this.sentTime = Date.now()
+    }
   } else if (line.startsWith('$PDGY,000000,')) {
     const parts = line.split(',')
 
