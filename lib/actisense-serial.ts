@@ -98,9 +98,20 @@ inherits(ActisenseStream, Transform)
 
 ActisenseStream.prototype.start = function (this: any) {
   if (this.serial !== null) {
-    this.serial.unpipe(this)
-    this.serial.removeAllListeners()
+    const old = this.serial
+    old.unpipe(this)
+    old.removeAllListeners()
+    // A late error from the port being dropped is of no interest now.
+    old.on('error', () => {})
     this.serial = null
+    // A reconnect after an error finds the port still open, holding its
+    // lock: opening the device again then fails with "Cannot lock port",
+    // which reconnects again, while the old port goes on reading with
+    // nobody listening (#454). Close it first, and open once it is closed.
+    if (old.isOpen) {
+      old.close(() => this.start())
+      return
+    }
   }
 
   if (this.reconnect === false) {
