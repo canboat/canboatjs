@@ -40,6 +40,7 @@ import { defaultTransmitPGNs } from './codes'
 import { toPgn } from './toPgn'
 import packageJson from '../package.json'
 import { getPersistedData, savePersistedData } from './persist'
+import { machineUniqueNumber } from './machineId'
 import { createDebug } from './utilities'
 
 const deviceTransmitPGNs = [60928, 59904, 126996, 126464]
@@ -68,14 +69,24 @@ export class N2kDevice extends EventEmitter {
     this.options = options === undefined ? {} : options
     this.debug = createDebug(debugName, options)
 
+    // The NAME's unique number: the configured one; else one persisted by
+    // an earlier version, so an existing device keeps its NAME; else one
+    // derived from the machine, as canboat does, which is not stored, so a
+    // copied configuration does not copy the NAME; else, on a machine that
+    // cannot be identified, a random one, stored.
     let uniqueNumber: number
     if (options.uniqueNumber !== undefined) {
       uniqueNumber = options.uniqueNumber
     } else {
       uniqueNumber = this.getPersistedData('uniqueNumber')
       if (uniqueNumber === undefined) {
-        uniqueNumber = Math.floor(Math.random() * Math.floor(2097151))
-        this.savePersistedData('uniqueNumber', uniqueNumber)
+        const derived = machineUniqueNumber(options.providerId)
+        if (derived !== undefined) {
+          uniqueNumber = derived
+        } else {
+          uniqueNumber = Math.floor(Math.random() * Math.floor(2097151))
+          this.savePersistedData('uniqueNumber', uniqueNumber)
+        }
       }
     }
 

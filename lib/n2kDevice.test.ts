@@ -207,3 +207,48 @@ describe('N2kDevice address claim options', () => {
     expect(ac.fields.systemInstance).toBe(0)
   })
 })
+
+describe('N2kDevice unique number', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const persist = require('./persist')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { machineUniqueNumber } = require('./machineId')
+
+  afterEach(() => {
+    persist.getPersistedData.mockReset()
+    persist.getPersistedData.mockImplementation(() => undefined)
+    persist.savePersistedData.mockClear()
+  })
+
+  test('derives it from the machine, without storing it', () => {
+    const expected = machineUniqueNumber('test')
+    if (expected === undefined) {
+      return // a machine without an id: covered by the random fallback
+    }
+    const dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({ uniqueNumber: undefined })
+    )
+    expect((dev.addressClaim as any).fields.uniqueNumber).toBe(expected)
+    expect(persist.savePersistedData).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'uniqueNumber',
+      expect.anything()
+    )
+    dev.stop()
+  })
+
+  test('keeps one stored by an earlier version', () => {
+    persist.getPersistedData.mockImplementation(
+      (_o: unknown, _id: string, key: string) =>
+        key === 'uniqueNumber' ? 424242 : undefined
+    )
+    const dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({ uniqueNumber: undefined })
+    )
+    expect((dev.addressClaim as any).fields.uniqueNumber).toBe(424242)
+    dev.stop()
+  })
+})
