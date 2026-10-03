@@ -15,7 +15,7 @@
  */
 
 import { PGN } from '@canboat/ts-pgns'
-import { createDebug } from './utilities'
+import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
 import { inherits } from 'util'
 import { Transform } from 'stream'
 import { BitStream, BitView } from 'bit-buffer'
@@ -153,12 +153,15 @@ ActisenseStream.prototype.start = function (this: any) {
       }
     })
 
+    // start() runs again on every reconnect: replace the handlers of the
+    // previous connection rather than adding to them.
+    unsubscribeApp(this)
     if (this.options.app) {
       const outEvents = (this.options.outEvent || 'nmea2000out')
         .split(',')
         .map((event: string) => event.trim())
       outEvents.forEach((event: string) => {
-        this.options.app.on(event, (msg: any) => {
+        subscribeApp(this, this.options.app, event, (msg: any) => {
           if (typeof msg === 'string') {
             this.sendString(msg)
           } else {
@@ -171,7 +174,7 @@ ActisenseStream.prototype.start = function (this: any) {
         .split(',')
         .map((event: string) => event.trim())
       jsonOutEvents.forEach((event: string) => {
-        this.options.app.on(event, (msg: PGN) => {
+        subscribeApp(this, this.options.app, event, (msg: PGN) => {
           this.sendPGN(msg)
         })
       })
@@ -270,7 +273,7 @@ ActisenseStream.prototype.scheduleReconnect = function () {
     ).toFixed(0)} s)`
     this.debug(msg)
     this.setProviderStatus(msg)
-    setTimeout(this.start.bind(this), this.reconnectDelay)
+    this.reconnectTimer = setTimeout(this.start.bind(this), this.reconnectDelay)
   }
 }
 
@@ -673,6 +676,14 @@ function composeDisablePGN(pgn) {
   */
 
 ActisenseStream.prototype.end = function () {
+  // Closing the port fires 'close', which would reconnect: an intentional
+  // end must not start again, nor leave its handlers on the app.
+  this.reconnect = false
+  if (this.reconnectTimer) {
+    clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = undefined
+  }
+  unsubscribeApp(this)
   if (this.serial) {
     this.serial.close()
   }

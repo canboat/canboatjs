@@ -16,7 +16,12 @@
 
 import { DeviceEmulator } from './index'
 import { PGN, PGN_60928, PGN_126998, PGN_126996 } from '@canboat/ts-pgns'
-import { createDebug, byteStringArray } from './utilities'
+import {
+  createDebug,
+  byteStringArray,
+  subscribeApp,
+  unsubscribeApp
+} from './utilities'
 import { Transform, EventEmitter } from 'stream'
 import { toPgn } from './toPgn'
 import _ from 'lodash'
@@ -72,7 +77,7 @@ export function CanbusStream(this: any, options: any) {
       .split(',')
       .map((event: string) => event.trim())
     outEvents.forEach((event: string) => {
-      options.app.on(event, (msg: string) => {
+      subscribeApp(this, options.app, event, (msg: string) => {
         that.sendPGN(msg)
       })
     })
@@ -81,7 +86,7 @@ export function CanbusStream(this: any, options: any) {
       .split(',')
       .map((event: string) => event.trim())
     jsonOutEvents.forEach((event: string) => {
-      options.app.on(event, (msg: PGN) => {
+      subscribeApp(this, options.app, event, (msg: PGN) => {
         that.sendPGN(msg)
       })
     })
@@ -443,6 +448,7 @@ CanbusStream.prototype._transform = function (
 }
 
 CanbusStream.prototype.end = function () {
+  unsubscribeApp(this)
   if (this.candevice) {
     try {
       this.candevice.stop()

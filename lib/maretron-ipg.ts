@@ -41,7 +41,7 @@ import { PGN } from '@canboat/ts-pgns'
 import { Transform } from 'stream'
 import net from 'net'
 import util from 'util'
-import { createDebug } from './utilities'
+import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
 import { toPgn } from './toPgn'
 import { encodeActisense, parseActisense } from './stringMsg'
 
@@ -381,7 +381,7 @@ export function MaretronIPGStream(this: any, options: MaretronIPGOptions = {}) {
       .split(',')
       .map((e: string) => e.trim())
     outEvents.forEach((event: string) => {
-      options.app.on(event, (msg: any) => {
+      subscribeApp(this, options.app, event, (msg: any) => {
         if (typeof msg === 'string') {
           this.sendString(msg)
         } else {
@@ -397,7 +397,7 @@ export function MaretronIPGStream(this: any, options: MaretronIPGOptions = {}) {
       .split(',')
       .map((e: string) => e.trim())
     jsonOutEvents.forEach((event: string) => {
-      options.app.on(event, (msg: PGN) => {
+      subscribeApp(this, options.app, event, (msg: PGN) => {
         this.sendPGN(msg)
         options.app.emit('connectionwrite', {
           providerId: options.providerId
@@ -798,6 +798,7 @@ MaretronIPGStream.prototype.end = function () {
   // Must come before socket.destroy(): the async 'close' event will call
   // scheduleReconnect, which short-circuits when this.reconnect is false.
   this.reconnect = false
+  unsubscribeApp(this)
   if (this.reconnectTimer) {
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = null

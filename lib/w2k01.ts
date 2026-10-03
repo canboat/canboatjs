@@ -15,7 +15,7 @@
  */
 
 import { PGN } from '@canboat/ts-pgns'
-import { createDebug } from './utilities'
+import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
 import { Transform } from 'stream'
 import {
   pgnToActisenseN2KAsciiFormat,
@@ -61,7 +61,7 @@ export function W2K01Stream(
         .split(',')
         .map((event: string) => event.trim())
       outEvents.forEach((event: string) => {
-        options.app.on(event, (msg: string) => {
+        subscribeApp(this, options.app, event, (msg: string) => {
           if (typeof msg === 'string') {
             this.sendW2KPGN(msg)
           } else {
@@ -77,7 +77,7 @@ export function W2K01Stream(
         .split(',')
         .map((event: string) => event.trim())
       jsonOutEvents.forEach((event: string) => {
-        options.app.on(event, (msg: PGN) => {
+        subscribeApp(this, options.app, event, (msg: PGN) => {
           this.sendPGN(msg)
           options.app.emit('connectionwrite', {
             providerId: options.providerId
@@ -167,4 +167,6 @@ W2K01Stream.prototype.pipe = function (pipeTo: any) {
   return (W2K01Stream as any).super_.prototype.pipe.call(this, pipeTo)
 }
 
-W2K01Stream.prototype.end = function () {}
+W2K01Stream.prototype.end = function () {
+  unsubscribeApp(this)
+}

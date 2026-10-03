@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { createDebug } from './utilities'
+import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
 import { EventEmitter, Transform } from 'stream'
 import { Parser as FromPgn } from './fromPgn'
 import { YdDevice } from './yddevice'
@@ -64,7 +64,7 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
       .split(',')
       .map((event: string) => event.trim())
     outEvents.forEach((event: string) => {
-      options.app.on(event, (msg: string) => {
+      subscribeApp(this, options.app, event, (msg: string) => {
         if (typeof msg === 'string') {
           this.sendYdgwPGN(msg)
         } else {
@@ -78,13 +78,13 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
       .split(',')
       .map((event: string) => event.trim())
     jsonOutEvents.forEach((event: string) => {
-      options.app.on(event, (msg: PGN) => {
+      subscribeApp(this, options.app, event, (msg: PGN) => {
         this.sendPGN(msg)
         options.app.emit('connectionwrite', { providerId: options.providerId })
       })
     })
 
-    options.app.on('ydFullRawOut', (msgs: string[]) => {
+    subscribeApp(this, options.app, 'ydFullRawOut', (msgs: string[]) => {
       this.sendYdgwFullPGN(msgs)
       options.app.emit('connectionwrite', { providerId: options.providerId })
     })
@@ -260,7 +260,12 @@ Ydgw02Stream.prototype._transform = function (
   done()
 }
 
-Ydgw02Stream.prototype.end = function () {}
+Ydgw02Stream.prototype.end = function () {
+  unsubscribeApp(this)
+  if (this.device) {
+    this.device.stop()
+  }
+}
 
 Ydgw02Stream.prototype.createEmulator = function (
   id: string,
