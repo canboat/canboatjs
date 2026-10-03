@@ -216,6 +216,55 @@ describe('framing error recovery', () => {
   })
 })
 
+describe('parser state and buffer bounds (#457)', () => {
+  // A received N2K frame: 0x93, payload length, 11-byte header (prio, PGN,
+  // dst, src, timestamp, data length), data, checksum; no DLE bytes in it.
+  function receivedFrame(): Buffer {
+    const header = [2, 0x12, 0xf1, 0x01, 0xff, 0x01, 0, 0, 0, 0, 8]
+    const data = [0xff, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
+    const body = [0x93, header.length + data.length, ...header, ...data]
+    const sum = body.reduce((a, b) => a + b, 0)
+    return Buffer.from([DLE, STX, ...body, (256 - (sum % 256)) % 256, DLE, ETX])
+  }
+
+  function fileStream() {
+    const app = new EventEmitter()
+    const stream: any = new (ActisenseStream as any)({
+      fromFile: true,
+      plainText: true,
+      app
+    })
+    const lines: string[] = []
+    stream.on('data', (line: string) => lines.push(line))
+    return { stream, lines }
+  }
+
+  test('the parser reads the state start() sets', () => {
+    const { stream } = fileStream()
+    expect(stream.state).toBe(1) // MSG_START
+    // Inside a message, a byte is stored: the parser follows `state`.
+    stream.state = 3 // MSG_MESSAGE
+    stream._transform(Buffer.from([0x55]), 'binary', () => {})
+    expect(stream.bufferOffset).toBe(1)
+  })
+
+  test('a frame longer than the buffer is cut short, not thrown on', () => {
+    const { stream, lines } = fileStream()
+    const runaway = Buffer.concat([
+      Buffer.from([DLE, STX, 0x93]),
+      Buffer.alloc(600, 0x55)
+    ])
+    expect(() => stream._transform(runaway, 'binary', () => {})).not.toThrow()
+    expect(stream.bufferOffset).toBe(500)
+    // The runaway frame ends at its DLE ETX (and is dropped as malformed);
+    // the next frame decodes normally.
+    stream._transform(Buffer.from([DLE, ETX]), 'binary', () => {})
+    stream._transform(receivedFrame(), 'binary', () => {})
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toContain(',127250,')
+  })
+})
+
 interface SendTestHarness {
   instance: any
   app: EventEmitter
