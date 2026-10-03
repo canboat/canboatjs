@@ -19,6 +19,7 @@ import {
   PGN,
   getEnumerationValue,
   getFieldTypeEnumerationValue,
+  getFieldTypeEnumeration,
   getBitEnumerationName,
   getFieldTypeEnumerationBits
 } from '@canboat/ts-pgns'
@@ -172,7 +173,16 @@ export function toPgn(data: any): Buffer | undefined {
             ? repeat[field.Name]
             : repeat[field.Id]
 
-        writeField(bs, pgn_number, field, data, value, fields)
+        writeField(
+          bs,
+          pgn_number,
+          field,
+          data,
+          value,
+          fields,
+          undefined,
+          repeat
+        )
       }
     })
   }
@@ -188,7 +198,16 @@ export function toPgn(data: any): Buffer | undefined {
             ? repeat[field.Name]
             : repeat[field.Id]
 
-        writeField(bs, pgn_number, field, data, value, fields)
+        writeField(
+          bs,
+          pgn_number,
+          field,
+          data,
+          value,
+          fields,
+          undefined,
+          repeat
+        )
       }
     })
   }
@@ -242,13 +261,16 @@ function writeField(
   data: any,
   value: any,
   fields: Field[],
-  bitLength: number | undefined = undefined
+  bitLength: number | undefined = undefined,
+  // The repeating-set record being written, which holds a dynamic value's
+  // key; data, the whole message, holds it otherwise.
+  record: any = data
 ) {
   //const startPos = bs.byteIndex
 
   if (bitLength === undefined) {
     if (field.BitLengthVariable && field.FieldType === 'DYNAMIC_FIELD_VALUE') {
-      bitLength = lookupKeyBitLength(data, fields)
+      bitLength = lookupKeyBitLength(record, fields)
     } else {
       bitLength = field.BitLength
     }
@@ -271,6 +293,12 @@ function writeField(
       //FIXME: error! should not happen
     }
   } else {
+    if (field.FieldType === 'DYNAMIC_FIELD_VALUE' && _.isString(value)) {
+      value = dynamicLookupValue(record, fields, value)
+      if (_.isString(value)) {
+        value = dynamicStringValue(record, value)
+      }
+    }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {
       value = fieldTypeMappers[type](field, value)
@@ -414,6 +442,49 @@ function lookupKeyBitLength(data: any, fields: Field[]) {
     }
     return getFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
   }
+}
+
+/**
+ * A DYNAMIC_FIELD_VALUE given as the name its key's lookup gives it, as
+ * the decoder reports a LOOKUP value ("90%" for a Simnet Backlight level),
+ * goes on the wire as that name's number. Any other value is written as is.
+ */
+function dynamicLookupValue(data: any, fields: Field[], value: string) {
+  const field = fields.find((field) => field.Name === 'Key')
+  if (field === undefined) {
+    return value
+  }
+  let key = data['Key'] ?? data['key']
+  if (typeof key === 'string') {
+    key = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, key)
+  }
+  type Entry = { value: number; LookupEnumeration?: string }
+  const entries: Entry[] =
+    getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
+      ?.EnumFieldTypeValues ?? []
+  const entry = entries.find((v) => v.value === key)
+  if (entry?.LookupEnumeration === undefined) {
+    return value
+  }
+  return getEnumerationValue(entry.LookupEnumeration, value) ?? value
+}
+
+/**
+ * A DYNAMIC_FIELD_VALUE string that no lookup resolved: a number written
+ * as text, or bytes in hex as the decoder gives the value of a key it has
+ * no type for ("2d 7d 10 14"). Anything else would reach the bit writer,
+ * which turns a string into 0, so it is refused.
+ */
+function dynamicStringValue(record: any, value: string): number | Buffer {
+  const text = value.trim()
+  if (text !== '' && Number.isFinite(Number(text))) {
+    return Number(text)
+  }
+  if (/^[0-9a-f]{2}([ ,][0-9a-f]{2})*$/i.test(text)) {
+    return Buffer.from(text.split(/[ ,]/).map((b) => parseInt(b, 16)))
+  }
+  const key = record['Key'] ?? record['key']
+  throw new Error(`Invalid value for key ${key}: '${value}'`)
 }
 
 /*
