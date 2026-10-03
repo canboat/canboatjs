@@ -1415,7 +1415,8 @@ function readValue(
 
         //debug(`value ${value.toString(16)}`)
       } else if (bitLength == 32) {
-        if (field.Signed) {
+        // Excess-K fields store an unsigned raw value, then apply Offset.
+        if (field.Signed && !field.Offset) {
           value = bs.readInt32()
           value = value === 0x7fffffff ? null : value
         } else {

@@ -286,7 +286,7 @@ function writeField(
       for (let i = 0; i < bytes - 1; i++) {
         bs.writeUint8(0xff)
       }
-      bs.writeUint8(field.Signed ? 0x7f : 0xff)
+      bs.writeUint8(field.Signed && !field.Offset ? 0x7f : 0xff)
     } else if (bitLength !== undefined) {
       bs.writeBits(0xffffffff, bitLength)
     } else {
