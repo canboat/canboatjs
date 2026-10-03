@@ -128,29 +128,14 @@ describe('Send frames to a Yacht Devices gateway', function () {
   }
   const frames = pgnToYdgwRawFormat(staticData)
 
-  function sendWith(batchFrames) {
-    if (batchFrames) {
-      process.env.ENABLEBATCHFRAMES = '1'
-    } else {
-      delete process.env.ENABLEBATCHFRAMES
-    }
+  it('sends all frames of a message together, so UDP sends one datagram', (done) => {
+    frames.length.should.equal(4)
     const app = new EventEmitter()
     const sent = []
     app.on('ydwg02-out', (msg) => sent.push(msg))
     const stream = new Ydgw02({ app }, 'udp')
     stream.sendPGN({ ...staticData })
-    delete process.env.ENABLEBATCHFRAMES
-    return sent
-  }
-
-  it('sends each frame on its own by default', (done) => {
-    frames.length.should.equal(4)
-    sendWith(false).should.eql(frames.map((raw) => raw + '\r\n'))
-    done()
-  })
-
-  it('sends all frames of a message together with ENABLEBATCHFRAMES', (done) => {
-    sendWith(true).should.eql([frames.map((raw) => raw + '\r\n').join('')])
+    sent.should.eql([frames.map((raw) => raw + '\r\n').join('')])
     done()
   })
 })

@@ -119,22 +119,17 @@ Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
   }
 }
 
-// Send the frames of one message. By default each frame is sent on its
-// own. With ENABLEBATCHFRAMES set in the environment the frames go out
-// together, so a UDP connection sends one packet per message instead of
-// one per frame.
+// Send the frames of one message together, in one out event. Over TCP or
+// serial the bytes are the same as frame by frame; over UDP the message
+// becomes one datagram instead of one per frame, which a YDWG-02 receiving
+// a fast-packet burst was measured to lose about every other frame of.
+// Even 32 frames (a 223-byte message) are about 1.1 kB: one datagram.
 Ydgw02Stream.prototype.sendFrames = function (
   msgs: string[],
   forceSend?: boolean
 ) {
-  if (process.env.ENABLEBATCHFRAMES) {
-    if (msgs.length > 0) {
-      this.sendString(msgs.map((raw) => raw + '\r\n').join(''), forceSend)
-    }
-  } else {
-    msgs.forEach((raw) => {
-      this.sendString(raw + '\r\n', forceSend)
-    })
+  if (msgs.length > 0) {
+    this.sendString(msgs.map((raw) => raw + '\r\n').join(''), forceSend)
   }
 }
 
