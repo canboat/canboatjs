@@ -22,7 +22,7 @@ describe('PLAIN lines with any timestamp', function () {
       const pgn = parser.parseString(`${ts},${payload}`)
       pgn.pgn.should.equal(127251)
       pgn.src.should.equal(9)
-      pgn.fields.rate.should.be.closeTo(-0.00213963, 1e-9)
+      pgn.fields.rate.should.be.closeTo(-0.002139625, 1e-12)
     })
   }
 
@@ -31,7 +31,7 @@ describe('PLAIN lines with any timestamp', function () {
     const pgn = parser.parseString(
       '00:00:57.062,2,127251,9,255,8, ff, 8c,f4 ,fe,ff,ff,ff,ff'
     )
-    pgn.fields.rate.should.be.closeTo(-0.00213963, 1e-9)
+    pgn.fields.rate.should.be.closeTo(-0.002139625, 1e-12)
   })
 
   it('still reads PCDIN as PCDIN', function () {

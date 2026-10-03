@@ -9,8 +9,8 @@ module.exports = [
       fields: {
         instance: 224,
         tripFuelUsed: 0.009,
-        fuelRateAverage: -0.00086117,
-        instantaneousFuelEconomy: -3e-8,
+        fuelRateAverage: -0.0008611667,
+        instantaneousFuelEconomy: -2.78e-8,
         fuelRateEconomy: null
       },
       description: 'Trip Parameters, Engine'

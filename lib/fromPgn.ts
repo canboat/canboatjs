@@ -38,7 +38,12 @@ import { encodeCandump2 } from './stringMsg'
 import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
 import { parseQuirks, Quirks } from './quirks'
-import { roundToResolution, siConversion } from './units'
+import {
+  roundToDecimals,
+  scaleOf,
+  siConversion,
+  timeDecimalsFor
+} from './units'
 
 import {
   parseN2kString,
@@ -1249,19 +1254,10 @@ function convertField(
         value = null
       }
       if (field.Resolution && typeof value === 'number') {
-        let resolution = field.Resolution
-
-        if (_.isString(resolution)) {
-          resolution = Number.parseFloat(resolution)
-        }
-
-        // In SI: the resolution scaled to it, as canboat's fixupUnit does.
-        const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
-        if (si !== undefined) {
-          resolution = (resolution * si.mul) / si.div
-        }
-
-        value = roundToResolution(value * resolution, resolution)
+        // In SI, as canboat's fixupUnit scales the resolution, with the
+        // decimals canboat gives it; both worked out once per field.
+        const { resolution, decimals } = scaleOf(field as any)
+        value = roundToDecimals(value * resolution, decimals)
       }
 
       if (
@@ -1884,7 +1880,10 @@ function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
     }
     // Seconds, as canboat gives a TIME or DURATION in JSON
     // (canboat/canboat#967): a Race Timer of -300000 ms is -300.
-    return roundToResolution(raw * (entry.Resolution ?? 1), entry.Resolution)
+    return roundToDecimals(
+      raw * (entry.Resolution ?? 1),
+      timeDecimalsFor(entry.Resolution)
+    )
   }
   if (type === 'DATE') {
     const raw = readDynamicBits(bs, bits, false)
@@ -1949,10 +1948,8 @@ function scaleDynamicNumber(raw: number, entry: DynamicFieldType): number {
   }
   // In SI, as for any other field. A key's entry names no physical
   // quantity, so its degrees stay degrees, as in canboat.
-  const si = siConversion(entry.Unit)
-  const siResolution =
-    si === undefined ? resolution : (resolution * si.mul) / si.div
-  return roundToResolution(raw * siResolution, siResolution)
+  const scale = scaleOf(entry)
+  return roundToDecimals(raw * scale.resolution, scale.decimals)
 }
 
 fieldTypePostProcessors['DATE'] = (field, value, context) => {
@@ -1984,7 +1981,10 @@ fieldTypePostProcessors['TIME'] = (field, value) => {
   if (value >= 0xfffffffd) {
     return undefined
   }
-  return roundToResolution(value * (field.Resolution ?? 1), field.Resolution)
+  return roundToDecimals(
+    value * (field.Resolution ?? 1),
+    timeDecimalsFor(field.Resolution)
+  )
 }
 
 fieldTypePostProcessors['DURATION'] = fieldTypePostProcessors['TIME']

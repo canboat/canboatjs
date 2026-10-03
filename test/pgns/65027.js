@@ -10,7 +10,7 @@ module.exports = [
       fields: {
         lineLineAcRmsVoltage: 126,
         lineNeutralAcRmsVoltage: 126,
-        acFrequency: 60.016,
+        acFrequency: 60.01562,
         acRmsCurrent: 5
       }
     },
