@@ -737,34 +737,16 @@ fieldTypeWriters['DECIMAL'] = (pgn, field, value, bs) => {
   }
 }
 
+// The AIS PGNs with fixed-width text: 129040 Name, 129794 Callsign, Name
+// and Destination, 129809 Name, 129810 Vendor ID and Callsign.
+const AIS_TEXT_PGNS = new Set([129040, 129794, 129809, 129810])
+
 fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
   if (field.BitLength !== undefined) {
-    let fill = 0xff
-    if (
-      (pgn === 129810 &&
-        (field.Name === 'Vendor ID' || field.Name === 'Callsign')) ||
-      (pgn === 129809 && field.Name === 'Name')
-    ) {
-      if (value == null || value.length == 0) {
-        {
-          fill = 0x40
-          value = ''
-        }
-      }
-    }
-    if (
-      pgn == 129038 ||
-      pgn == 129039 ||
-      pgn == 129040 ||
-      pgn == 192041 ||
-      pgn == 129794 ||
-      pgn == 129798 ||
-      pgn == 129802 ||
-      pgn == 129809 ||
-      pgn == 129810
-    ) {
-      fill = 0x40
-    }
+    // AIS pads unused text characters with '@' (6-bit code 0, ITU-R
+    // M.1371); MFDs (Raymarine Axiom, Furuno TZT) show 0xff padding in AIS
+    // names as junk. Every other fixed string pads with 0xff.
+    const fill = AIS_TEXT_PGNS.has(pgn) ? 0x40 : 0xff
     if (value == null) {
       value = ''
     }
