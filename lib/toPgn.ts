@@ -293,16 +293,20 @@ function writeField(
       //FIXME: error! should not happen
     }
   } else {
-    if (field.FieldType === 'DYNAMIC_FIELD_VALUE' && _.isString(value)) {
-      value = dynamicLookupValue(record, fields, value)
+    if (field.FieldType === 'DYNAMIC_FIELD_VALUE') {
+      // A lookup name gives the raw code; a number, also one written as
+      // text, is in SI and takes the key's scaling off.
       if (_.isString(value)) {
-        value = dynamicStringValue(record, value)
+        value = dynamicLookupValue(record, fields, value)
+        if (_.isString(value)) {
+          value = dynamicStringValue(record, value)
+          if (typeof value === 'number') {
+            value = dynamicScaledValue(record, fields, value)
+          }
+        }
+      } else if (typeof value === 'number') {
+        value = dynamicScaledValue(record, fields, value)
       }
-    } else if (
-      field.FieldType === 'DYNAMIC_FIELD_VALUE' &&
-      typeof value === 'number'
-    ) {
-      value = dynamicScaledValue(record, fields, value)
     }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {

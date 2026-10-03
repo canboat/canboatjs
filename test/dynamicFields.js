@@ -89,6 +89,25 @@ describe('dynamic field values', () => {
     Buffer.from(data).toString('hex').should.equal('7d997d2050007c206400')
   })
 
+  it('scales a number written as text as it does a number', () => {
+    const encode = (value) =>
+      Buffer.from(
+        toPgn({
+          pgn: 130824,
+          prio: 7,
+          src: 16,
+          dst: 255,
+          fields: {
+            manufacturerCode: 'B & G',
+            industryCode: 'Marine Industry',
+            list: [{ key: 'Rudder Angle', length: 2, value }]
+          }
+        })
+      ).toString('hex')
+    encode('-0.1').should.equal(encode(-0.1))
+    encode(-0.1).should.equal('7d990b2018fc')
+  })
+
   it('encodes the hex bytes of a key it has no type for, and refuses junk', () => {
     const msg = (value) => ({
       pgn: 130845,
