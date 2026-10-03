@@ -286,13 +286,13 @@ function read1Byte(that: any, c: any) {
 
   //debug("received byte %02x state=%d offset=%d\n", c, state, head - buf);
 
-  if (that.stat == MSG_START) {
+  if (that.state == MSG_START) {
     if (c == ESC && that.isFile) {
       noEscape = true
     }
   }
 
-  if (that.stat == MSG_ESCAPE) {
+  if (that.state == MSG_ESCAPE) {
     if (c == ETX) {
       if (!that.options.outputOnly) {
         if (that.buffer[0] == N2K_MSG_RECEIVED) {
@@ -302,34 +302,44 @@ function read1Byte(that: any, c: any) {
         }
       }
       that.bufferOffset = 0
-      that.stat = MSG_START
+      that.state = MSG_START
     } else if (c == STX) {
       that.bufferOffset = 0
-      that.stat = MSG_MESSAGE
+      that.state = MSG_MESSAGE
     } else if (c == DLE || (c == ESC && that.isFile) || that.noEscape) {
-      that.buffer.writeUInt8(c, that.bufferOffset)
-      that.bufferOffset++
-      that.stat = MSG_MESSAGE
+      storeByte(that, c)
+      that.state = MSG_MESSAGE
     } else {
       console.error(
         `DLE followed by unexpected char 0x${c.toString(16).padStart(2, '0')}, ignore message`
       )
       that.bufferOffset = 0
-      that.stat = MSG_START
+      that.state = MSG_START
     }
-  } else if (that.stat == MSG_MESSAGE) {
+  } else if (that.state == MSG_MESSAGE) {
     if (c == DLE) {
-      that.stat = MSG_ESCAPE
+      that.state = MSG_ESCAPE
     } else if (that.isFile && c == ESC && !noEscape) {
-      that.stat = MSG_ESCAPE
+      that.state = MSG_ESCAPE
     } else {
-      that.buffer.writeUInt8(c, that.bufferOffset)
-      that.bufferOffset++
+      storeByte(that, c)
     }
   } else {
     if (c == DLE) {
-      that.stat = MSG_ESCAPE
+      that.state = MSG_ESCAPE
     }
+  }
+}
+
+/**
+ * One byte of a message: dropped once the buffer is full, as canboat's
+ * readNGT1Byte does, so a frame with no terminator for 500 bytes cannot
+ * overrun the buffer; the frame still ends at its DLE ETX.
+ */
+function storeByte(that: any, c: number) {
+  if (that.bufferOffset < that.buffer.length) {
+    that.buffer.writeUInt8(c, that.bufferOffset)
+    that.bufferOffset++
   }
 }
 
