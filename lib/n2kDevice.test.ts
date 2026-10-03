@@ -254,6 +254,25 @@ describe('N2kDevice ISO address claim echo', () => {
     expect(dev.devices[preferredAddress]).toBeUndefined()
   })
 
+  test('own 60928 from another address is not registered as a peer', () => {
+    jest.useFakeTimers()
+    dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({
+        preferredAddress: 37,
+        uniqueNumber: 1060571,
+        addressClaimDetectionTime: 5000
+      })
+    )
+
+    // Our claim from an address we held before, coming back late.
+    const echo = analyzerAddressClaim(dev)
+    echo.src = 36
+    dev.n2kMessage(echo)
+
+    expect(dev.devices[36]).toBeUndefined()
+  })
+
   test('peer 60928 at the preferred address still forces increaseOwnAddress', () => {
     jest.useFakeTimers()
     const preferredAddress = 37

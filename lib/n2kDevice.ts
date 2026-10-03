@@ -426,14 +426,14 @@ function handleGroupFunction(
 }
 
 function handleISOAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
-  // Own ISO address claim echoed on N2KAnalyzerOut (SK FromPgn) or
-  // socketcan loopback is not a peer. SimpleCan drops own-src only
-  // after cansend; CanbusStream always forwards PGN 60928. Registering
-  // that echo in devices[src] while cansend is false makes
-  // sendAddressClaim treat the address as taken and call
-  // increaseOwnAddress.
+  // A claim with our own NAME is our own claim coming back (on
+  // N2KAnalyzerOut from Signal K's FromPgn, or a CAN loopback), from our
+  // current address or one we claimed before: ISO NAMEs are unique, so it
+  // is never a peer. Registering it in devices[src] would make
+  // sendAddressClaim take our own address for a taken one and move on.
+  // canboat's address claim ignores an identical NAME the same way.
   if (isOwnIsoAddressClaim(device, n2kMsg)) {
-    device.debug('ignoring own ISO address claim from src %d', n2kMsg.src)
+    device.debug('ignoring our own ISO address claim from src %d', n2kMsg.src)
     return
   }
 
@@ -605,9 +605,6 @@ function sendPGNList(device: N2kDevice, dst: number) {
 }
 
 function isOwnIsoAddressClaim(device: N2kDevice, n2kMsg: PGN_60928) {
-  if (n2kMsg.src != device.address) {
-    return false
-  }
   const received = toPgn(n2kMsg)
   const own = toPgn(device.addressClaim)
   if (!received || !own) {
