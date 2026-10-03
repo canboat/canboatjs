@@ -150,7 +150,14 @@ export class Parser extends EventEmitter {
     if (this.options.quirks === undefined) {
       this.options.quirks = []
     }
-    parsedQuirks.set(this.options, parseQuirks(this.options.quirks))
+    // Say which option is wrong: a host such as Signal K shows this message
+    // as the connection's error, where a bare "'vhf' is not a device" would
+    // not say what it is about.
+    try {
+      parsedQuirks.set(this.options, parseQuirks(this.options.quirks))
+    } catch (e: any) {
+      throw new Error(`Invalid quirks option: ${e.message}`)
+    }
 
     this.name = pkg.name
     this.version = pkg.version

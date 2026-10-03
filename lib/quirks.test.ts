@@ -259,7 +259,13 @@ describe('GPS rollover device syntax', () => {
   })
 
   test('a bad quirk is refused when the parser is made', () => {
-    expect(() => new Parser({ quirks: ['gps-rollover=vhf'] })).toThrow()
+    // toThrow with an Error compares the whole message, not a substring.
+    expect(() => new Parser({ quirks: ['gps-rollover=vhf'] })).toThrow(
+      new Error(
+        "Invalid quirks option: 'vhf' is not a device: use a source address, " +
+          '<manufacturer>:<unique number>, 0x<hex NAME>, or all'
+      )
+    )
   })
 })
 
