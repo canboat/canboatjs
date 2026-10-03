@@ -180,3 +180,69 @@ describe('J1939 Excess-K at 16 bits (custom PGN)', function () {
     expect(data.subarray(0, 2).toString('hex')).to.equal('ffff')
   })
 })
+
+describe('J1939 Excess-K at 48 bits (custom PGN)', function () {
+  const { addCustomPgns } = require('../dist/pgns')
+  // Raw 0 is -1e12 Wh; the top three raw codes are reserved.
+  const rawMax = 2 ** 48 - 4
+  addCustomPgns(
+    {
+      PGNs: [
+        {
+          PGN: 130996,
+          Id: 'testExcessK48',
+          Description: 'Excess-K 48-bit test',
+          Type: 'Single',
+          Complete: true,
+          Length: 8,
+          Fields: [
+            {
+              Order: 1,
+              Id: 'energy',
+              Name: 'Energy',
+              BitLength: 48,
+              BitOffset: 0,
+              BitStart: 0,
+              FieldType: 'NUMBER',
+              Signed: true,
+              Offset: -1e12,
+              Resolution: 1,
+              RangeMin: -1e12,
+              RangeMax: rawMax - 1e12
+            },
+            {
+              Order: 2,
+              Id: 'reserved',
+              Name: 'Reserved',
+              BitLength: 16,
+              BitOffset: 48,
+              BitStart: 0,
+              FieldType: 'RESERVED',
+              Signed: false
+            }
+          ]
+        }
+      ]
+    },
+    'excess-k-test'
+  )
+  // Without the optional range check, so the raw-code check is what acts.
+  const parser = new FromPgn({ useCamel: true, checkForInvalidFields: false })
+  const decode = (hex) =>
+    parser.parseString(`2026-01-01T00:00:00.000Z,3,130996,1,255,8,${hex},ff,ff`)
+      .fields
+
+  it('reads the reserved codes as not available', function () {
+    for (const raw of [
+      'ff,ff,ff,ff,ff,ff',
+      'fe,ff,ff,ff,ff,ff',
+      'fd,ff,ff,ff,ff,ff'
+    ]) {
+      expect(decode(raw)).to.deep.equal({})
+    }
+  })
+
+  it('reads the top of the range as a value', function () {
+    expect(decode('fc,ff,ff,ff,ff,ff').energy).to.equal(rawMax - 1e12)
+  })
+})

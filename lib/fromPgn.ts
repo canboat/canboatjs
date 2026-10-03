@@ -1496,18 +1496,26 @@ function readValue(
 
     // The values above an Excess-K field's range are its "not available",
     // "error" and reserved codes, as canboat has them: not readings, even
-    // when the range is not otherwise checked.
-    if (
-      excessK &&
-      typeof value === 'number' &&
-      field.RangeMax !== undefined &&
-      value >
-        Math.round(
-          (Number(field.RangeMax) - Number(field.Offset)) /
-            Number(field.Resolution ?? 1)
-        )
-    ) {
-      value = null
+    // when the range is not otherwise checked. Up to 48 bits the raw value
+    // is exact as a number; like canboat (range_max_sentinel), 64-bit
+    // fields are not checked.
+    if (excessK && value != null && field.RangeMax !== undefined) {
+      const raw =
+        typeof value === 'number'
+          ? value
+          : bitLength === 48
+            ? Number(value.toString())
+            : undefined
+      if (
+        raw !== undefined &&
+        raw >
+          Math.round(
+            (Number(field.RangeMax) - Number(field.Offset)) /
+              Number(field.Resolution ?? 1)
+          )
+      ) {
+        value = null
+      }
     }
 
     if (
