@@ -1,4 +1,4 @@
-import { fnv1a64, uniqueNumberFor } from './machineId'
+import { fnv1a64, isMachineId, uniqueNumberFor } from './machineId'
 
 describe('fnv1a64', () => {
   // The published FNV-1a 64 test vectors: canboat's fnv1a_64 gives these.
@@ -39,5 +39,19 @@ describe('uniqueNumberFor', () => {
 
   test('is undefined when the machine cannot be identified', () => {
     expect(uniqueNumberFor(undefined, 'can0')).toBeUndefined()
+  })
+})
+
+describe('isMachineId', () => {
+  test('takes a systemd machine id', () => {
+    expect(isMachineId('4c4c4544003210508051b2c04f4a3132')).toBe(true)
+  })
+
+  test('refuses what an image not yet booted holds', () => {
+    expect(isMachineId('uninitialized')).toBe(false)
+    expect(isMachineId('')).toBe(false)
+    expect(isMachineId('0'.repeat(32))).toBe(false)
+    expect(isMachineId('4C4C4544003210508051B2C04F4A3132')).toBe(false)
+    expect(isMachineId('4c4c4544003210508051b2c04f4a313')).toBe(false)
   })
 })

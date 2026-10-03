@@ -42,6 +42,15 @@ export function fnv1a64(text: string): bigint {
   return hash
 }
 
+/**
+ * A real systemd machine id: 32 lowercase hex digits, not all zeros. An
+ * image not yet booted holds "uninitialized" or nothing; every machine made
+ * from it would share the NAME, so take none of those.
+ */
+export function isMachineId(id: string): boolean {
+  return /^[0-9a-f]{32}$/.test(id) && !/^0+$/.test(id)
+}
+
 /** The machine's own id, as canboat reads it, or undefined. */
 export function machineString(): string | undefined {
   try {
@@ -49,7 +58,7 @@ export function machineString(): string | undefined {
       for (const path of ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
         try {
           const id = fs.readFileSync(path, 'utf8').trim()
-          if (id !== '') {
+          if (isMachineId(id)) {
             return id
           }
         } catch {
