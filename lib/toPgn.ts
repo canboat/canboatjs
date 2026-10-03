@@ -20,13 +20,12 @@ import {
   getEnumerationValue,
   getFieldTypeEnumerationValue,
   getFieldTypeEnumeration,
-  getBitEnumerationName,
-  getFieldTypeEnumerationBits
+  getBitEnumerationName
 } from '@canboat/ts-pgns'
 import { getField } from './fromPgn'
 import { getPgn, getCustomPgn } from './pgns'
 import _ from 'lodash'
-import { siConversion } from './units'
+import { scaleOf, siConversion } from './units'
 import { BitStream } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 import {
@@ -299,6 +298,11 @@ function writeField(
       if (_.isString(value)) {
         value = dynamicStringValue(record, value)
       }
+    } else if (
+      field.FieldType === 'DYNAMIC_FIELD_VALUE' &&
+      typeof value === 'number'
+    ) {
+      value = dynamicScaledValue(record, fields, value)
     }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {
@@ -446,15 +450,8 @@ function lookup(field: Field, stringValue: string) {
 }
 
 function lookupKeyBitLength(data: any, fields: Field[]) {
-  const field = fields.find((field) => field.Name === 'Key')
-
-  if (field) {
-    let val = data['Key'] || data['key']
-    if (typeof val === 'string') {
-      val = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, val)
-    }
-    return getFieldTypeEnumerationBits(field.LookupFieldTypeEnumeration, val)
-  }
+  const entry = dynamicKeyEntry(data, fields)
+  return entry?.Bits === undefined ? undefined : Number(entry.Bits)
 }
 
 /**
@@ -463,23 +460,59 @@ function lookupKeyBitLength(data: any, fields: Field[]) {
  * goes on the wire as that name's number. Any other value is written as is.
  */
 function dynamicLookupValue(data: any, fields: Field[], value: string) {
-  const field = fields.find((field) => field.Name === 'Key')
-  if (field === undefined) {
-    return value
-  }
-  let key = data['Key'] ?? data['key']
-  if (typeof key === 'string') {
-    key = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, key)
-  }
-  type Entry = { value: number; LookupEnumeration?: string }
-  const entries: Entry[] =
-    getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
-      ?.EnumFieldTypeValues ?? []
-  const entry = entries.find((v) => v.value === key)
+  const entry = dynamicKeyEntry(data, fields)
   if (entry?.LookupEnumeration === undefined) {
     return value
   }
   return getEnumerationValue(entry.LookupEnumeration, value) ?? value
+}
+
+type DynamicKeyEntry = {
+  value: number
+  FieldType?: string
+  Bits?: string
+  Resolution?: number
+  Unit?: string
+  LookupEnumeration?: string
+}
+
+/**
+ * The LookupFieldTypeEnumeration entry the record's DYNAMIC_FIELD_KEY
+ * selects, by name or number: the key field is found by its type, so
+ * Victron's registerId and Navico's sourceSettingId count as well as Key.
+ */
+function dynamicKeyEntry(
+  data: any,
+  fields: Field[]
+): DynamicKeyEntry | undefined {
+  const field = fields.find((f) => f.FieldType === 'DYNAMIC_FIELD_KEY')
+  if (field?.LookupFieldTypeEnumeration === undefined) {
+    return undefined
+  }
+  let key = data[field.Name] ?? data[field.Id]
+  if (typeof key === 'string') {
+    key = getFieldTypeEnumerationValue(field.LookupFieldTypeEnumeration, key)
+  }
+  const entries: DynamicKeyEntry[] =
+    getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
+      ?.EnumFieldTypeValues ?? []
+  return entries.find((v) => v.value === key)
+}
+
+/**
+ * A dynamic number or duration in SI, as the decoder gives it, back to
+ * the count its key's entry puts on the wire: Polar Performance 0.1 (a
+ * ratio) is 100 x 0.1 %.
+ */
+function dynamicScaledValue(data: any, fields: Field[], value: number) {
+  const entry = dynamicKeyEntry(data, fields)
+  if (
+    entry === undefined ||
+    !/^(NUMBER|FIX|UFIX|DURATION|TIME)/.test(entry.FieldType ?? '')
+  ) {
+    return value
+  }
+  return Math.round(value / scaleOf(entry).resolution)
 }
 
 /**

@@ -71,7 +71,7 @@ describe('dynamic field values', () => {
       .should.deep.equal(['34 12', undefined, 'aa bb'])
   })
 
-  it('encodes each record of a repeating set against its own key', () => {
+  it('encodes each record of a repeating set against its own key, from SI', () => {
     const data = toPgn({
       pgn: 130824,
       prio: 7,
@@ -81,8 +81,8 @@ describe('dynamic field values', () => {
         manufacturerCode: 'B & G',
         industryCode: 'Marine Industry',
         list: [
-          { key: 'Target Boat Speed', length: 2, value: 80 },
-          { key: 'Polar Performance', length: 2, value: 100 }
+          { key: 'Target Boat Speed', length: 2, value: 0.8 },
+          { key: 'Polar Performance', length: 2, value: 0.1 }
         ]
       }
     })

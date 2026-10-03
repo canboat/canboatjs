@@ -1253,7 +1253,12 @@ function convertField(
         //console.log(`Bad field ${field.Name} ${max - value}`)
         value = null
       }
-      if (field.Resolution && typeof value === 'number') {
+      if (
+        typeof value === 'number' &&
+        (field.Resolution ||
+          siConversion(field.Unit, (field as any).PhysicalQuantity) !==
+            undefined)
+      ) {
         // In SI, as canboat's fixupUnit scales the resolution, with the
         // decimals canboat gives it; both worked out once per field.
         const { resolution, decimals } = scaleOf(field as any)
