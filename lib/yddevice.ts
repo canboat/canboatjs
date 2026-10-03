@@ -16,6 +16,7 @@
 
 import { PGN } from '@canboat/ts-pgns'
 import { N2kDevice } from './n2kDevice'
+import { subscribeApp, unsubscribeApp } from './utilities'
 
 export class YdDevice extends N2kDevice {
   yd: any
@@ -27,7 +28,12 @@ export class YdDevice extends N2kDevice {
     this.app = options.app
 
     const analyzerOutEvent = options.analyzerOutEvent || 'N2KAnalyzerOut'
-    this.app.on(analyzerOutEvent, this.n2kMessage.bind(this))
+    subscribeApp(this, this.app, analyzerOutEvent, this.n2kMessage.bind(this))
+  }
+
+  stop() {
+    super.stop()
+    unsubscribeApp(this)
   }
 
   sendPGN(pgn: PGN, src: number | undefined = undefined) {

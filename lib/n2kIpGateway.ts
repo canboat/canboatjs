@@ -41,7 +41,13 @@ import {
   parsePCDIN,
   parseYDRAW
 } from './stringMsg'
-import { byteStringArray, createDebug, getPlainPGNs } from './utilities'
+import {
+  byteStringArray,
+  createDebug,
+  getPlainPGNs,
+  subscribeApp,
+  unsubscribeApp
+} from './utilities'
 
 type SupportedFormat =
   | 'candump3'
@@ -287,7 +293,7 @@ export function N2kIpGateway(this: any, options: N2kIpGatewayOptions) {
       .split(',')
       .map((event: string) => event.trim())
     outEvents.forEach((event: string) => {
-      options.app.on(event, (msg: any) => {
+      subscribeApp(this, options.app, event, (msg: any) => {
         this.sendPGN(msg, false)
       })
     })
@@ -296,7 +302,7 @@ export function N2kIpGateway(this: any, options: N2kIpGatewayOptions) {
       .split(',')
       .map((event: string) => event.trim())
     jsonOutEvents.forEach((event: string) => {
-      options.app.on(event, (msg: PGN) => {
+      subscribeApp(this, options.app, event, (msg: PGN) => {
         this.sendPGN(msg, false)
       })
     })
@@ -559,6 +565,7 @@ N2kIpGateway.prototype.pipe = function (pipeTo: any) {
 
 N2kIpGateway.prototype.end = function () {
   this.stopping = true
+  unsubscribeApp(this)
   if (this.reconnectTimer) {
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = undefined

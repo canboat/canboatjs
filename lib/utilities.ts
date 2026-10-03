@@ -291,3 +291,35 @@ export const filterPGN = (pgn: any, filter: FilterConfig): boolean => {
 
   return false
 }
+
+type AppSubscription = {
+  app: any
+  event: string
+  handler: (...args: any[]) => void
+}
+
+/**
+ * Listen for `event` on the server's `app` on behalf of `owner` (a
+ * transport), remembering it so that unsubscribeApp can take it off again:
+ * a transport that ends, or reconnects, must not leave its handlers on the
+ * shared app (#431).
+ */
+export function subscribeApp(
+  owner: any,
+  app: any,
+  event: string,
+  handler: (...args: any[]) => void
+) {
+  app.on(event, handler)
+  const subscriptions: AppSubscription[] = (owner.appSubscriptions ??= [])
+  subscriptions.push({ app, event, handler })
+}
+
+/** Take every handler subscribeApp added for `owner` off the app. */
+export function unsubscribeApp(owner: any) {
+  const subscriptions: AppSubscription[] = owner.appSubscriptions ?? []
+  for (const { app, event, handler } of subscriptions) {
+    app.removeListener(event, handler)
+  }
+  owner.appSubscriptions = []
+}
