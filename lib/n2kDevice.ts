@@ -61,6 +61,7 @@ export class N2kDevice extends EventEmitter {
   claim!: AddressClaim
   claimTimer?: ReturnType<typeof setTimeout>
   heartbeatInterval?: any
+  lastProductInfoAt = -Infinity
   debug: any
 
   constructor(options: any, debugName: string) {
@@ -340,10 +341,16 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
   device.debug('handleISORequest %j', n2kMsg)
 
   const PGN = Number(n2kMsg.fields.pgn)
+  // As canboat: an unsupported request is NAKed only when it was addressed
+  // to us; one sent to everyone is ignored (ISO 11783-3).
+  const addressed = n2kMsg.dst === device.address
 
   switch (PGN) {
     case 126996: // Product Information request
       sendProductInformation(device)
+      break
+    case 126993: // Heartbeat request
+      sendHeartbeat(device)
       break
     case 126998: // Config Information request
       sendConfigInformation(device)
@@ -352,7 +359,7 @@ function handleISORequest(device: N2kDevice, n2kMsg: PGN_59904) {
       sendPGNList(device, n2kMsg.src!)
       break
     default:
-      if (!device.options.disableNAKs) {
+      if (addressed && !device.options.disableNAKs) {
         device.debug(`Got unsupported ISO request for PGN ${PGN}. Sending NAK.`)
         sendNAKAcknowledgement(device, n2kMsg.src!, PGN)
       }
@@ -364,6 +371,10 @@ function handleGroupFunction(
   n2kMsg: PGN_126208_NmeaRequestGroupFunction
 ) {
   device.debug('handleGroupFunction %j', n2kMsg)
+  // Answered only when addressed to us, as an ISO Request is.
+  if (n2kMsg.dst !== device.address) {
+    return
+  }
   const functionCode = n2kMsg.fields.functionCode
   if (functionCode === 'Request') {
     handleRequestGroupFunction(device, n2kMsg)
@@ -609,6 +620,13 @@ function sendISORequest(
 }
 
 function sendProductInformation(device: N2kDevice) {
+  // Product Information is broadcast, so one reply answers every requester
+  // within the second: canboat collapses discovery bursts the same way.
+  const now = Date.now()
+  if (now - device.lastProductInfoAt < 1000) {
+    return
+  }
+  device.lastProductInfoAt = now
   device.debug('Sending product info')
   device.sendPGN(device.productInfo)
 }
