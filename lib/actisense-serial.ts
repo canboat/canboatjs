@@ -97,21 +97,36 @@ export function ActisenseStream(this: any, options: any) {
 inherits(ActisenseStream, Transform)
 
 ActisenseStream.prototype.start = function (this: any) {
+  // A close of the previous port is under way: its callback starts again.
+  if (this.closingPort) {
+    return
+  }
   if (this.serial !== null) {
     const old = this.serial
     old.unpipe(this)
     old.removeAllListeners()
     // A late error from the port being dropped is of no interest now.
     old.on('error', () => {})
-    this.serial = null
     // A reconnect after an error finds the port still open, holding its
     // lock: opening the device again then fails with "Cannot lock port",
     // which reconnects again, while the old port goes on reading with
-    // nobody listening (#454). Close it first, and open once it is closed.
+    // nobody listening (#454). Close it first, and open once it is closed;
+    // if the close fails, keep the port and try closing it again later.
     if (old.isOpen) {
-      old.close(() => this.start())
+      this.closingPort = old
+      old.close((err: any) => {
+        this.closingPort = undefined
+        if (err && old.isOpen) {
+          this.debug(`closing ${this.options.device} failed: ${err.message}`)
+          this.scheduleReconnect()
+          return
+        }
+        this.serial = null
+        this.start()
+      })
       return
     }
+    this.serial = null
   }
 
   if (this.reconnect === false) {
@@ -284,7 +299,15 @@ ActisenseStream.prototype.scheduleReconnect = function () {
     ).toFixed(0)} s)`
     this.debug(msg)
     this.setProviderStatus(msg)
-    this.reconnectTimer = setTimeout(this.start.bind(this), this.reconnectDelay)
+    // One reconnect at a time: an error is followed by a close, and both
+    // ask for one.
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+    }
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined
+      this.start()
+    }, this.reconnectDelay)
   }
 }
 

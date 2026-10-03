@@ -4,8 +4,9 @@
 import { EventEmitter } from 'events'
 
 const locked = new Set<string>()
-const opened: any[] = []
-const lockErrors: string[] = []
+let opened: any[] = []
+let lockErrors: string[] = []
+let failCloses = 0
 
 jest.mock('serialport', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -33,10 +34,17 @@ jest.mock('serialport', () => {
     unpipe() {}
     pipe() {}
     write() {}
-    close(cb?: () => void) {
-      locked.delete(this.path)
-      this.isOpen = false
+    // Like serialport: the lock is released, and the callback called, once
+    // the close has completed.
+    close(cb?: (err?: Error) => void) {
       setImmediate(() => {
+        if (failCloses > 0) {
+          failCloses--
+          cb && cb(new Error('close failed'))
+          return
+        }
+        locked.delete(this.path)
+        this.isOpen = false
         this.emit('close')
         cb && cb()
       })
@@ -47,28 +55,66 @@ jest.mock('serialport', () => {
 
 import { ActisenseStream } from './actisense-serial'
 
-test('a reconnect after an error closes the port before opening it again', async () => {
-  jest.useFakeTimers({ doNotFake: ['setImmediate'] })
-  const app = Object.assign(new EventEmitter(), {
-    setProviderStatus: () => undefined,
-    setProviderError: () => undefined
-  })
-  const stream: any = new (ActisenseStream as any)({
-    device: '/dev/ttyUSB0',
-    app
-  })
-  const first = opened[0]
-  expect(first.isOpen).toBe(true)
+const settle = async () => {
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setImmediate(r))
+  }
+}
 
-  first.emit('error', new Error('write failed')) // the port stays open
-  jest.advanceTimersByTime(5000) // the reconnect delay
-  await new Promise((r) => setImmediate(r)) // the old port closes
-  await new Promise((r) => setImmediate(r))
+describe('ActisenseStream reconnect', () => {
+  let stream: any
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] })
+    locked.clear()
+    opened = []
+    lockErrors = []
+    failCloses = 0
+    const app = Object.assign(new EventEmitter(), {
+      setProviderStatus: () => undefined,
+      setProviderError: () => undefined
+    })
+    stream = new (ActisenseStream as any)({ device: '/dev/ttyUSB0', app })
+  })
+  afterEach(() => {
+    stream.reconnect = false
+    jest.useRealTimers()
+  })
 
-  expect(first.isOpen).toBe(false)
-  expect(opened).toHaveLength(2)
-  expect(opened[1].isOpen).toBe(true)
-  expect(lockErrors).toEqual([])
-  stream.reconnect = false
-  jest.useRealTimers()
+  test('closes the port before opening it again', async () => {
+    const first = opened[0]
+    first.emit('error', new Error('write failed')) // the port stays open
+    jest.advanceTimersByTime(5000)
+    await settle()
+    expect(first.isOpen).toBe(false)
+    expect(opened).toHaveLength(2)
+    expect(opened[1].isOpen).toBe(true)
+    expect(lockErrors).toEqual([])
+  })
+
+  test('opens one replacement when an error and a close both ask for it', async () => {
+    const first = opened[0]
+    first.emit('error', new Error('write failed'))
+    first.emit('close')
+    jest.advanceTimersByTime(5000)
+    await settle()
+    jest.advanceTimersByTime(60000)
+    await settle()
+    expect(opened).toHaveLength(2)
+    expect(lockErrors).toEqual([])
+  })
+
+  test('tries the close again when it fails, without reopening meanwhile', async () => {
+    failCloses = 1
+    const first = opened[0]
+    first.emit('error', new Error('write failed'))
+    jest.advanceTimersByTime(5000)
+    await settle()
+    expect(first.isOpen).toBe(true) // the close failed
+    expect(opened).toHaveLength(1) // and nothing was opened
+    jest.advanceTimersByTime(10000)
+    await settle()
+    expect(first.isOpen).toBe(false)
+    expect(opened).toHaveLength(2)
+    expect(lockErrors).toEqual([])
+  })
 })
