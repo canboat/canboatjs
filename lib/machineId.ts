@@ -30,6 +30,7 @@ import { execFileSync } from 'child_process'
  */
 
 const SALT = 'canboatjs'
+const ALL_ONES = 0x1fffff
 
 /** 64-bit FNV-1a, as canboat's fnv1a_64. */
 export function fnv1a64(text: string): bigint {
@@ -46,11 +47,13 @@ export function machineString(): string | undefined {
   try {
     if (process.platform === 'linux') {
       for (const path of ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
-        if (fs.existsSync(path)) {
+        try {
           const id = fs.readFileSync(path, 'utf8').trim()
           if (id !== '') {
             return id
           }
+        } catch {
+          // Missing or unreadable: try the next one.
         }
       }
     } else if (process.platform === 'darwin') {
@@ -98,7 +101,9 @@ export function uniqueNumberFor(
     connection !== undefined && connection !== ''
       ? `${SALT}|${machine}|${connection}`
       : `${SALT}|${machine}`
-  return Number(fnv1a64(key) & 0x1fffffn)
+  const unique = Number(fnv1a64(key) & 0x1fffffn)
+  // All ones is the unset value, which some analyzers hide a device for.
+  return unique === ALL_ONES ? ALL_ONES - 1 : unique
 }
 
 /** uniqueNumberFor this machine. */

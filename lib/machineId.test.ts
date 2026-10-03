@@ -31,6 +31,12 @@ describe('uniqueNumberFor', () => {
     expect(a).not.toBe(uniqueNumberFor('another-machine', 'can0'))
   })
 
+  test('never gives the all-ones unique number', () => {
+    // '1078313' hashes to 21 one bits: the unset value analyzers hide.
+    expect(fnv1a64('canboatjs|1078313') & 0x1fffffn).toBe(0x1fffffn)
+    expect(uniqueNumberFor('1078313')).toBe(0x1ffffe)
+  })
+
   test('is undefined when the machine cannot be identified', () => {
     expect(uniqueNumberFor(undefined, 'can0')).toBeUndefined()
   })
