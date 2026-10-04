@@ -97,9 +97,57 @@ export function ActisenseStream(this: any, options: any) {
 inherits(ActisenseStream, Transform)
 
 ActisenseStream.prototype.start = function (this: any) {
+  // A close of the previous port is under way: its callback starts again.
+  if (this.closingPort) {
+    return
+  }
   if (this.serial !== null) {
-    this.serial.unpipe(this)
-    this.serial.removeAllListeners()
+    const old = this.serial
+    old.unpipe(this)
+    old.removeAllListeners()
+    // A late error from the port being dropped is of no interest now.
+    old.on('error', () => {})
+    // A reconnect after an error finds the port still open, holding its
+    // lock: opening the device again then fails with "Cannot lock port",
+    // which reconnects again, while the old port goes on reading with
+    // nobody listening (#454). Close it first, and open once it is closed;
+    // if the close fails, keep the port and try closing it again later.
+    if (old.closing) {
+      // serialport is already closing it (isOpen turns false as soon as a
+      // close starts): wait for that close to finish.
+      // If that close fails, serialport emits 'error' instead: keep the
+      // port, and close it again on the next reconnect.
+      this.closingPort = old
+      const onClose = () => {
+        old.removeListener('error', onError)
+        this.closingPort = undefined
+        this.serial = null
+        this.start()
+      }
+      const onError = (err: any) => {
+        old.removeListener('close', onClose)
+        this.closingPort = undefined
+        this.debug(`closing ${this.options.device} failed: ${err?.message}`)
+        this.scheduleReconnect()
+      }
+      old.once('close', onClose)
+      old.once('error', onError)
+      return
+    }
+    if (old.isOpen) {
+      this.closingPort = old
+      old.close((err: any) => {
+        this.closingPort = undefined
+        if (err && old.isOpen) {
+          this.debug(`closing ${this.options.device} failed: ${err.message}`)
+          this.scheduleReconnect()
+          return
+        }
+        this.serial = null
+        this.start()
+      })
+      return
+    }
     this.serial = null
   }
 
@@ -266,6 +314,11 @@ ActisenseStream.prototype.sendPGN = function (this: any, pgn: PGN) {
 }
 
 ActisenseStream.prototype.scheduleReconnect = function () {
+  // One reconnect at a time: an error is followed by a close, and both ask
+  // for one. Keep the reconnect already planned, and its backoff.
+  if (this.reconnectTimer) {
+    return
+  }
   if (this.options.reconnect === undefined || this.options.reconnect === true) {
     this.reconnectDelay *= this.reconnectDelay < 60 * 1000 ? 1.5 : 1
     const msg = `Not connected (retry delay ${(
@@ -273,7 +326,10 @@ ActisenseStream.prototype.scheduleReconnect = function () {
     ).toFixed(0)} s)`
     this.debug(msg)
     this.setProviderStatus(msg)
-    this.reconnectTimer = setTimeout(this.start.bind(this), this.reconnectDelay)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined
+      this.start()
+    }, this.reconnectDelay)
   }
 }
 
