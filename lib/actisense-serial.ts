@@ -115,12 +115,23 @@ ActisenseStream.prototype.start = function (this: any) {
     if (old.closing) {
       // serialport is already closing it (isOpen turns false as soon as a
       // close starts): wait for that close to finish.
+      // If that close fails, serialport emits 'error' instead: keep the
+      // port, and close it again on the next reconnect.
       this.closingPort = old
-      old.once('close', () => {
+      const onClose = () => {
+        old.removeListener('error', onError)
         this.closingPort = undefined
         this.serial = null
         this.start()
-      })
+      }
+      const onError = (err: any) => {
+        old.removeListener('close', onClose)
+        this.closingPort = undefined
+        this.debug(`closing ${this.options.device} failed: ${err?.message}`)
+        this.scheduleReconnect()
+      }
+      old.once('close', onClose)
+      old.once('error', onError)
       return
     }
     if (old.isOpen) {

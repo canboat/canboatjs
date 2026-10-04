@@ -152,4 +152,23 @@ describe('ActisenseStream reconnect', () => {
     await settle()
     expect(opened).toHaveLength(2)
   })
+
+  test('closes again when a close serialport started fails', async () => {
+    const first = opened[0]
+    first.isOpen = false
+    first.closing = true
+    first.emit('error', new Error('device lost'))
+    jest.advanceTimersByTime(5000)
+    await settle()
+    // serialport reports the failed close with an error, not a close.
+    first.closing = false
+    first.isOpen = true
+    first.emit('error', new Error('close failed'))
+    jest.advanceTimersByTime(20000)
+    await settle()
+    expect(first.isOpen).toBe(false)
+    expect(opened).toHaveLength(2)
+    expect(opened[1].isOpen).toBe(true)
+    expect(lockErrors).toEqual([])
+  })
 })
