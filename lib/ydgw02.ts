@@ -119,6 +119,20 @@ Ydgw02Stream.prototype.sendString = function (msg: string, forceSend: boolean) {
   }
 }
 
+// Send the frames of one message together, in one out event. Over TCP or
+// serial the bytes are the same as frame by frame; over UDP the message
+// becomes one datagram instead of one per frame, which a YDWG-02 receiving
+// a fast-packet burst was measured to lose about every other frame of.
+// Even 32 frames (a 223-byte message) are about 1.1 kB: one datagram.
+Ydgw02Stream.prototype.sendFrames = function (
+  msgs: string[],
+  forceSend?: boolean
+) {
+  if (msgs.length > 0) {
+    this.sendString(msgs.map((raw) => raw + '\r\n').join(''), forceSend)
+  }
+}
+
 Ydgw02Stream.prototype.sendPGN = function (pgn: PGN, force?: boolean): void {
   if (this.cansend() || (pgn as any).forceSend === true || force === true) {
     //let now = Date.now()
@@ -140,9 +154,7 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN, force?: boolean): void {
     } else {
       msgs = pgnToYdgwRawFormat(pgn)
     }
-    msgs.forEach((raw) => {
-      this.sendString(raw + '\r\n', (pgn as any).forceSend)
-    })
+    this.sendFrames(msgs, (pgn as any).forceSend)
 
     if (this.device !== undefined) {
       if (pgn.pgn === 126996 || pgn.pgn === 126998 || pgn.pgn === 60928) {
@@ -167,9 +179,7 @@ Ydgw02Stream.prototype.sendPGN = function (pgn: PGN, force?: boolean): void {
 }
 
 Ydgw02Stream.prototype.sendYdgwFullPGN = function (msgs: string[]) {
-  msgs.forEach((raw) => {
-    this.sendString(raw + '\r\n')
-  })
+  this.sendFrames(msgs)
 }
 
 Ydgw02Stream.prototype.sendYdgwPGN = function (msg: string) {
@@ -181,9 +191,7 @@ Ydgw02Stream.prototype.sendYdgwPGN = function (msg: string) {
     msgs = actisenseToYdgwRawFormat(msg)
   }
 
-  msgs.forEach((raw) => {
-    this.sendString(raw + '\r\n')
-  })
+  this.sendFrames(msgs)
 }
 
 util.inherits(Ydgw02Stream, Transform)
@@ -338,9 +346,7 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
       }
       const msgs = pgnToYdgwFullRawFormat(pgn)
 
-      msgs.forEach((raw) => {
-        this.stream.sendString(raw + '\r\n', (pgn as any).forceSend)
-      })
+      this.stream.sendFrames(msgs, (pgn as any).forceSend)
     }
   }
 
@@ -354,9 +360,7 @@ class YDDeviceEmulator extends EventEmitter implements DeviceEmulator {
 
       const msgs = actisenseToYdgwFullRawFormat(pgn)
 
-      msgs.forEach((raw) => {
-        this.stream.sendString(raw + '\r\n')
-      })
+      this.stream.sendFrames(msgs)
     } else {
       this.sendPGN(pgn, false)
     }
