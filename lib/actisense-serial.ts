@@ -298,7 +298,7 @@ function read1Byte(that: any, c: any) {
         if (that.buffer[0] == N2K_MSG_RECEIVED) {
           processN2KMessage(that, that.buffer, that.bufferOffset)
         } else if (that.buffer[0] == NGT_MSG_RECEIVED) {
-          processNTGMessage(that, that.buffer, that.bufferOffset)
+          processNGTMessage(that, that.buffer, that.bufferOffset)
         }
       }
       that.bufferOffset = 0
@@ -378,7 +378,20 @@ function requestTransmitPGNList(that: any) {
   }, 10000)
 }
 
-function processNTGMessage(that: any, buffer: Buffer, len: number) {
+function processNGTMessage(that: any, buffer: Buffer, len: number) {
+  // As for N2K frames: the buffered frame must match its declared length
+  // (type + length + payload + checksum), and the payload must at least
+  // hold the command. A frame cut short by the buffer limit is dropped.
+  const payloadLen = buffer[1]
+  if (payloadLen < 1 || len !== payloadLen + 3) {
+    that.debug(
+      'discarding malformed NGT frame (len=%d, payloadLen=%d)',
+      len,
+      payloadLen
+    )
+    return
+  }
+
   let checksum = 0
 
   for (let i = 0; i < len; i++) {

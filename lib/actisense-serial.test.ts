@@ -265,6 +265,34 @@ describe('parser state and buffer bounds (#457)', () => {
   })
 })
 
+describe('NGT frames must match their declared length', () => {
+  // An NGT startup response: 0xa0, length 1, command 0x11, checksum.
+  const ngt = (body: number[]) => {
+    const sum = body.reduce((a, b) => a + b, 0)
+    return Buffer.from([DLE, STX, ...body, (256 - (sum % 256)) % 256, DLE, ETX])
+  }
+  const stream = () => {
+    const s: any = new (ActisenseStream as any)({
+      fromFile: true,
+      app: new EventEmitter()
+    })
+    s.outAvailable = true // no transmit-list request to schedule
+    return s
+  }
+
+  test('a startup response is taken', () => {
+    const s = stream()
+    s._transform(ngt([0xa0, 0x01, 0x11]), 'binary', () => {})
+    expect(s.gotStartupResponse).toBe(true)
+  })
+
+  test('a frame longer than it says is dropped, even with a good checksum', () => {
+    const s = stream()
+    s._transform(ngt([0xa0, 0x01, 0x11, 0x00, 0x00]), 'binary', () => {})
+    expect(s.gotStartupResponse).toBeUndefined()
+  })
+})
+
 interface SendTestHarness {
   instance: any
   app: EventEmitter
