@@ -133,6 +133,31 @@ describe('raw CAN frames never decode as a whole message', () => {
     ).toEqual(expected)
   })
 
+  test('rejects a candump line that declares 8 bytes but lists more', () => {
+    const { parser, errors } = newParser()
+    expect(
+      parser.parseString('can0  0DF80514   [8]  60 2F FC FA 50 B0 B3 99 25 C0')
+    ).toBeUndefined()
+    expect(errors).toHaveLength(1)
+  })
+
+  test('a raw frame does not reset the format learned from coalesced input', () => {
+    const { parser } = newParser()
+    const coalesced = (bytes: string[]) =>
+      `2026-10-04T17:31:23.000Z,3,129029,20,255,${bytes.length},${bytes.join(',')}`
+    const payload = frames
+      .flatMap((f, i) => f.split(' ').slice(i === 0 ? 5 : 4))
+      .slice(0, 47)
+    // A whole message teaches the parser its input is coalesced
+    expect(positions(parser, [coalesced(payload)])).toEqual(expected)
+    // A raw frame from another source in between
+    parser.parseString(frames[0])
+    // A whole fast-packet message of 8 bytes still decodes as a message
+    expect(positions(parser, [coalesced(payload.slice(0, 8))])).toEqual(
+      expected
+    )
+  })
+
   test('a coalesced message from another source does not stop frames from reassembling', () => {
     const { parser } = newParser()
     // The same message as one coalesced Actisense line: this legitimately
