@@ -34,7 +34,11 @@ import _ from 'lodash'
 import { getPgn, getCustomPgn, addCustomPgns } from './pgns'
 import { BitStream, BitView } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
-import { encodeCandump2 } from './stringMsg'
+import {
+  encodeCandump2,
+  CAN_FRAME_MAX_LEN,
+  RAW_FRAME_FORMATS
+} from './stringMsg'
 import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
 import { parseQuirks, Quirks } from './quirks'
@@ -228,12 +232,16 @@ export class Parser extends EventEmitter {
     len: number,
     coalesced: boolean,
     cb: FromPgnCallback | undefined,
-    sourceString: string | undefined = undefined
+    sourceString: string | undefined = undefined,
+    rawFrame = false
   ): BitStream | undefined {
+    // A raw frame is one CAN frame by definition, so it neither learns nor
+    // obeys the coalesced format: a stream that once carried a whole
+    // message would otherwise decode every later frame as a message.
     if (
       coalesced ||
       len > 0x8 ||
-      (this.format == FORMAT_COALESCED && !this.mixedFormat)
+      (!rawFrame && this.format == FORMAT_COALESCED && !this.mixedFormat)
     ) {
       this.format = FORMAT_COALESCED
       if (sourceString && this.options.includeInputData) {
@@ -581,7 +589,8 @@ export class Parser extends EventEmitter {
     len: number,
     coalesced: boolean,
     cb: FromPgnCallback | undefined,
-    sourceString: string | undefined = undefined
+    sourceString: string | undefined = undefined,
+    rawFrame = false
   ): [boolean, Definition | undefined, BitStream | undefined] {
     let pgnData: Definition | undefined
 
@@ -616,7 +625,8 @@ export class Parser extends EventEmitter {
       len,
       coalesced,
       cb,
-      sourceString
+      sourceString,
+      rawFrame
     )
 
     if (!bs) {
@@ -632,10 +642,24 @@ export class Parser extends EventEmitter {
     len: number,
     coalesced: boolean,
     cb: FromPgnCallback | undefined,
-    sourceString: string | undefined = undefined
+    sourceString: string | undefined = undefined,
+    rawFrame = false
   ) {
     if (pgn.src === undefined) {
       throw new Error('invalid pgn, missing src: ' + JSON.stringify(pgn))
+    }
+
+    // More than 8 bytes in a raw CAN frame is a damaged line, e.g. two
+    // partial lines glued together by a lost datagram. Decoding it as a
+    // coalesced message would also flip the parser into the coalesced
+    // format for good (#497).
+    if (rawFrame && len > CAN_FRAME_MAX_LEN) {
+      const error = new Error(
+        `CAN frame for pgn ${pgn.pgn} from ${pgn.src} has ${len} data bytes`
+      )
+      cb && cb(error, undefined)
+      this.emit('error', pgn, error)
+      return
     }
 
     try {
@@ -689,7 +713,8 @@ export class Parser extends EventEmitter {
         len,
         coalesced,
         cb,
-        sourceString
+        sourceString,
+        rawFrame
       )
 
       if (unknownPGN == false && pgnData === undefined) {
@@ -934,7 +959,7 @@ export class Parser extends EventEmitter {
       if (!error) {
         const bs = new BitStream(data)
         delete pgn.format
-        const res = this._parse(pgn, bs, data.length, false, cb, pgn_data)
+        const res = this._parse(pgn, bs, data.length, false, cb, pgn_data, true)
         if (res) {
           debug('parsed ydgw02 pgn %j', pgn_data)
           return res
@@ -1024,6 +1049,7 @@ export class Parser extends EventEmitter {
       }
 
       const bs = new BitStream(data)
+      const rawFrame = RAW_FRAME_FORMATS.has(pgn.format)
       delete pgn.format
       delete pgn.type
       delete pgn.prefix
@@ -1033,7 +1059,8 @@ export class Parser extends EventEmitter {
         len || data.length,
         coalesced,
         cb,
-        pgn_data
+        pgn_data,
+        rawFrame
       )
       if (res) {
         debug('parsed pgn %j', pgn)

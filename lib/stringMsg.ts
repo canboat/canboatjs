@@ -73,6 +73,21 @@ function toPaddedHexString(num: number, len: number) {
 /** canboat's RAWFRAME_MAX_SIZE: the longest fast-packet payload. */
 const PLAIN_MAX_LEN = 255 * 7
 
+/** A classic CAN frame carries at most 8 data bytes. */
+export const CAN_FRAME_MAX_LEN = 8
+
+/**
+ * Formats that carry one CAN frame per line, never a reassembled message.
+ * A fast-packet PGN in one of these is always a single frame, whatever an
+ * earlier line from another source taught the parser.
+ */
+export const RAW_FRAME_FORMATS = new Set([
+  'YDRAW',
+  'candump1',
+  'candump2',
+  'candump3'
+])
+
 /** `<timestamp>,<prio>,<pgn>,<src>,<dst>,<len>,<payload>` */
 const PLAIN_LINE =
   /^[^,]*,( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *),(.*)$/s
@@ -207,7 +222,11 @@ export const parseYDRAW = (input: string) => {
   const parts = input.split(' ')
   if (parts.length < 4) return buildErr('YDRAW', 'Invalid parts.', input)
   const [time, direction, canId, ...data] = parts // time format HH:mm:ss.SSS
-  return buildMsg(parseCanIdStr(canId), 'YDRAW', arrBuff(data), {
+  const buffer = arrBuff(data)
+  if (buffer.length > CAN_FRAME_MAX_LEN) {
+    return buildErr('YDRAW', 'More than 8 data bytes in a CAN frame.', input)
+  }
+  return buildMsg(parseCanIdStr(canId), 'YDRAW', buffer, {
     direction,
     time
   })
@@ -221,7 +240,11 @@ export const parseYDRAWOut = (input: string) => {
   const parts = input.split(' ')
   if (parts.length < 4) return buildErr('YDRAW', 'Invalid parts.', input)
   const [canId, ...data] = parts // time format HH:mm:ss.SSS
-  return buildMsg(parseCanIdStr(canId), 'YDRAW', arrBuff(data))
+  const buffer = arrBuff(data)
+  if (buffer.length > CAN_FRAME_MAX_LEN) {
+    return buildErr('YDRAW', 'More than 8 data bytes in a CAN frame.', input)
+  }
+  return buildMsg(parseCanIdStr(canId), 'YDRAW', buffer)
 }
 //19F51323 01 02<CR><LF>
 export const encodeYDRAW = ({ data, ...canIdInfo }: any) => {
