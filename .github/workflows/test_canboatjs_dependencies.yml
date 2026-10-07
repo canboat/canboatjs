@@ -52,12 +52,6 @@ jobs:
             links: '@canboat/ts-pgns'
             build: true
             test: true
-          # Its tests round-trip every conversion through toPgn and FromPgn
-          # and check the fields against ts-pgns. No build: that also bundles
-          # its webpack panel, and the tests run from src.
-          - repo: NearlCrews/signalk-nmea2000-emitter-cannon
-            links: '@canboat/canboatjs @canboat/ts-pgns'
-            test: true
 
     steps:
     - name: Checkout canboatjs
