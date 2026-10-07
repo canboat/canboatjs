@@ -411,6 +411,7 @@ export class Parser extends EventEmitter {
     startDef: Definition,
     bs: BitStream
   ): [boolean, Definition | undefined, BitStream] {
+    const start = bs.index
     let pgnData: Definition | undefined = startDef
 
     let RepeatingFields = pgnData.RepeatingFieldSet1Size ?? 0
@@ -474,7 +475,18 @@ export class Parser extends EventEmitter {
           // does. Only a PGN without one is dropped, or returned as
           // 'Unknown PGN' when asked for with returnNonMatches.
           const fallback = findFallBackPGN(pgn.pgn)
-          if (fallback === undefined && !this.options.returnNonMatches) {
+          if (fallback !== undefined) {
+            // Start over from the first byte: the variants have already
+            // read fields the catch-all does not have, and consumed bytes
+            // that belong in its data. A catch-all has no Match fields, so
+            // this cannot come back here.
+            bs.index = start
+            const res = this.readFields(pgn, [fallback], fallback, bs)
+            if (previousMatch) {
+              ;(pgn as any).partialMatch = previousMatch.Id
+            }
+            return res
+          } else if (!this.options.returnNonMatches) {
             this.emit(
               'warning',
               pgn,
@@ -491,27 +503,19 @@ export class Parser extends EventEmitter {
               }
             }
 
-            pgnData = fallback
+            pgnData = undefined
+            unknownPGN = true
+            fields = []
+            // The variant that just failed may have repeating fields; they
+            // must not be read for an unknown PGN.
+            RepeatingFields = 0
+            totalRepeatingFields = 0
 
-            if (pgnData === undefined) {
-              unknownPGN = true
-              fields = []
-            } else {
-              fields = pgnData.Fields
-            }
-            // The catch-all has no repeating fields; the variant that just
-            // failed may have, and they must not cut the loop short.
-            RepeatingFields = pgnData?.RepeatingFieldSet1Size ?? 0
-            totalRepeatingFields =
-              RepeatingFields + (pgnData?.RepeatingFieldSet2Size ?? 0)
-
-            if (unknownPGN || i >= fields.length) {
-              const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
-              if (data.length > 0) {
-                const buf = Buffer.from(data)
-                ;(pgn.fields as any).data = byteString(buf, ' ')
-                setByteMapping(buf)
-              }
+            const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+            if (data.length > 0) {
+              const buf = Buffer.from(data)
+              ;(pgn.fields as any).data = byteString(buf, ' ')
+              setByteMapping(buf)
             }
 
             if (previousMatch) {

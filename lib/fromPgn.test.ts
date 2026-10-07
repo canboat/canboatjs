@@ -202,6 +202,22 @@ describe('a message that no definition describes', () => {
     expect(pgn.fields.data.split(' ')).toHaveLength(160)
   })
 
+  test('keeps all its bytes when the variants matched its first fields', () => {
+    // Fusion, with a message ID none of its 130820 variants has: the
+    // manufacturer and industry match, the message ID does not
+    const pgn: any = new FromPgn({ useCamel: true }).parseString(
+      '2016-02-28T19:57:02.480Z,7,130820,7,255,10,a3,99,ee,7f,01,02,03,04,05,06'
+    )
+    expect(pgn.description).toBe(
+      '0x1FF00-0x1FFFF: Manufacturer Specific fast-packet non-addressed'
+    )
+    expect(pgn.fields).toEqual({
+      manufacturerCode: 'Fusion Electronics',
+      industryCode: 'Marine Industry',
+      data: 'ee 7f 01 02 03 04 05 06'
+    })
+  })
+
   test('decodes a PGN without any definition with the catch-all, silently', () => {
     const parser = new FromPgn({ useCamel: true })
     const warnings: string[] = []
