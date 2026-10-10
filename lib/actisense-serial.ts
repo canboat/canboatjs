@@ -68,6 +68,13 @@ const BEM_STARTUP_STATUS = 0xf0 /* sent when the gateway has (re)started */
 const BEM_ERROR_REPORT = 0xf1 /* sent when the gateway hits an error */
 const BEM_NEGATIVE_ACK = 0xf4 /* the gateway could not carry out a command */
 
+const BEM_COMMIT_TO_EEPROM = 0x01 /* Commit To EEPROM */
+const BEM_SUPPORTED_PGN_LIST = 0x40 /* Get Supported PGN List */
+const BEM_TX_PGN_ENABLE = 0x47 /* Get / Set Tx PGN Enable */
+const BEM_TX_PGN_ENABLE_LIST_F1 = 0x49 /* Get Tx PGN Enable List F1 */
+const BEM_ACTIVATE_PGN_ENABLE_LISTS = 0x4b /* Activate PGN Enable Lists */
+const BEM_TX_PGN_ENABLE_LIST_F2 = 0x4f /* Get Tx PGN Enable List F2 */
+
 const BEM_HEADER_LENGTH = 12
 
 /* The SDK's names for the (negative) error codes in a BEM answer. It
@@ -140,7 +147,6 @@ export function ActisenseStream(this: any, options: any) {
   this.reconnect = options.reconnect || true
   this.serial = null
   this.options = options
-  this.transmitPGNRetries = 2
 
   this.transmitPGNs = defaultTransmitPGNs
   if (this.options.transmitPGNs) {
@@ -242,6 +248,8 @@ ActisenseStream.prototype.start = function (this: any) {
   this.productInfoParts = {}
   // A set-up timer of the previous port must not enable output on this one.
   clearTimeout(this.setUpTimer)
+  clearTimeout(this.txListTimer)
+  this.txList = undefined
 
   if (typeof this.reconnectDelay === 'undefined') {
     this.reconnectDelay = 1000
@@ -464,10 +472,12 @@ function setUpGateway(that: any) {
   that.gotStartupResponse = false
   clearTimeout(that.setUpTimer)
   sendSetUpCommands(that)
+  clearTimeout(that.txListTimer)
   if (that.options.disableSetTransmitPGNs) {
+    that.txList = undefined
     that.setUpTimer = setTimeout(() => enableOutput(that), MODE_SETTLE_MS)
   } else {
-    that.transmitPGNRetries = 2
+    that.txList = { step: 'awaitStartup' }
     that.setUpTimer = setTimeout(() => {
       if (that.gotStartupResponse === false) {
         that.debug('retry Product Info and Set Operating Mode...')
@@ -676,13 +686,6 @@ function parseBemResponse(buffer: Buffer, len: number) {
   }
 }
 
-function enableTXPGN(that: any, pgn: number) {
-  that.debug('enabling pgn %d', pgn)
-  const msg = composeEnablePGN(pgn)
-  that.debugOut(msg)
-  that.serial.write(msg)
-}
-
 function enableOutput(that: any) {
   that.debug('outputEnabled')
   that.outAvailable = true
@@ -691,24 +694,329 @@ function enableOutput(that: any) {
   }
 }
 
-function requestTransmitPGNList(that: any) {
-  that.debug('request tx pgns...')
-  const requestMsg = composeRequestTXPGNList()
-  that.debugOut(requestMsg)
-  that.serial.write(requestMsg)
-  setTimeout(() => {
-    if (!that.gotTXPGNList) {
-      if (that.transmitPGNRetries-- > 0) {
-        that.debug('did not get tx pgn list, retrying...')
-        requestTransmitPGNList(that)
-      } else {
-        const msg = 'could not set transmit pgn list'
-        that.options.app.setProviderStatus(msg)
-        console.warn(msg)
-        enableOutput(that)
+/* The Transmit PGN Enable list sync, on only when ENABLESETTRANSMITPGNS is
+   set. A PGN missing from the gateway's list is silently not transmitted,
+   so the list is read, and the missing PGNs are enabled, saved to EEPROM
+   and activated. Output waits until that is done.
+
+   Firmware 2.500 and later is read with Get Supported PGN List and Get Tx
+   PGN Enable List F2, which lists indexes into the supported list. Older or
+   unknown firmware, and a gateway that refuses or ignores F2, is read with
+   the deprecated F1, which an NGT-1 truncates on a long list: a PGN it
+   misses is answered "already enabled" (-996). Only an enable that added a
+   PGN (error 0) leads to an EEPROM write, so a gateway already set up is
+   never written to again.
+
+   Seen on an NGT-1-USB, firmware 2.690 (canboat
+   samples/actisense-ngt1-fw2690.txt): the Supported PGN List's structure
+   variant is 0x1100, its parts come highest index first, all sequence 1;
+   F2's proprietary part (0x1103) comes before its standard part (0x1102).
+   So parts are told apart by structure variant and put in place by their
+   first index. That NGT-1 needs Commit To EEPROM to keep a change, and
+   saves it 3-6 s later: a Set Operating Mode before then (a quick
+   reconnect) brings back the saved list, and the next sync enables the
+   PGN again. */
+
+const F2_FIRMWARE = 2500 /* the first firmware with F2, × 1000 */
+const SV_SUPPORTED_PGN_LIST = 0x1100
+const SV_TX_ENABLE_LIST = 0x1102
+const SV_PROP_TX_ENABLE_LIST = 0x1103
+const F1_PGNS = 1 /* F1's four messages: PGNs, rates, timeouts, priorities */
+const F1_LAST = 4
+const ALREADY_ENABLED = -996
+const TX_RATE_DEFAULT = 0xfffffffe /* the PGN's default rate */
+const TX_TIMEOUT_IGNORED = 0xfffffffe
+const TX_LIST_READ_DELAY_MS = 2000
+const TX_LIST_ANSWER_TIMEOUT_MS = 10000
+const TX_LIST_READ_ATTEMPTS = 3
+
+function sendBem(that: any, payload: number[]) {
+  const buf = composeMessage(NGT_MSG_SEND, Buffer.from(payload), payload.length)
+  that.debugOut(buf)
+  that.serial.write(buf)
+}
+
+/* Wait for the next answer, or run `onTimeout`. */
+function txListWait(that: any, ms: number, onTimeout: () => void) {
+  clearTimeout(that.txListTimer)
+  that.txListTimer = setTimeout(onTimeout, ms)
+}
+
+/* The gateway stores a PDU1 PGN with its low (destination) byte cleared:
+   enabling PGN 1 enables PGN 0. */
+function storedPgn(pgn: number) {
+  return ((pgn >> 8) & 0xff) < 240 ? pgn & ~0xff : pgn
+}
+
+function readTxList(that: any) {
+  const firmware = that.productInfo && that.productInfo.firmware
+  if (firmware >= F2_FIRMWARE) {
+    readTxListF2(that, 1)
+  } else {
+    readTxListF1(that, 1)
+  }
+}
+
+function readTxListF1(that: any, attempt: number) {
+  that.txList = { step: 'readingF1', have: [] }
+  sendBem(that, [BEM_TX_PGN_ENABLE_LIST_F1])
+  txListWait(that, TX_LIST_ANSWER_TIMEOUT_MS, () => {
+    if (attempt < TX_LIST_READ_ATTEMPTS) {
+      that.debug('no answer to Get Tx PGN Enable List F1, retrying...')
+      readTxListF1(that, attempt + 1)
+    } else {
+      finishTxList(that, 'could not read the transmit PGN list')
+    }
+  })
+}
+
+function readTxListF2(that: any, attempt: number) {
+  that.txList = {
+    step: 'readingF2',
+    supported: {},
+    enabled: {},
+    proprietary: undefined
+  }
+  sendBem(that, [BEM_SUPPORTED_PGN_LIST])
+  sendBem(that, [BEM_TX_PGN_ENABLE_LIST_F2])
+  txListWait(that, TX_LIST_ANSWER_TIMEOUT_MS, () => {
+    if (attempt < TX_LIST_READ_ATTEMPTS) {
+      that.debug('no answer to Get Tx PGN Enable List F2, retrying...')
+      readTxListF2(that, attempt + 1)
+    } else {
+      that.debug('no answer to Get Tx PGN Enable List F2, trying F1')
+      readTxListF1(that, 1)
+    }
+  })
+}
+
+/* Put `entries` in place from index `first`; a part giving another size
+   than the earlier ones starts the list over. */
+function addParts(parts: any, size: number, first: number, entries: any[]) {
+  if (!parts.items || parts.items.length !== size) {
+    parts.items = new Array(size).fill(undefined)
+  }
+  entries.forEach((entry, i) => {
+    if (first + i < size) {
+      parts.items[first + i] = entry
+    }
+  })
+}
+
+function completeParts(parts: any): any[] | undefined {
+  return parts.items && parts.items.every((e: any) => e !== undefined)
+    ? parts.items
+    : undefined
+}
+
+/* A Supported PGN List answer's data: transfer id, structure variant (u32),
+   N2K database version (u16), full size, first index, count, then per PGN
+   its index and the PGN (u24). */
+function addSupportedPgns(tx: any, d: Buffer) {
+  if (d.length < 10 || d.readUInt32LE(1) !== SV_SUPPORTED_PGN_LIST) {
+    return
+  }
+  const entries: number[][] = []
+  for (let i = 0, o = 10; i < d[9] && o + 4 <= d.length; i++, o += 4) {
+    entries.push([d[o], d[o + 1] | (d[o + 2] << 8) | (d[o + 3] << 16)])
+  }
+  addParts(tx.supported, d[7], d[8], entries)
+}
+
+/* A size byte and that many bytes, from `offset`. */
+function bitmapAt(d: Buffer, offset: number) {
+  if (offset >= d.length || offset + 1 + d[offset] > d.length) {
+    return undefined
+  }
+  return d.subarray(offset + 1, offset + 1 + d[offset])
+}
+
+/* The PGNs a proprietary bitmap enables: bit n is base + n. */
+function bitmapPgns(base: number, bitmap: Buffer) {
+  const pgns: number[] = []
+  bitmap.subarray(0, 32).forEach((bits, byte) => {
+    for (let bit = 0; bit < 8; bit++) {
+      if (bits & (1 << bit)) {
+        pgns.push(base + byte * 8 + bit)
       }
     }
-  }, 10000)
+  })
+  return pgns
+}
+
+/* An F2 answer's data: transfer id and structure variant (u32), then
+   either the standard PGNs (full size, first index, count, then per PGN its
+   index in the Supported PGN List, priority and rate (u16)), or the
+   proprietary ones as two bitmaps, of 0xff00-0xffff and 0x1ff00-0x1ffff. */
+function addEnabledPgns(tx: any, d: Buffer) {
+  if (d.length < 5) {
+    return
+  }
+  const variant = d.readUInt32LE(1)
+  if (variant === SV_TX_ENABLE_LIST && d.length >= 8) {
+    const entries: number[] = []
+    for (let i = 0, o = 8; i < d[7] && o + 4 <= d.length; i++, o += 4) {
+      entries.push(d[o])
+    }
+    addParts(tx.enabled, d[5], d[6], entries)
+  } else if (variant === SV_PROP_TX_ENABLE_LIST) {
+    const pdu2 = bitmapAt(d, 5)
+    const fast = pdu2 && bitmapAt(d, 6 + pdu2.length)
+    if (pdu2 && fast) {
+      tx.proprietary = bitmapPgns(0xff00, pdu2).concat(
+        bitmapPgns(0x1ff00, fast)
+      )
+    }
+  }
+}
+
+/* The enabled PGNs, once every part of the F2 read is in. */
+function f2Pgns(that: any, tx: any): number[] | undefined {
+  const supported = completeParts(tx.supported)
+  const enabled = completeParts(tx.enabled)
+  if (!supported || !enabled || !tx.proprietary) {
+    return undefined
+  }
+  const byIndex = new Map(supported as [number, number][])
+  const pgns: number[] = []
+  for (const index of enabled) {
+    const pgn = byIndex.get(index)
+    if (pgn === undefined) {
+      that.debug('transmit PGN index %d is not a supported PGN', index)
+    } else {
+      pgns.push(pgn)
+    }
+  }
+  return pgns.concat(tx.proprietary)
+}
+
+/* The gateway's list is in: enable what is wanted and missing. */
+function onTxList(that: any, have: number[]) {
+  that.debug('tx pgns: %j', have)
+  const missing = _.uniq(that.transmitPGNs.map(storedPgn)).filter(
+    (pgn: any) => !have.includes(pgn)
+  ) as number[]
+  if (missing.length === 0) {
+    that.debug('the transmit PGN list is complete')
+    finishTxList(that)
+    return
+  }
+  that.debug('enabling tx pgns: %j', missing)
+  that.txList = { step: 'enabling', todo: missing, added: [] }
+  enableTxPgn(that, missing[0])
+}
+
+/* Set Tx PGN Enable: PGN (u32), enable, rate (u32), timeout (u32). The
+   SDK's trailing priority is left off, so the priority stays as it is. */
+function enableTxPgn(that: any, pgn: number) {
+  const msg = Buffer.alloc(14)
+  msg[0] = BEM_TX_PGN_ENABLE
+  msg.writeUInt32LE(pgn, 1)
+  msg[5] = 1
+  msg.writeUInt32LE(TX_RATE_DEFAULT, 6)
+  msg.writeUInt32LE(TX_TIMEOUT_IGNORED, 10)
+  sendBem(that, [...msg])
+  awaitTxListAnswer(that)
+}
+
+function awaitTxListAnswer(that: any) {
+  txListWait(that, TX_LIST_ANSWER_TIMEOUT_MS, () =>
+    finishTxList(
+      that,
+      'the gateway stopped answering while setting the transmit PGN list'
+    )
+  )
+}
+
+/* The sync is over, done or not: let output through. */
+function finishTxList(that: any, failure?: string) {
+  clearTimeout(that.txListTimer)
+  that.txList = { step: 'done' }
+  if (failure) {
+    console.warn(`actisense: ${failure}`)
+    that.setProviderStatus(failure)
+  }
+  if (!that.outAvailable) {
+    enableOutput(that)
+  }
+}
+
+function onTxListAnswer(that: any, bem: any) {
+  const tx = that.txList
+  if (tx.step === 'awaitStartup') {
+    // Any operating mode answer will do, even a refusal: the gateway is
+    // up, and its list does not depend on the mode.
+    if (bem.bem === BEM_OPERATING_MODE && bem.data.length >= 2) {
+      tx.step = 'readAt'
+      txListWait(that, TX_LIST_READ_DELAY_MS, () => readTxList(that))
+    }
+  } else if (tx.step === 'readingF1' && bem.bem === BEM_TX_PGN_ENABLE_LIST_F1) {
+    // The first message lists the PGNs: a count, then u32s.
+    if (bem.sequence === F1_PGNS) {
+      const d: Buffer = bem.data
+      for (let i = 0, o = 1; i < d[0] && o + 4 <= d.length; i++, o += 4) {
+        tx.have.push(d.readUInt32LE(o))
+      }
+    } else if (bem.sequence === F1_LAST) {
+      onTxList(that, tx.have)
+    }
+  } else if (
+    tx.step === 'readingF2' &&
+    (bem.bem === BEM_SUPPORTED_PGN_LIST ||
+      bem.bem === BEM_TX_PGN_ENABLE_LIST_F2)
+  ) {
+    if (bem.error) {
+      that.debug(
+        'the gateway refused BEM 0x%s (error %s); reading the transmit PGN list with F1',
+        bem.bem.toString(16),
+        describeError(bem.error)
+      )
+      readTxListF1(that, 1)
+      return
+    }
+    if (bem.bem === BEM_SUPPORTED_PGN_LIST) {
+      addSupportedPgns(tx, bem.data)
+    } else {
+      addEnabledPgns(tx, bem.data)
+    }
+    const have = f2Pgns(that, tx)
+    if (have) {
+      onTxList(that, have)
+    }
+  } else if (tx.step === 'enabling' && bem.bem === BEM_TX_PGN_ENABLE) {
+    // The outcome is the error code; the sequence is 1 whatever happens.
+    const pgn = tx.todo.shift()
+    if (bem.error === 0) {
+      that.debug('enabled tx pgn %d', pgn)
+      tx.added.push(pgn)
+    } else if (bem.error === ALREADY_ENABLED) {
+      that.debug('tx pgn %d was already enabled', pgn)
+    } else {
+      console.warn(
+        `actisense: the gateway refused transmit PGN ${pgn}: error ${describeError(bem.error)}`
+      )
+    }
+    if (tx.todo.length) {
+      enableTxPgn(that, tx.todo[0])
+    } else if (tx.added.length) {
+      // Only a list that changed is saved: no needless EEPROM write.
+      tx.step = 'committing'
+      sendBem(that, [BEM_COMMIT_TO_EEPROM])
+      awaitTxListAnswer(that)
+    } else {
+      finishTxList(that)
+    }
+  } else if (tx.step === 'committing' && bem.bem === BEM_COMMIT_TO_EEPROM) {
+    tx.step = 'activating'
+    sendBem(that, [BEM_ACTIVATE_PGN_ENABLE_LISTS])
+    awaitTxListAnswer(that)
+  } else if (
+    tx.step === 'activating' &&
+    bem.bem === BEM_ACTIVATE_PGN_ENABLE_LISTS
+  ) {
+    that.debug('saved and activated tx pgns %j', tx.added)
+    finishTxList(that)
+  }
 }
 
 function processNGTMessage(that: any, buffer: Buffer, len: number) {
@@ -782,62 +1090,8 @@ function processNGTMessage(that: any, buffer: Buffer, len: number) {
     onGatewayStatus(that, bem)
   }
 
-  // Output is held for a while after Set Operating Mode either way; only
-  // the transmit-list sync sets the gateway up meanwhile.
-  if (!that.outAvailable && !that.options.disableSetTransmitPGNs) {
-    if (command === BEM_OPERATING_MODE) {
-      that.gotTXPGNList = false
-      setTimeout(() => {
-        requestTransmitPGNList(that)
-      }, 2000)
-    } else if (command === 0x49 && buffer[3] === 1) {
-      that.gotTXPGNList = true
-      const pgnCount = buffer[14]
-      const bv = new BitView(buffer.slice(15, that.bufferOffset))
-      const bs = new BitStream(bv)
-      const pgns: number[] = []
-      for (let i = 0; i < pgnCount; i++) {
-        pgns.push(bs.readUint32())
-      }
-      that.debug('tx pgns: %j', pgns)
-
-      that.neededTransmitPGNs = that.transmitPGNs.filter((pgn: number) => {
-        return pgns.indexOf(pgn) == -1
-      })
-      that.debug('needed pgns: %j', that.neededTransmitPGNs)
-    } else if (command === 0x49 && buffer[3] === 4) {
-      //I think this means done receiving the pgns list
-      if (that.neededTransmitPGNs) {
-        if (that.neededTransmitPGNs.length) {
-          enableTXPGN(that, that.neededTransmitPGNs[0])
-        } else {
-          enableOutput(that)
-        }
-      }
-    } else if (command === 0x47) {
-      //response from enable a pgn
-      if (buffer[3] === 1) {
-        that.debug('enabled %d', that.neededTransmitPGNs[0])
-        that.neededTransmitPGNs = that.neededTransmitPGNs.slice(1)
-        if (that.neededTransmitPGNs.length === 0) {
-          const commitMsg = composeCommitTXPGN()
-          that.debugOut(commitMsg)
-          that.serial.write(commitMsg)
-        } else {
-          enableTXPGN(that, that.neededTransmitPGNs[0])
-        }
-      } else {
-        that.debug('bad response from Enable TX: %d', buffer[3])
-      }
-    } else if (command === 0x01) {
-      that.debug('commited tx list')
-      const activateMsg = composeActivateTXPGN()
-      that.debugOut(activateMsg)
-      that.serial.write(activateMsg)
-    } else if (command === 0x4b) {
-      that.debug('activated tx list')
-      enableOutput(that)
-    }
+  if (bem && that.txList) {
+    onTxListAnswer(that, bem)
   }
 }
 
@@ -979,42 +1233,6 @@ function parseInput(msg: string) {
   return bs.view.buffer.slice(0, bs.byteIndex)
 }
 
-function composeCommitTXPGN() {
-  const msg = new Uint32Array([0x01])
-  return composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
-}
-
-function composeActivateTXPGN() {
-  const msg = new Uint32Array([0x4b])
-  return composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
-}
-
-function composeRequestTXPGNList() {
-  const msg = new Uint32Array([0x49])
-  return composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
-}
-
-function composeEnablePGN(pgn: number) {
-  const outBuf = Buffer.alloc(14)
-  const out = new BitStream(outBuf)
-  out.writeUint8(0x47)
-  out.writeUint32(pgn)
-  out.writeUint8(1) //enabled
-
-  out.writeUint32(0xfffffffe)
-  out.writeUint32(0xfffffffe)
-
-  const res = composeMessage(
-    NGT_MSG_SEND,
-    out.view.buffer.slice(0, out.byteIndex),
-    out.byteIndex
-  )
-
-  //that.debug('composeEnablePGN: %o', res)
-
-  return res
-}
-
 /*
 function composeDisablePGN(pgn) {
   var outBuf = Buffer.alloc(14);
@@ -1042,6 +1260,7 @@ ActisenseStream.prototype.end = function () {
   // end must not start again, nor leave its handlers on the app.
   this.reconnect = false
   clearTimeout(this.setUpTimer)
+  clearTimeout(this.txListTimer)
   if (this.reconnectTimer) {
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = undefined
