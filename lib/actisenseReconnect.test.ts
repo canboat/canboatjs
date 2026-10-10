@@ -227,4 +227,55 @@ describe('ActisenseStream open (#502)', () => {
     jest.advanceTimersByTime(1)
     expect(stream.outAvailable).toBe(true)
   })
+
+  describe('a gateway that restarts (#503)', () => {
+    // Startup Status of an NGT-1 (model 0x0e, serial 110763), firmware
+    // 2.690 (0x0a82), reset status 1: framed, with its checksum.
+    const startupStatus = (data: string) => {
+      const payload = Buffer.from(
+        ('f0 00 0e 00 ab b0 01 00 00 00 00 00 ' + data).replace(/ /g, ''),
+        'hex'
+      )
+      let sum = 0xa0 + payload.length
+      payload.forEach((b) => (sum += b))
+      return Buffer.concat([
+        Buffer.from([0x10, 0x02, 0xa0, payload.length]),
+        payload,
+        Buffer.from([(256 - (sum % 256)) % 256, 0x10, 0x03])
+      ])
+    }
+    let warn: jest.SpyInstance
+    beforeEach(() => {
+      warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    })
+    afterEach(() => warn.mockRestore())
+
+    test('is set up again, and output waits for it to settle', () => {
+      const port = opened[0]
+      port.emit('open')
+      jest.advanceTimersByTime(500)
+      expect(stream.outAvailable).toBe(true)
+      port.written = []
+
+      port.emit('data', startupStatus('82 0a 01 00 00 00'))
+      expect(warn).toHaveBeenCalledWith(
+        'actisense: the gateway restarted (firmware 2.690, reset status 0x1); setting it up again'
+      )
+      expect(port.written.map((b: Buffer) => b.toString('hex'))).toEqual([
+        '1002a101411d1003',
+        '1002a103110200491003'
+      ])
+      expect(stream.outAvailable).toBe(false)
+      jest.advanceTimersByTime(500)
+      expect(stream.outAvailable).toBe(true)
+    })
+
+    test("old firmware's one-byte reset status is read", () => {
+      opened[0].emit('open')
+      opened[0].emit('data', startupStatus('82 0a 04'))
+      expect(warn).toHaveBeenCalledWith(
+        'actisense: the gateway restarted (firmware 2.690, reset status 0x4); setting it up again'
+      )
+    })
+  })
 })

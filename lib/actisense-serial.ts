@@ -64,8 +64,39 @@ const MSG_MESSAGE = 3
 
 const BEM_OPERATING_MODE = 0x11 /* Get / Set Operating Mode */
 const BEM_PRODUCT_INFO = 0x41 /* Get Product Info */
+const BEM_STARTUP_STATUS = 0xf0 /* sent when the gateway has (re)started */
+const BEM_ERROR_REPORT = 0xf1 /* sent when the gateway hits an error */
+const BEM_NEGATIVE_ACK = 0xf4 /* the gateway could not carry out a command */
 
 const BEM_HEADER_LENGTH = 12
+
+/* The SDK's names for the (negative) error codes in a BEM answer. It
+   publishes only part of the list, so other codes have no name. */
+const BEM_ERRORS: { [code: number]: string } = {
+  [-1137]: 'BST-BEM message not valid',
+  [-1138]: 'model ID unknown',
+  [-1139]: 'no definition for the datatype',
+  [-1140]: 'bad comms data',
+  [-1152]: 'command does not fit the model',
+  [-1153]: 'invalid stream',
+  [-1154]: 'invalid address',
+  [-1156]: 'unexpected datatype',
+  [-1158]: 'command timeout',
+  [-1159]: 'command data out of range',
+  [-1160]: 'command buffer overrun',
+  [-1168]: 'invalid checksum',
+  [-1169]: 'buffer underflow',
+  [-1170]: 'buffer overflow',
+  [-1173]: 'invalid baud rate',
+  [-1176]: 'port does not exist',
+  [-1177]: 'port number out of range',
+  [-1497]: 'EEPROM sector error',
+  [-1498]: 'malloc/free error',
+  [-1499]: 'model ID invalid',
+  [-1995]: 'null value',
+  [-1997]: 'bad pointer',
+  [-1998]: 'null pointer'
+}
 
 /* The operating modes of an NGT / NGX, numbered and named as in the SDK.
    canboatjs sets NGT Transfer Rx All Mode, which forwards every received
@@ -209,6 +240,8 @@ ActisenseStream.prototype.start = function (this: any) {
   this.state = MSG_START
   this.productInfo = undefined
   this.productInfoParts = {}
+  // A set-up timer of the previous port must not enable output on this one.
+  clearTimeout(this.setUpTimer)
 
   if (typeof this.reconnectDelay === 'undefined') {
     this.reconnectDelay = 1000
@@ -281,17 +314,6 @@ ActisenseStream.prototype.start = function (this: any) {
         this.reconnectDelay = 1000
         setProviderStatus(`Connected to ${this.options.device}`)
         setUpGateway(this)
-        this.gotStartupResponse = false
-        if (this.options.disableSetTransmitPGNs) {
-          setTimeout(() => enableOutput(this), MODE_SETTLE_MS)
-        } else {
-          setTimeout(() => {
-            if (this.gotStartupResponse === false) {
-              this.debug('retry Product Info and Set Operating Mode...')
-              setUpGateway(this)
-            }
-          }, 5000)
-        }
       } catch (err: any) {
         setProviderError(err.message)
         console.error(err)
@@ -431,12 +453,37 @@ function storeByte(that: any, c: number) {
 }
 
 /**
+ * Set the gateway up: on open, and again when it reports that it has
+ * restarted. Output is held until the gateway has settled after Set
+ * Operating Mode, or, with the transmit-list sync on, until that is done.
+ */
+function setUpGateway(that: any) {
+  that.outAvailable = false
+  that.productInfo = undefined
+  that.productInfoParts = {}
+  that.gotStartupResponse = false
+  clearTimeout(that.setUpTimer)
+  sendSetUpCommands(that)
+  if (that.options.disableSetTransmitPGNs) {
+    that.setUpTimer = setTimeout(() => enableOutput(that), MODE_SETTLE_MS)
+  } else {
+    that.transmitPGNRetries = 2
+    that.setUpTimer = setTimeout(() => {
+      if (that.gotStartupResponse === false) {
+        that.debug('retry Product Info and Set Operating Mode...')
+        sendSetUpCommands(that)
+      }
+    }, 5000)
+  }
+}
+
+/**
  * Ask for the gateway's Product Info, then set NGT Transfer Rx All Mode.
  * Product Info goes first: the gateway ignores commands for a while after
  * Set Operating Mode. There is no keepalive: the SDK has none, and the
  * gateway keeps the mode in non-volatile memory.
  */
-function setUpGateway(that: any) {
+function sendSetUpCommands(that: any) {
   for (const msg of [GET_PRODUCT_INFO_MSG, SET_OPERATING_MODE_MSG]) {
     const buf = composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
     that.debugOut(buf)
@@ -460,7 +507,7 @@ function onOperatingMode(that: any, bem: any) {
   const mode = bem.data.readUInt16LE(0)
   if (bem.error !== 0) {
     console.warn(
-      `actisense: the gateway refused ${operatingModeName(OPERATING_MODE_RX_ALL)} (error ${bem.error}); it stays in ${operatingModeName(mode)}`
+      `actisense: the gateway refused ${operatingModeName(OPERATING_MODE_RX_ALL)} (error ${describeError(bem.error)}); it stays in ${operatingModeName(mode)}`
     )
   } else if (mode !== OPERATING_MODE_RX_ALL) {
     console.warn(
@@ -561,6 +608,46 @@ function onProductInfo(that: any, bem: any) {
   that.setProviderStatus(
     `Connected to ${that.options.device}: ${info.hardwareVersion || info.model}, software ${info.softwareVersion}, serial ${info.serialNumber}`
   )
+}
+
+/**
+ * A BEM error code with its SDK name, if it has one: "-1158 (command
+ * timeout)".
+ */
+export function describeError(code: number) {
+  const name = BEM_ERRORS[code]
+  return name ? `${code} (${name})` : `${code}`
+}
+
+/**
+ * Act on a message the gateway sends of its own accord: a restart, an
+ * error, or a command it could not carry out.
+ */
+function onGatewayStatus(that: any, bem: any) {
+  const d: Buffer = bem.data
+  if (bem.bem === BEM_STARTUP_STATUS) {
+    // Firmware version × 1000, then the reset status: 32 bits, but one
+    // byte on old firmware.
+    let detail = ''
+    if (d.length >= 3) {
+      const firmware = d.readUInt16LE(0)
+      const reset = d.length >= 6 ? d.readUInt32LE(2) : d[2]
+      detail = ` (firmware ${Math.floor(firmware / 1000)}.${String(firmware % 1000).padStart(3, '0')}, reset status 0x${reset.toString(16)})`
+    }
+    console.warn(
+      `actisense: the gateway restarted${detail}; setting it up again`
+    )
+    setUpGateway(that)
+  } else if (bem.bem === BEM_ERROR_REPORT) {
+    console.warn(
+      `actisense: the gateway reports error ${describeError(bem.error)}`
+    )
+  } else if (bem.bem === BEM_NEGATIVE_ACK) {
+    const id = d.length >= 4 ? ` 0x${d.readUInt32LE(0).toString(16)}` : ''
+    console.warn(
+      `actisense: the gateway refused command${id}: error ${describeError(bem.error)}`
+    )
+  }
 }
 
 /**
@@ -684,6 +771,8 @@ function processNGTMessage(that: any, buffer: Buffer, len: number) {
     }
   } else if (command === BEM_PRODUCT_INFO && bem) {
     onProductInfo(that, bem)
+  } else if (bem) {
+    onGatewayStatus(that, bem)
   }
 
   // Output is held for a while after Set Operating Mode either way; only
@@ -945,6 +1034,7 @@ ActisenseStream.prototype.end = function () {
   // Closing the port fires 'close', which would reconnect: an intentional
   // end must not start again, nor leave its handlers on the app.
   this.reconnect = false
+  clearTimeout(this.setUpTimer)
   if (this.reconnectTimer) {
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = undefined
