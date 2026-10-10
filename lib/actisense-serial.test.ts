@@ -382,6 +382,22 @@ describe('BEM answers to Set Operating Mode and Get Product Info (#502)', () => 
     ])
   })
 
+  test('Product Info parts with sequence 0 are taken in arrival order', () => {
+    const { s, receive } = stream()
+    capture.productInfo.forEach((p) => {
+      const payload = hex(p)
+      payload[1] = 0 // the sequence byte
+      receive(payload)
+    })
+    expect(s.productInfo).toMatchObject({
+      model: 'NMEA 2000 PC Interface (NGT-1)',
+      softwareVersion: '1.100, 2.690',
+      hardwareVersion: 'NGT-1-USB  [5]',
+      serialNumber: '110763',
+      firmware: 2690
+    })
+  })
+
   test('Product Info in one message (Format 2) is read', () => {
     // The SDK's Format 2 example: sequence 6, structure variant 0x11.
     const str = (text: string) =>

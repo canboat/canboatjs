@@ -501,13 +501,16 @@ export function firmwareVersion(softwareVersion: string): number | undefined {
 
 /**
  * Take in one answer to Get Product Info. Newer firmware answers in one
- * message (sequence 6, Format 2); the NGT-1 and NGW-1 answer in five,
- * numbered 1 to 5 by the sequence byte (Format 1).
+ * message (138 bytes, sequence 6, Format 2); the NGT-1 and NGW-1 answer in
+ * five (Format 1): 6 bytes, then four strings of 32, numbered 1 to 5 by the
+ * sequence byte. The size gives the format; a device that leaves the
+ * sequence at 0 sends the parts in order.
  */
 function onProductInfo(that: any, bem: any) {
   const d: Buffer = bem.data
   const parts = that.productInfoParts
-  if (bem.sequence === 6 && d.length >= 138) {
+  const sequence = bem.sequence
+  if (d.length >= 138 && (sequence === 6 || sequence === 0)) {
     parts[1] = {
       nmea2000Version: d.readUInt16LE(4),
       productCode: d.readUInt16LE(6)
@@ -516,13 +519,24 @@ function onProductInfo(that: any, bem: any) {
     parts[3] = productString(d.subarray(40, 72))
     parts[4] = productString(d.subarray(72, 104))
     parts[5] = productString(d.subarray(104, 136))
-  } else if (bem.sequence === 1 && d.length >= 6) {
+  } else if (d.length >= 32 && d.length < 138) {
+    const part =
+      sequence === 0
+        ? [2, 3, 4, 5].find((p) => parts[p] === undefined)
+        : sequence
+    if (part === undefined || part < 2 || part > 5) {
+      return
+    }
+    parts[part] = productString(d.subarray(0, 32))
+  } else if (
+    d.length >= 6 &&
+    d.length < 32 &&
+    (sequence === 1 || sequence === 0)
+  ) {
     parts[1] = {
       nmea2000Version: d.readUInt16LE(0),
       productCode: d.readUInt16LE(2)
     }
-  } else if (bem.sequence >= 2 && bem.sequence <= 5 && d.length >= 32) {
-    parts[bem.sequence] = productString(d.subarray(0, 32))
   } else {
     return
   }
