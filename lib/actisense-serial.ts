@@ -634,10 +634,17 @@ function onGatewayStatus(that: any, bem: any) {
       const reset = d.length >= 6 ? d.readUInt32LE(2) : d[2]
       detail = ` (firmware ${Math.floor(firmware / 1000)}.${String(firmware % 1000).padStart(3, '0')}, reset status 0x${reset.toString(16)})`
     }
-    console.warn(
-      `actisense: the gateway restarted${detail}; setting it up again`
-    )
-    setUpGateway(that)
+    if (bem.error) {
+      detail += `, error ${describeError(bem.error)}`
+    }
+    if (that.serial) {
+      console.warn(
+        `actisense: the gateway restarted${detail}; setting it up again`
+      )
+      setUpGateway(that)
+    } else {
+      console.warn(`actisense: the gateway restarted${detail}`)
+    }
   } else if (bem.bem === BEM_ERROR_REPORT) {
     console.warn(
       `actisense: the gateway reports error ${describeError(bem.error)}`

@@ -491,6 +491,15 @@ describe("the gateway's own messages (#503)", () => {
       'actisense: the gateway refused command 0xee: error -1098'
     )
   })
+
+  test('a Startup Status from a file is warned about, with its error', () => {
+    // Firmware 2.690, reset status 1, error -1140 (0xfffffb8c). There is
+    // no serial port to set the gateway up again through.
+    receive('f0 00 0e 00 ab b0 01 00 8c fb ff ff 82 0a 01 00 00 00')
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway restarted (firmware 2.690, reset status 0x1), error -1140 (bad comms data)'
+    )
+  })
 })
 
 describe('describeError', () => {
