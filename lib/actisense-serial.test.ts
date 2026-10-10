@@ -3,6 +3,7 @@ import { PGN } from '@canboat/ts-pgns'
 import {
   ActisenseStream,
   composeMessage,
+  describeError,
   firmwareVersion
 } from './actisense-serial'
 
@@ -359,7 +360,7 @@ describe('BEM answers to Set Operating Mode and Get Product Info (#502)', () => 
     // error -1159 (0xfffffb79), "command data out of range"
     receive(hex('11 01 0e 00 ab b0 01 00 79 fb ff ff 05 00'))
     expect(warn).toHaveBeenCalledWith(
-      'actisense: the gateway refused NGT Transfer Rx All Mode (error -1159); it stays in CAN Packet Mode'
+      'actisense: the gateway refused NGT Transfer Rx All Mode (error -1159 (command data out of range)); it stays in CAN Packet Mode'
     )
   })
 
@@ -441,6 +442,73 @@ describe('BEM answers to Set Operating Mode and Get Product Info (#502)', () => 
       nmea2000Version: 2100,
       firmware: 2345
     })
+  })
+})
+
+describe("the gateway's own messages (#503)", () => {
+  const answer = (hex: string) => {
+    const payload = Buffer.from(hex.replace(/ /g, ''), 'hex')
+    return composeMessage(0xa0, payload, payload.length)
+  }
+  let warn: jest.SpyInstance
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  afterEach(() => warn.mockRestore())
+
+  const receive = (hex: string) => {
+    const s: any = new (ActisenseStream as any)({
+      fromFile: true,
+      app: new EventEmitter()
+    })
+    s.outAvailable = true
+    s._transform(answer(hex), 'binary', () => {})
+  }
+
+  test("an Error Report is warned about, with the error's name", () => {
+    // The SDK's example: -1497 (0xfffffa27), size 11, variant 1, data.
+    receive(
+      'f1 00 01 00 39 30 00 00 27 fa ff ff 0b 01 00 00 00 05 00 10 00 00 00 e3'
+    )
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway reports error -1497 (EEPROM sector error)'
+    )
+  })
+
+  test('a Negative Ack is warned about, with the command id', () => {
+    // The SDK's example: -1140 (0xfffffb8c), unique command id 0x12345678.
+    receive('f4 00 34 12 78 56 00 00 8c fb ff ff 78 56 34 12')
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway refused command 0x12345678: error -1140 (bad comms data)'
+    )
+  })
+
+  test('an error the SDK does not name is given as its number', () => {
+    // An NGT-1-USB (firmware 2.690) refusing an unknown BEM command, 0xee:
+    // error -1098, and the refused BEM id as the command id.
+    receive('f4 01 0e 00 ab b0 01 00 b6 fb ff ff ee 00 00 00')
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway refused command 0xee: error -1098'
+    )
+  })
+
+  test('a Startup Status from a file is warned about, with its error', () => {
+    // Firmware 2.690, reset status 1, error -1140 (0xfffffb8c). There is
+    // no serial port to set the gateway up again through.
+    receive('f0 00 0e 00 ab b0 01 00 8c fb ff ff 82 0a 01 00 00 00')
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway restarted (firmware 2.690, reset status 0x1), error -1140 (bad comms data)'
+    )
+  })
+})
+
+describe('describeError', () => {
+  test.each([
+    [-1158, '-1158 (command timeout)'],
+    [-1098, '-1098'],
+    [0, '0']
+  ])('%d is %j', (code, expected) => {
+    expect(describeError(code)).toBe(expected)
   })
 })
 
