@@ -508,7 +508,7 @@ export function firmwareVersion(softwareVersion: string): number | undefined {
  */
 function onProductInfo(that: any, bem: any) {
   const d: Buffer = bem.data
-  const parts = that.productInfoParts
+  let parts = that.productInfoParts
   const sequence = bem.sequence
   if (d.length >= 138 && (sequence === 6 || sequence === 0)) {
     parts[1] = {
@@ -533,6 +533,8 @@ function onProductInfo(that: any, bem: any) {
     d.length < 32 &&
     (sequence === 1 || sequence === 0)
   ) {
+    // Part 1 starts an answer: drop what is left of one that came in short.
+    parts = that.productInfoParts = {}
     parts[1] = {
       nmea2000Version: d.readUInt16LE(0),
       productCode: d.readUInt16LE(2)

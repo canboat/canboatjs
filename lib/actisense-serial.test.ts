@@ -398,6 +398,26 @@ describe('BEM answers to Set Operating Mode and Get Product Info (#502)', () => 
     })
   })
 
+  test('an answer that came in short is dropped when the next one starts', () => {
+    const { s, receive } = stream()
+    const sequence0 = (p: string) => {
+      const payload = hex(p)
+      payload[1] = 0 // the sequence byte
+      return payload
+    }
+    // the first answer loses its last two parts
+    capture.productInfo.slice(0, 3).forEach((p) => receive(sequence0(p)))
+    expect(s.productInfo).toBeUndefined()
+    capture.productInfo.forEach((p) => receive(sequence0(p)))
+    expect(s.productInfo).toMatchObject({
+      model: 'NMEA 2000 PC Interface (NGT-1)',
+      softwareVersion: '1.100, 2.690',
+      hardwareVersion: 'NGT-1-USB  [5]',
+      serialNumber: '110763',
+      firmware: 2690
+    })
+  })
+
   test('Product Info in one message (Format 2) is read', () => {
     // The SDK's Format 2 example: sequence 6, structure variant 0x11.
     const str = (text: string) =>
