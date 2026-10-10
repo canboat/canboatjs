@@ -1,6 +1,10 @@
 import { EventEmitter } from 'events'
 import { PGN } from '@canboat/ts-pgns'
-import { ActisenseStream, composeMessage } from './actisense-serial'
+import {
+  ActisenseStream,
+  composeMessage,
+  firmwareVersion
+} from './actisense-serial'
 
 const DLE = 0x10
 const STX = 0x02
@@ -290,6 +294,129 @@ describe('NGT frames must match their declared length', () => {
     const s = stream()
     s._transform(ngt([0xa0, 0x01, 0x11, 0x00, 0x00]), 'binary', () => {})
     expect(s.gotStartupResponse).toBeUndefined()
+  })
+})
+
+describe('BEM answers to Set Operating Mode and Get Product Info (#502)', () => {
+  // Answers of an NGT-1-USB, firmware 2.690, serial 110763, from canboat's
+  // samples/actisense-ngt1-fw2690.txt: the payload of each NGT_MSG_RECEIVED,
+  // after its length byte.
+  const header = '01 0e 00 ab b0 01 00 00 00 00 00'
+  const capture = {
+    operatingMode: `11 ${header} 02 00`,
+    productInfo: [
+      `41 ${header} 34 08 27 6e 02 01`,
+      `41 02 0e 00 ab b0 01 00 00 00 00 00 4e 4d 45 41 20 32 30 30 30 20 50 43 20 49 6e 74 65 72 66 61 63 65 20 28 4e 47 54 2d 31 29 ff ff`,
+      `41 03 0e 00 ab b0 01 00 00 00 00 00 31 2e 31 30 30 2c 20 32 2e 36 39 30 ${'ff '.repeat(20).trim()}`,
+      `41 04 0e 00 ab b0 01 00 00 00 00 00 4e 47 54 2d 31 2d 55 53 42 20 20 5b 35 5d ${'ff '.repeat(18).trim()}`,
+      `41 05 0e 00 ab b0 01 00 00 00 00 00 31 31 30 37 36 33 ${'ff '.repeat(26).trim()}`
+    ]
+  }
+  const hex = (s: string) => Buffer.from(s.replace(/ /g, ''), 'hex')
+  const answer = (payload: Buffer) =>
+    composeMessage(0xa0, payload, payload.length)
+
+  let warn: jest.SpyInstance
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  afterEach(() => warn.mockRestore())
+
+  const stream = () => {
+    const statuses: string[] = []
+    const app = Object.assign(new EventEmitter(), {
+      setProviderStatus: (_id: string, msg: string) => statuses.push(msg)
+    })
+    const s: any = new (ActisenseStream as any)({
+      fromFile: true,
+      device: '/dev/ttyUSB0',
+      app
+    })
+    s.outAvailable = true // no transmit-list request to schedule
+    statuses.length = 0
+    const receive = (payload: Buffer) =>
+      s._transform(answer(payload), 'binary', () => {})
+    return { s, statuses, receive }
+  }
+
+  test('the gateway in NGT Transfer Rx All Mode is not warned about', () => {
+    const { s, receive } = stream()
+    receive(hex(capture.operatingMode))
+    expect(s.gotStartupResponse).toBe(true)
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  test('a gateway in another mode is warned about', () => {
+    const { receive } = stream()
+    receive(hex(`11 ${header} 01 00`))
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway is in NGT Transfer Normal Mode, not NGT Transfer Rx All Mode'
+    )
+  })
+
+  test('a refused Set Operating Mode is warned about, with the error', () => {
+    const { receive } = stream()
+    // error -1159 (0xfffffb79), "command data out of range"
+    receive(hex('11 01 0e 00 ab b0 01 00 79 fb ff ff 05 00'))
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway refused NGT Transfer Rx All Mode (error -1159); it stays in CAN Packet Mode'
+    )
+  })
+
+  test('Product Info in five parts (NGT-1) is put together', () => {
+    const { s, statuses, receive } = stream()
+    capture.productInfo.slice(0, 4).forEach((p) => receive(hex(p)))
+    expect(s.productInfo).toBeUndefined()
+    receive(hex(capture.productInfo[4]))
+    expect(s.productInfo).toEqual({
+      model: 'NMEA 2000 PC Interface (NGT-1)',
+      softwareVersion: '1.100, 2.690',
+      hardwareVersion: 'NGT-1-USB  [5]',
+      serialNumber: '110763',
+      productCode: 0x6e27,
+      nmea2000Version: 2100,
+      firmware: 2690
+    })
+    expect(statuses).toEqual([
+      'Connected to /dev/ttyUSB0: NGT-1-USB  [5], software 1.100, 2.690, serial 110763'
+    ])
+  })
+
+  test('Product Info in one message (Format 2) is read', () => {
+    // The SDK's Format 2 example: sequence 6, structure variant 0x11.
+    const str = (text: string) =>
+      Buffer.concat([Buffer.from(text), Buffer.alloc(32 - text.length, 0xff)])
+    const payload = Buffer.concat([
+      hex('41 06 01 00 39 30 00 00 00 00 00 00 11 00 00 00 34 08 65 00'),
+      str('NGT-1'),
+      str('v2.345'),
+      str('Rev B'),
+      str('001234'),
+      hex('00 02')
+    ])
+    const { s, receive } = stream()
+    receive(payload)
+    expect(s.productInfo).toEqual({
+      model: 'NGT-1',
+      softwareVersion: 'v2.345',
+      hardwareVersion: 'Rev B',
+      serialNumber: '001234',
+      productCode: 101,
+      nmea2000Version: 2100,
+      firmware: 2345
+    })
+  })
+})
+
+describe('firmwareVersion', () => {
+  test.each([
+    ['1.100, 2.690', 2690],
+    ['v2.345', 2345],
+    ['2.5', 2500],
+    ['1.0.0', undefined],
+    ['', undefined]
+  ])('%j is %j', (software, expected) => {
+    expect(firmwareVersion(software)).toBe(expected)
   })
 })
 

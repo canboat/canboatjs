@@ -56,7 +56,41 @@ const MSG_START = 1
 const MSG_ESCAPE = 2
 const MSG_MESSAGE = 3
 
-const NGT_STARTUP_MSG = new Uint8Array([0x11, 0x02, 0x00])
+/* BEM commands, as the Actisense SDK names them
+   (https://github.com/Actisense/SDK/blob/main/docs/DataFormats/Binary/bem-detail/README.md).
+   Each goes out as NGT_MSG_SEND and is answered by NGT_MSG_RECEIVED: the
+   BEM id, a sequence byte, the model id (u16), the serial number (u32) and
+   an error code (i32), then the command's data. */
+
+const BEM_OPERATING_MODE = 0x11 /* Get / Set Operating Mode */
+const BEM_PRODUCT_INFO = 0x41 /* Get Product Info */
+
+const BEM_HEADER_LENGTH = 12
+
+/* The operating modes of an NGT / NGX, numbered and named as in the SDK.
+   canboatjs sets NGT Transfer Rx All Mode, which forwards every received
+   PGN; it does not touch the transmit list. */
+const OPERATING_MODE_RX_ALL = 2
+const OPERATING_MODES: { [code: number]: string } = {
+  1: 'NGT Transfer Normal Mode',
+  2: 'NGT Transfer Rx All Mode',
+  3: 'NGT Transfer Raw Mode',
+  4: 'NGW Convert Normal Mode',
+  5: 'CAN Packet Mode',
+  6: 'CAN Packet ASCII Mode'
+}
+
+const SET_OPERATING_MODE_MSG = new Uint8Array([
+  BEM_OPERATING_MODE,
+  OPERATING_MODE_RX_ALL & 0xff,
+  OPERATING_MODE_RX_ALL >> 8
+])
+const GET_PRODUCT_INFO_MSG = new Uint8Array([BEM_PRODUCT_INFO])
+
+/* An NGT-1 (firmware 2.690) drops BEM commands written in the 50-200 ms
+   after Set Operating Mode, and N2K messages in the 400-450 ms after it. So
+   Product Info is asked for first, and output waits this long. */
+const MODE_SETTLE_MS = 500
 
 export function ActisenseStream(this: any, options: any) {
   if (this === undefined) {
@@ -173,6 +207,8 @@ ActisenseStream.prototype.start = function (this: any) {
   this.bufferOffset = 0
   this.isFile = false
   this.state = MSG_START
+  this.productInfo = undefined
+  this.productInfoParts = {}
 
   if (typeof this.reconnectDelay === 'undefined') {
     this.reconnectDelay = 1000
@@ -244,23 +280,15 @@ ActisenseStream.prototype.start = function (this: any) {
       try {
         this.reconnectDelay = 1000
         setProviderStatus(`Connected to ${this.options.device}`)
-        const buf = composeMessage(
-          NGT_MSG_SEND,
-          Buffer.from(NGT_STARTUP_MSG),
-          NGT_STARTUP_MSG.length
-        )
-        this.debugOut(buf)
-        this.serial.write(buf)
-        this.debug('sent startup message')
+        setUpGateway(this)
         this.gotStartupResponse = false
         if (this.options.disableSetTransmitPGNs) {
-          enableOutput(this)
+          setTimeout(() => enableOutput(this), MODE_SETTLE_MS)
         } else {
           setTimeout(() => {
             if (this.gotStartupResponse === false) {
-              this.debug('retry startup message...')
-              this.debugOut(buf)
-              this.serial.write(buf)
+              this.debug('retry Product Info and Set Operating Mode...')
+              setUpGateway(this)
             }
           }, 5000)
         }
@@ -402,6 +430,142 @@ function storeByte(that: any, c: number) {
   }
 }
 
+/**
+ * Ask for the gateway's Product Info, then set NGT Transfer Rx All Mode.
+ * Product Info goes first: the gateway ignores commands for a while after
+ * Set Operating Mode. There is no keepalive: the SDK has none, and the
+ * gateway keeps the mode in non-volatile memory.
+ */
+function setUpGateway(that: any) {
+  for (const msg of [GET_PRODUCT_INFO_MSG, SET_OPERATING_MODE_MSG]) {
+    const buf = composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
+    that.debugOut(buf)
+    that.serial.write(buf)
+  }
+  that.debug('sent Get Product Info and Set Operating Mode')
+}
+
+function operatingModeName(mode: number) {
+  return OPERATING_MODES[mode] || `operating mode ${mode}`
+}
+
+/**
+ * Check the gateway's answer to Set Operating Mode: it carries the mode in
+ * force, which is warned about when it is not the one set.
+ */
+function onOperatingMode(that: any, bem: any) {
+  if (bem.data.length < 2) {
+    return
+  }
+  const mode = bem.data.readUInt16LE(0)
+  if (bem.error !== 0) {
+    console.warn(
+      `actisense: the gateway refused ${operatingModeName(OPERATING_MODE_RX_ALL)} (error ${bem.error}); it stays in ${operatingModeName(mode)}`
+    )
+  } else if (mode !== OPERATING_MODE_RX_ALL) {
+    console.warn(
+      `actisense: the gateway is in ${operatingModeName(mode)}, not ${operatingModeName(OPERATING_MODE_RX_ALL)}`
+    )
+  }
+  that.debug(
+    'gateway model 0x%s, serial %d, in %s',
+    bem.modelId.toString(16).padStart(4, '0'),
+    bem.serial,
+    operatingModeName(mode)
+  )
+}
+
+/**
+ * A Product Info string: ASCII, ended by a NUL or 0xFF padding.
+ */
+function productString(data: Buffer) {
+  let end = data.findIndex((b) => b === 0 || b === 0xff)
+  if (end === -1) {
+    end = data.length
+  }
+  return data.toString('latin1', 0, end).trim()
+}
+
+/**
+ * The firmware version × 1000: the last `major.minor` number in the
+ * software version, which an NGT-1 gives as "1.100, 2.690".
+ */
+export function firmwareVersion(softwareVersion: string): number | undefined {
+  const versions = softwareVersion.match(/(?<![\d.])\d+\.\d{1,3}(?![\d.])/g)
+  if (!versions) {
+    return undefined
+  }
+  const [major, minor] = versions[versions.length - 1].split('.')
+  return Number(major) * 1000 + Number(minor.padEnd(3, '0'))
+}
+
+/**
+ * Take in one answer to Get Product Info. Newer firmware answers in one
+ * message (sequence 6, Format 2); the NGT-1 and NGW-1 answer in five,
+ * numbered 1 to 5 by the sequence byte (Format 1).
+ */
+function onProductInfo(that: any, bem: any) {
+  const d: Buffer = bem.data
+  const parts = that.productInfoParts
+  if (bem.sequence === 6 && d.length >= 138) {
+    parts[1] = {
+      nmea2000Version: d.readUInt16LE(4),
+      productCode: d.readUInt16LE(6)
+    }
+    parts[2] = productString(d.subarray(8, 40))
+    parts[3] = productString(d.subarray(40, 72))
+    parts[4] = productString(d.subarray(72, 104))
+    parts[5] = productString(d.subarray(104, 136))
+  } else if (bem.sequence === 1 && d.length >= 6) {
+    parts[1] = {
+      nmea2000Version: d.readUInt16LE(0),
+      productCode: d.readUInt16LE(2)
+    }
+  } else if (bem.sequence >= 2 && bem.sequence <= 5 && d.length >= 32) {
+    parts[bem.sequence] = productString(d.subarray(0, 32))
+  } else {
+    return
+  }
+  if (![1, 2, 3, 4, 5].every((part) => parts[part] !== undefined)) {
+    return
+  }
+
+  const info = {
+    model: parts[2],
+    softwareVersion: parts[3],
+    hardwareVersion: parts[4],
+    serialNumber: parts[5],
+    productCode: parts[1].productCode,
+    nmea2000Version: parts[1].nmea2000Version,
+    firmware: firmwareVersion(parts[3])
+  }
+  that.productInfo = info
+  that.productInfoParts = {}
+  that.debug('product info: %j', info)
+  that.setProviderStatus(
+    `Connected to ${that.options.device}: ${info.hardwareVersion || info.model}, software ${info.softwareVersion}, serial ${info.serialNumber}`
+  )
+}
+
+/**
+ * Split a BEM answer (an NGT_MSG_RECEIVED frame: command, length, payload,
+ * checksum) into its header and data; undefined when it is shorter than
+ * the header.
+ */
+function parseBemResponse(buffer: Buffer, len: number) {
+  if (len - 3 < BEM_HEADER_LENGTH) {
+    return undefined
+  }
+  return {
+    bem: buffer[2],
+    sequence: buffer[3],
+    modelId: buffer.readUInt16LE(4),
+    serial: buffer.readUInt32LE(6),
+    error: buffer.readInt32LE(10),
+    data: buffer.subarray(2 + BEM_HEADER_LENGTH, len - 1)
+  }
+}
+
 function enableTXPGN(that: any, pgn: number) {
   that.debug('enabling pgn %d', pgn)
   const msg = composeEnablePGN(pgn)
@@ -495,14 +659,19 @@ function processNGTMessage(that: any, buffer: Buffer, len: number) {
     }
   }
 
-  if (command === 0x11) {
-    //confirm startup
+  const bem = parseBemResponse(buffer, len)
+  if (command === BEM_OPERATING_MODE) {
     that.gotStartupResponse = true
-    that.debug('got startup response')
+    that.debug('got Set Operating Mode answer')
+    if (bem) {
+      onOperatingMode(that, bem)
+    }
+  } else if (command === BEM_PRODUCT_INFO && bem) {
+    onProductInfo(that, bem)
   }
 
   if (!that.outAvailable) {
-    if (command === 0x11) {
+    if (command === BEM_OPERATING_MODE) {
       that.gotTXPGNList = false
       setTimeout(() => {
         requestTransmitPGNList(that)

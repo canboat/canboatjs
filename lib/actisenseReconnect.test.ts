@@ -33,7 +33,10 @@ jest.mock('serialport', () => {
     }
     unpipe() {}
     pipe() {}
-    write() {}
+    written: Buffer[] = []
+    write(buf: Buffer) {
+      this.written.push(buf)
+    }
     closing = false
     // Like serialport 11: isOpen turns false and closing true as soon as a
     // close starts; the lock is released, and the callback called, once
@@ -170,5 +173,44 @@ describe('ActisenseStream reconnect', () => {
     expect(opened).toHaveLength(2)
     expect(opened[1].isOpen).toBe(true)
     expect(lockErrors).toEqual([])
+  })
+})
+
+describe('ActisenseStream open (#502)', () => {
+  let stream: any
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] })
+    locked.clear()
+    opened = []
+    const app = Object.assign(new EventEmitter(), {
+      setProviderStatus: () => undefined,
+      setProviderError: () => undefined
+    })
+    stream = new (ActisenseStream as any)({ device: '/dev/ttyUSB0', app })
+  })
+  afterEach(() => {
+    stream.reconnect = false
+    jest.useRealTimers()
+  })
+
+  test('asks for Product Info, then sets NGT Transfer Rx All Mode, with no keepalive', () => {
+    const port = opened[0]
+    port.emit('open')
+    // DLE STX A1 <len> <BEM command> <checksum> DLE ETX
+    expect(port.written.map((b: Buffer) => b.toString('hex'))).toEqual([
+      '1002a101411d1003', // Get Product Info
+      '1002a103110200491003' // Set Operating Mode, mode 2
+    ])
+    jest.advanceTimersByTime(60000)
+    expect(port.written).toHaveLength(2)
+  })
+
+  test('output waits for the gateway to settle after Set Operating Mode', () => {
+    opened[0].emit('open')
+    expect(stream.outAvailable).toBe(false)
+    jest.advanceTimersByTime(499)
+    expect(stream.outAvailable).toBe(false)
+    jest.advanceTimersByTime(1)
+    expect(stream.outAvailable).toBe(true)
   })
 })
