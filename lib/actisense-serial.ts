@@ -670,7 +670,9 @@ function processNGTMessage(that: any, buffer: Buffer, len: number) {
     onProductInfo(that, bem)
   }
 
-  if (!that.outAvailable) {
+  // Output is held for a while after Set Operating Mode either way; only
+  // the transmit-list sync sets the gateway up meanwhile.
+  if (!that.outAvailable && !that.options.disableSetTransmitPGNs) {
     if (command === BEM_OPERATING_MODE) {
       that.gotTXPGNList = false
       setTimeout(() => {

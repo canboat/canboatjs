@@ -205,6 +205,20 @@ describe('ActisenseStream open (#502)', () => {
     expect(port.written).toHaveLength(2)
   })
 
+  test('the mode answer, arriving while output waits, asks for no transmit list', () => {
+    const port = opened[0]
+    port.emit('open')
+    // The fw 2.690 NGT-1's answer: NGT Transfer Rx All Mode.
+    port.emit(
+      'data',
+      Buffer.from('1002a00e11010e00abb00100000000000200d41003', 'hex')
+    )
+    expect(stream.gotStartupResponse).toBe(true)
+    jest.advanceTimersByTime(60000)
+    expect(port.written).toHaveLength(2)
+    expect(stream.outAvailable).toBe(true)
+  })
+
   test('output waits for the gateway to settle after Set Operating Mode', () => {
     opened[0].emit('open')
     expect(stream.outAvailable).toBe(false)
