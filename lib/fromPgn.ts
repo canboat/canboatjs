@@ -193,25 +193,13 @@ export class Parser extends EventEmitter {
     const customPgns = getCustomPgn(pgn.pgn)
     let pgnList = getPgn(pgn.pgn)
 
-    if (!pgnList && !customPgns) {
-      this.emit(
-        'warning',
-        pgn,
-        `no conversion found for pgn ${JSON.stringify(pgn)}`
-      )
-      return undefined
-    }
-
     if (customPgns) {
       pgnList = [...customPgns.definitions, ...(pgnList || [])]
     }
 
+    // No definition: readPGN decodes the frame with its range's catch-all,
+    // and warns only when there is none.
     if (!pgnList || pgnList.length === 0) {
-      this.emit(
-        'warning',
-        pgn,
-        `no conversion found for pgn ${JSON.stringify(pgn)}`
-      )
       return undefined
     }
 
@@ -423,6 +411,7 @@ export class Parser extends EventEmitter {
     startDef: Definition,
     bs: BitStream
   ): [boolean, Definition | undefined, BitStream] {
+    const start = bs.index
     let pgnData: Definition | undefined = startDef
 
     let RepeatingFields = pgnData.RepeatingFieldSet1Size ?? 0
@@ -481,12 +470,30 @@ export class Parser extends EventEmitter {
             f.Fallback !== true
         )
         if (pgnList.length == 0) {
-          if (!this.options.returnNonMatches) {
+          // No variant describes this message: decode it with its range's
+          // catch-all (manufacturer, industry and the bytes), as canboat
+          // does. Only a PGN without one is dropped, or returned as
+          // 'Unknown PGN' when asked for with returnNonMatches.
+          const fallback = findFallBackPGN(pgn.pgn)
+          if (fallback !== undefined) {
+            // Start over from the first byte: the variants have already
+            // read fields the catch-all does not have, and consumed bytes
+            // that belong in its data. A catch-all has no Match fields, so
+            // this cannot come back here.
+            bs.index = start
+            const res = this.readFields(pgn, [fallback], fallback, bs)
+            if (previousMatch) {
+              ;(pgn as any).partialMatch = previousMatch.Id
+            }
+            return res
+          } else if (!this.options.returnNonMatches) {
+            this.emit(
+              'warning',
+              pgn,
+              `no conversion found for pgn ${JSON.stringify(pgn)}`
+            )
             return [false, undefined, bs]
           } else {
-            //this.emit('warning', pgn, `no conversion found for pgn`)
-            trace('warning no conversion found for pgn %j', pgn)
-
             const setByteMapping = (data: Buffer) => {
               if (this.options.includeByteMapping) {
                 const mapping: ByteMapping = {
@@ -496,22 +503,19 @@ export class Parser extends EventEmitter {
               }
             }
 
-            pgnData = findFallBackPGN(pgn.pgn)
+            pgnData = undefined
+            unknownPGN = true
+            fields = []
+            // The variant that just failed may have repeating fields; they
+            // must not be read for an unknown PGN.
+            RepeatingFields = 0
+            totalRepeatingFields = 0
 
-            if (pgnData === undefined) {
-              unknownPGN = true
-              fields = []
-            } else {
-              fields = pgnData.Fields
-            }
-
-            if (unknownPGN || i >= fields.length) {
-              const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
-              if (data.length > 0) {
-                const buf = Buffer.from(data)
-                ;(pgn.fields as any).data = byteString(buf, ' ')
-                setByteMapping(buf)
-              }
+            const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
+            if (data.length > 0) {
+              const buf = Buffer.from(data)
+              ;(pgn.fields as any).data = byteString(buf, ' ')
+              setByteMapping(buf)
             }
 
             if (previousMatch) {
@@ -608,10 +612,18 @@ export class Parser extends EventEmitter {
       } else {
         pgnData = pgnList[0]
       }
-    } else if (this.options.returnNonMatches) {
+    } else {
+      // A PGN without a definition decodes with its range's catch-all, as
+      // in canboat.
       pgnData = findFallBackPGN(pgn.pgn)
       if (pgnData) {
         pgnList = [pgnData]
+      } else {
+        this.emit(
+          'warning',
+          pgn,
+          `no conversion found for pgn ${JSON.stringify(pgn)}`
+        )
       }
     }
 

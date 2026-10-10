@@ -168,3 +168,80 @@ describe('raw CAN frames never decode as a whole message', () => {
     expect(positions(parser, frames)).toEqual(expected)
   })
 })
+
+// Real frames from canboat's samples/dirona-actisense-serial.raw, from
+// manufacturers that no definition of these proprietary PGNs covers.
+const NORTHERN_LIGHTS_130818 =
+  '2016-02-28T19:57:02.825Z,7,130818,4,255,20,76,99,c6,96,00,00,00,2d,ff,00,00,dc,d3,00,08,00,20,ff,a0,0d'
+const FURUNO_130826 =
+  '2016-02-28T19:57:02.826Z,7,130826,7,255,162,3f,9f,01,ff,fd,0d,16,77,1b,1c,a2,68,10,ff,ff,ff,ff,f2,1b,98,0e,d4,82,74,0e,ff,ff,ff,ff,f2,1a,6a,2b,c7,d9,94,11,ff,ff,ff,ff,f2,1f,2b,19,dc,0b,a0,0f,ff,ff,ff,ff,f2,00,4c,02,75,6a,00,00,ff,ff,ff,ff,f0,03,f5,09,8d,cd,ac,0d,ff,ff,ff,ff,f2,0e,51,24,fe,4c,68,10,ff,ff,ff,ff,f2,10,a4,23,0f,b0,cc,10,ff,ff,ff,ff,f2,0a,f8,09,a5,74,48,0d,ff,ff,ff,ff,f2,00,47,02,f9,18,00,00,ff,ff,ff,ff,f0,1d,0d,0d,94,23,48,0d,ff,ff,ff,ff,f2,00,6f,02,cc,4b,00,00,ff,ff,ff,ff,f0,2e,70,1e,18,ac,3c,0f,ff,ff,ff,ff,f2'
+// An Actisense gateway's system status: a pseudo-PGN, which canboat.json
+// leaves out (canboat/canboat#992), so canboatjs has no definition for it.
+const ACTISENSE_SYSTEM_STATUS =
+  '2016-02-28T19:57:02.480Z,0,262386,0,0,33,01,0e,00,d7,e2,01,00,00,00,00,00,02,20,04,00,00,01,00,01,00,00,00,4e,62,02,13,00,01,01,1c,01,0a,0e'
+
+describe('a message that no definition describes', () => {
+  test('decodes with the catch-all of its range, as canboat does', () => {
+    const pgn: any = new FromPgn({ useCamel: true }).parseString(
+      NORTHERN_LIGHTS_130818
+    )
+    expect(pgn.description).toBe(
+      '0x1FF00-0x1FFFF: Manufacturer Specific fast-packet non-addressed'
+    )
+    expect(pgn.fields).toEqual({
+      manufacturerCode: 'Northern Lights',
+      industryCode: 'Marine Industry',
+      data: 'c6 96 00 00 00 2d ff 00 00 dc d3 00 08 00 20 ff a0 0d'
+    })
+  })
+
+  test('keeps its bytes when the variants it missed have repeating fields', () => {
+    const pgn: any = new FromPgn({ useCamel: true }).parseString(FURUNO_130826)
+    expect(pgn.fields.manufacturerCode).toBe('Furuno')
+    expect(pgn.fields.list).toBeUndefined()
+    expect(pgn.fields.data.split(' ')).toHaveLength(160)
+  })
+
+  test('keeps all its bytes when the variants matched its first fields', () => {
+    // Fusion, with a message ID none of its 130820 variants has: the
+    // manufacturer and industry match, the message ID does not
+    const pgn: any = new FromPgn({ useCamel: true }).parseString(
+      '2016-02-28T19:57:02.480Z,7,130820,7,255,10,a3,99,ee,7f,01,02,03,04,05,06'
+    )
+    expect(pgn.description).toBe(
+      '0x1FF00-0x1FFFF: Manufacturer Specific fast-packet non-addressed'
+    )
+    expect(pgn.fields).toEqual({
+      manufacturerCode: 'Fusion Electronics',
+      industryCode: 'Marine Industry',
+      data: 'ee 7f 01 02 03 04 05 06'
+    })
+  })
+
+  test('decodes a PGN without any definition with the catch-all, silently', () => {
+    const parser = new FromPgn({ useCamel: true })
+    const warnings: string[] = []
+    parser.on('warning', (_pgn: any, msg: string) => warnings.push(msg))
+    const pgn: any = parser.parseString(
+      '2016-02-28T19:57:02.480Z,7,65307,7,255,8,3f,9f,01,02,03,04,05,06'
+    )
+    expect(pgn.description).toBe(
+      '0xFF00-0xFFFF: Manufacturer Proprietary single-frame non-addressed'
+    )
+    expect(pgn.fields).toEqual({
+      manufacturerCode: 'Furuno',
+      industryCode: 'Marine Industry',
+      data: '01 02 03 04 05 06'
+    })
+    expect(warnings).toEqual([])
+  })
+
+  test('is dropped with a warning when its range has no catch-all', () => {
+    const parser = new FromPgn({ useCamel: true })
+    const warnings: string[] = []
+    parser.on('warning', (_pgn: any, msg: string) => warnings.push(msg))
+    expect(parser.parseString(ACTISENSE_SYSTEM_STATUS)).toBeUndefined()
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/^no conversion found for pgn/)
+  })
+})
