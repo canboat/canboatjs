@@ -103,6 +103,24 @@ describe('CanChannel send', () => {
     expect(errors).toEqual(['CAN transmit queue full: dropped 88 frame(s)'])
   })
 
+  test('while the bus stays blocked, drops are reported every 5 s', () => {
+    const errors: string[] = []
+    channel.on('onError', (msg: string) => errors.push(msg))
+    kernel.room = 0
+    sendFrames(600)
+    jest.advanceTimersByTime(2)
+    expect(errors).toEqual(['CAN transmit queue full: dropped 88 frame(s)'])
+    sendFrames(10)
+    jest.advanceTimersByTime(4000)
+    expect(errors).toHaveLength(1)
+    jest.advanceTimersByTime(1000)
+    expect(errors).toEqual([
+      'CAN transmit queue full: dropped 88 frame(s)',
+      'CAN transmit queue full: dropped 10 frame(s)'
+    ])
+    expect(kernel.sent).toHaveLength(0)
+  })
+
   test('stop() drops what is waiting', () => {
     sendFrames(15)
     channel.stop()

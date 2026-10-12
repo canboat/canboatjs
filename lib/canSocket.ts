@@ -40,6 +40,9 @@ const RETRY_MS = 2
 // all (no other device acknowledging them, say), and newer frames are
 // dropped.
 const MAX_QUEUED = 512
+// While the kernel keeps turning frames away, dropped frames are reported at
+// most this often.
+const REPORT_MS = 5000
 
 interface CanPollerHandle {
   close(): void
@@ -88,6 +91,7 @@ export class CanChannel extends EventEmitter {
   private retryTimer: NodeJS.Timeout | null = null
   // Frames dropped because the queue was full, since the last report.
   private dropped = 0
+  private lastReport = 0
 
   constructor(ifname: string) {
     super()
@@ -202,18 +206,26 @@ export class CanChannel extends EventEmitter {
       const result = native.writeCanFrame(this.writeFd, this.queue[0])
       if (result < 0 && WRITE_FULL.includes(-result)) {
         this.retryTimer = setTimeout(() => this.flush(), RETRY_MS)
+        if (Date.now() - this.lastReport >= REPORT_MS) {
+          this.reportDropped()
+        }
         return
       }
       // Written, or refused for good (the interface is down, say): the
       // read side reports a broken interface.
       this.queue.shift()
     }
+    this.reportDropped()
+  }
+
+  private reportDropped(): void {
     if (this.dropped > 0) {
       this.emit(
         'onError',
         `CAN transmit queue full: dropped ${this.dropped} frame(s)`
       )
       this.dropped = 0
+      this.lastReport = Date.now()
     }
   }
 }
