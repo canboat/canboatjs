@@ -180,6 +180,33 @@ describe('the transmit PGN list sync (#504)', () => {
     expect(stream.outAvailable).toBe(true)
   })
 
+  test('a refused Commit To EEPROM is not activated, and output let through', () => {
+    openAndRead([127508])
+    receive(...SUPPORTED, ...F2)
+    sent()
+    receive(enabled(127508, 0))
+    expect(sent()).toEqual([COMMIT])
+    receive(header(0x01, 1, -1497))
+    expect(sent()).toEqual([])
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway refused Commit To EEPROM: error -1497 (EEPROM sector error)'
+    )
+    expect(stream.outAvailable).toBe(true)
+  })
+
+  test('a Negative Ack of Activate PGN Enable Lists is a failure', () => {
+    openAndRead([127508])
+    receive(...SUPPORTED, ...F2)
+    receive(enabled(127508, 0))
+    receive(header(0x01, 1))
+    expect(sent()).toContain(ACTIVATE)
+    receive(header(0xf4, 1, -1098) + '4b000000')
+    expect(warn).toHaveBeenCalledWith(
+      'actisense: the gateway refused Activate PGN Enable Lists: error -1098'
+    )
+    expect(stream.outAvailable).toBe(true)
+  })
+
   test('an enable answered "already enabled" saves nothing', () => {
     // Unknown firmware is read with F1, which does not show 126998.
     expect(openAndRead([126998], false)).toEqual([READ_F1])

@@ -1009,14 +1009,28 @@ function onTxListAnswer(that: any, bem: any) {
     } else {
       finishTxList(that)
     }
-  } else if (tx.step === 'committing' && bem.bem === BEM_COMMIT_TO_EEPROM) {
+  } else if (tx.step === 'committing' && command === BEM_COMMIT_TO_EEPROM) {
+    if (bem.error || nak) {
+      finishTxList(
+        that,
+        `the gateway refused Commit To EEPROM: error ${describeError(bem.error)}`
+      )
+      return
+    }
     tx.step = 'activating'
     sendBem(that, [BEM_ACTIVATE_PGN_ENABLE_LISTS])
     awaitTxListAnswer(that)
   } else if (
     tx.step === 'activating' &&
-    bem.bem === BEM_ACTIVATE_PGN_ENABLE_LISTS
+    command === BEM_ACTIVATE_PGN_ENABLE_LISTS
   ) {
+    if (bem.error || nak) {
+      finishTxList(
+        that,
+        `the gateway refused Activate PGN Enable Lists: error ${describeError(bem.error)}`
+      )
+      return
+    }
     that.debug('saved and activated tx pgns %j', tx.added)
     finishTxList(that)
   }
