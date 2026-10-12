@@ -165,6 +165,7 @@ export class CanChannel extends EventEmitter {
       clearTimeout(this.retryTimer)
       this.retryTimer = null
     }
+    this.reportDropped()
     this.queue = []
     try {
       closeSync(this.readFd)

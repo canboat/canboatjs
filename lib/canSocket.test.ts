@@ -121,6 +121,20 @@ describe('CanChannel send', () => {
     expect(kernel.sent).toHaveLength(0)
   })
 
+  test('stop() reports frames dropped since the last report', () => {
+    const errors: string[] = []
+    channel.on('onError', (msg: string) => errors.push(msg))
+    kernel.room = 0
+    sendFrames(600)
+    jest.advanceTimersByTime(2)
+    sendFrames(5)
+    channel.stop()
+    expect(errors).toEqual([
+      'CAN transmit queue full: dropped 88 frame(s)',
+      'CAN transmit queue full: dropped 5 frame(s)'
+    ])
+  })
+
   test('stop() drops what is waiting', () => {
     sendFrames(15)
     channel.stop()

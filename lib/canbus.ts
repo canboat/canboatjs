@@ -173,10 +173,10 @@ CanbusStream.prototype.connect = function () {
       try {
         this.channel.removeAllListeners('onStopped')
         this.channel.removeAllListeners('onMessage')
-        this.channel.removeAllListeners('onError')
         if (!this.stoppingChannel) {
           this.channel.stop()
         }
+        this.channel.removeAllListeners('onError')
       } catch (e) {
         console.error('Error cleaning up old channel:', e)
       }
