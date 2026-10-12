@@ -382,7 +382,7 @@ CanbusStream.prototype.sendPGN = function (
 
     //seems as though 126720 should always be encoded this way
     if (buffer.length > 8 || pgn.pgn == 126720) {
-      const pgns = getPlainPGNs(buffer)
+      const pgns = getPlainPGNs(buffer, pgn.pgn, pgn.src)
       pgns.forEach((pbuffer) => {
         this.channel.send({ id: canid, ext: true, data: pbuffer })
 

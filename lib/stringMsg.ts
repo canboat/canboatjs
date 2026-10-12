@@ -246,19 +246,25 @@ export const parseYDRAWOut = (input: string) => {
   }
   return buildMsg(parseCanIdStr(canId), 'YDRAW', buffer)
 }
+/* The CAN frames to write for a message: its fast-packet frames when it is
+   longer than 8 bytes, or 126720, which is always fast-packet. `frame: true`
+   says `data` is one CAN frame already, split by the caller. */
+const canFrames = ({ data, pgn, src, frame }: any): Buffer[] =>
+  !frame && (data.length > 8 || pgn == 126720)
+    ? getPlainPGNs(data, pgn, src)
+    : [data]
+
 //19F51323 01 02<CR><LF>
-export const encodeYDRAW = ({ data, ...canIdInfo }: any) => {
+export const encodeYDRAW = ({ data, frame, ...canIdInfo }: any) => {
   const canId = encodeCanIdString(canIdInfo)
-  const pgns =
-    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+  const pgns = canFrames({ data, frame, ...canIdInfo })
   return pgns.map((buffer) => canId + ' ' + byteString(buffer, ' '))
 }
 
 //16:29:27.082 R 19F51323 01 02<CR><LF>
-export const encodeYDRAWFull = ({ data, ...canIdInfo }: any) => {
+export const encodeYDRAWFull = ({ data, frame, ...canIdInfo }: any) => {
   const canId = encodeCanIdString(canIdInfo)
-  const pgns =
-    data.length > 8 || canIdInfo.pgn == 126720 ? getPlainPGNs(data) : [data]
+  const pgns = canFrames({ data, frame, ...canIdInfo })
   return pgns.map(
     (buffer) =>
       moment().utc().format('hh:mm:ss.SSS') +
@@ -458,9 +464,9 @@ export const parseCandump1 = (input: string) => {
     len: Number(trimWrap(len))
   })
 }
-export const encodeCandump1 = ({ data, pgn, src, dst, prio }: any) => {
+export const encodeCandump1 = ({ data, pgn, src, dst, prio, frame }: any) => {
   const canId = encodeCanIdString({ pgn, src, dst, prio })
-  const pgns = data.length > 8 || pgn == 126720 ? getPlainPGNs(data) : [data]
+  const pgns = canFrames({ data, pgn, src, frame })
   return pgns.map(
     (buffer) => `<0x${canId}> [${buffer.length}] ${byteString(buffer, ' ')}`
   )
@@ -482,11 +488,11 @@ export const encodeCandump2 = ({
   pgn,
   src,
   dst,
-  prio
+  prio,
+  frame
 }: any) => {
   const canId = encodeCanIdString({ pgn, src, dst, prio })
-  const pgns =
-    data.length > 8 || pgn.pgn == 126720 ? getPlainPGNs(data) : [data]
+  const pgns = canFrames({ data, pgn, src, frame })
   return pgns.map(
     (buffer) =>
       `${bus}  ${canId}   [${buffer.length}]  ${byteString(buffer, ' ')}`
@@ -525,11 +531,12 @@ export const encodeCandump3 = ({
   pgn,
   src,
   dst,
-  prio
+  prio,
+  frame
 }: any) => {
   const canId = encodeCanIdString({ pgn, src, dst, prio })
   const timestampStr = timestamp || Date.now() / 1000
-  const pgns = data.length > 8 || pgn == 126720 ? getPlainPGNs(data) : [data]
+  const pgns = canFrames({ data, pgn, src, frame })
   return pgns.map(
     (buffer) =>
       `(${timestampStr}) ${bus} ${canId}#${byteString(buffer, '').toUpperCase()}`
