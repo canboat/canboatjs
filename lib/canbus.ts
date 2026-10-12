@@ -173,6 +173,7 @@ CanbusStream.prototype.connect = function () {
       try {
         this.channel.removeAllListeners('onStopped')
         this.channel.removeAllListeners('onMessage')
+        this.channel.removeAllListeners('onError')
         if (!this.stoppingChannel) {
           this.channel.stop()
         }
@@ -218,6 +219,9 @@ CanbusStream.prototype.connect = function () {
         this.setProviderError('Reconnecting...')
         this.connect()
       }, 2000)
+    })
+    this.channel.addListener('onError', (msg: string) => {
+      console.warn(`canbus: ${msg}`)
     })
     this.channel.addListener('onMessage', (msg: any) => {
       const pgn = parseCanId(msg.id)
