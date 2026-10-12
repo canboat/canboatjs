@@ -19,6 +19,7 @@ import { createDebug } from './utilities'
 import { parseCanId, encodeCanId } from './canId'
 import { binToActisense } from './utilities'
 import { getPgn, getCustomPgn } from './pgns'
+import { bdtpDecode, bdtpEncode, checksumOk, newBdtpDecoder } from './bdtp'
 
 const debug = createDebug('canboatjs:w2k01')
 const debugData = createDebug('canboatjs:w2k01-data')
@@ -46,9 +47,6 @@ const debugData = createDebug('canboatjs:w2k01-data')
   resumes at the next DLE STX. Other BST messages are skipped.
 */
 
-const DLE = 0x10
-const STX = 0x02
-const ETX = 0x03
 const BST_D0 = 0xd0
 
 /* D0, L, D, the CAN id, C and T: everything before the data. */
@@ -64,17 +62,6 @@ const C_FAST_PACKET = 1
 const C_ISO_MULTI_PACKET = 2
 const C_TO_BUS = 1 << 3
 
-enum State {
-  Idle /* outside a frame, looking for DLE STX */,
-  IdleDle /* outside a frame, just after a DLE */,
-  InFrame /* inside a frame, collecting bytes */,
-  InFrameDle /* inside a frame, just after a DLE */
-}
-
-/* The decoder's state, kept in the caller's `context` between reads, so a
-   message split across reads is joined. */
-type Decoder = { state: State; buf: number[] }
-
 /* The CAN id and data of an unframed message, or undefined when it is not
    a well-formed BST-D0 message. */
 function toMessage(m: number[]) {
@@ -86,7 +73,7 @@ function toMessage(m: number[]) {
     debug('bad length: %d for %d bytes', len, m.length)
     return undefined
   }
-  if (m.reduce((sum, b) => (sum + b) & 0xff, 0) !== 0) {
+  if (!checksumOk(m)) {
     debug('bad checksum: %s', Buffer.from(m).toString('hex'))
     return undefined
   }
@@ -112,83 +99,34 @@ export const readN2KActisense = (
   }
 
   if (!context.bstD0) {
-    context.bstD0 = { state: State.Idle, buf: [] }
+    context.bstD0 = newBdtpDecoder()
   }
-  const d: Decoder = context.bstD0
 
-  const emit = () => {
-    const msg = toMessage(d.buf)
-    d.state = State.Idle
-    d.buf = []
-    if (!msg) {
-      return
-    }
-    const info = parseCanId(msg.canId)
-    const timestamp = new Date().toISOString()
-    if (plainText) {
-      last = binToActisense(info, timestamp, msg.data, msg.data.length)
-    } else {
-      last = {
-        pgn: info,
-        length: msg.data.length,
-        data: msg.data,
-        coalesced: true
+  bdtpDecode(
+    context.bstD0,
+    data,
+    MAX_COLLECT,
+    (m) => {
+      const msg = toMessage(m)
+      if (!msg) {
+        return
       }
-    }
-    cb && cb(last)
-  }
-
-  const collect = (b: number) => {
-    if (d.buf.length < MAX_COLLECT) {
-      d.buf.push(b)
-    } else {
-      debug('message too long, dropped')
-      d.state = State.Idle
-      d.buf = []
-    }
-  }
-
-  for (const b of data) {
-    switch (d.state) {
-      case State.Idle:
-        if (b === DLE) {
-          d.state = State.IdleDle
+      const info = parseCanId(msg.canId)
+      const timestamp = new Date().toISOString()
+      if (plainText) {
+        last = binToActisense(info, timestamp, msg.data, msg.data.length)
+      } else {
+        last = {
+          pgn: info,
+          length: msg.data.length,
+          data: msg.data,
+          coalesced: true
         }
-        break
-      case State.IdleDle:
-        if (b === STX) {
-          d.state = State.InFrame
-          d.buf = []
-        } else if (b !== DLE) {
-          d.state = State.Idle
-        }
-        break
-      case State.InFrame:
-        if (b === DLE) {
-          d.state = State.InFrameDle
-        } else {
-          collect(b)
-        }
-        break
-      case State.InFrameDle:
-        if (b === DLE) {
-          d.state = State.InFrame
-          collect(DLE)
-        } else if (b === ETX) {
-          emit()
-        } else if (b === STX) {
-          // A new frame before this one ended: drop this one.
-          debug('frame cut short: %s', Buffer.from(d.buf).toString('hex'))
-          d.state = State.InFrame
-          d.buf = []
-        } else {
-          debug('bad escape: DLE %s', b.toString(16))
-          d.state = State.Idle
-          d.buf = []
-        }
-        break
-    }
-  }
+      }
+      cb && cb(last)
+    },
+    (why) => debug(why)
+  )
 
   return last
 }
@@ -232,21 +170,7 @@ export const encodeN2KActisense = (pgn: PGN, data?: Buffer) => {
   m[8] = messageType(pgn.pgn, data.length) | C_TO_BUS
   // T, the time, is left 0, as the SDK allows.
   data.copy(m, HEADER_LEN)
-  let sum = 0
-  for (let i = 0; i < m.length - 1; i++) {
-    sum = (sum + m[i]) & 0xff
-  }
-  m[m.length - 1] = (256 - sum) & 0xff
-
-  const out = [DLE, STX]
-  for (const b of m) {
-    out.push(b)
-    if (b === DLE) {
-      out.push(DLE)
-    }
-  }
-  out.push(DLE, ETX)
-  const encoded = Buffer.from(out)
+  const encoded = bdtpEncode(m)
 
   if (debugData.enabled) {
     debugData('encoded: ' + encoded.toString('hex'))

@@ -6,6 +6,7 @@ import { EventEmitter } from 'events'
 // that's written to it.
 class MockSocket extends EventEmitter {
   written: string[] = []
+  raw: Buffer[] = []
   connectedTo?: { port: number; host: string }
   destroyed = false
 
@@ -18,6 +19,7 @@ class MockSocket extends EventEmitter {
   }
 
   write(chunk: string | Buffer) {
+    this.raw.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8'))
     this.written.push(
       typeof chunk === 'string' ? chunk : chunk.toString('utf8')
     )
@@ -52,6 +54,7 @@ jest.mock('./persist', () => ({
 }))
 
 import { N2kIpGateway } from './n2kIpGateway'
+import { encodeBst95 } from './bst95'
 import { parseActisense, parseActisenseN2KASCII } from './stringMsg'
 
 function makeApp() {
@@ -447,6 +450,97 @@ describe('N2kIpGateway', () => {
       const read: any = parse(lastSocket!.written[0].trimEnd())
       expect([read.pgn, read.src]).toEqual([129025, 3])
       expect(read.data.toString('hex')).toBe(position)
+    })
+  })
+
+  describe('bst-95', () => {
+    /* A frame from the bus: as encodeBst95 writes it, the direction bit
+       cleared and the checksum fixed up to match. */
+    const fromBus = (id: any, data: Buffer) => {
+      const sent = encodeBst95(id, data)
+      const m: number[] = []
+      for (let i = 2; i < sent.length - 2; i += sent[i] === 0x10 ? 2 : 1) {
+        m.push(sent[i])
+      }
+      m[7] &= 0x7f
+      m[m.length - 1] = (m[m.length - 1] + 0x80) & 0xff
+      const out = [0x10, 0x02]
+      for (const b of m) {
+        out.push(b)
+        if (b === 0x10) out.push(0x10)
+      }
+      out.push(0x10, 0x03)
+      return Buffer.from(out)
+    }
+
+    test('connects to port 60002 by default', async () => {
+      newGateway({
+        app: makeApp(),
+        host: 'w2k.local',
+        format: 'bst-95',
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+      expect(lastSocket!.connectedTo).toEqual({
+        port: 60002,
+        host: 'w2k.local'
+      })
+    })
+
+    test('RX: pushes each CAN frame, joined across reads, and skips echoes', async () => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'w2k.local',
+        format: 'bst-95',
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+      const pushed: any[] = []
+      gw.on('data', (d: any) => pushed.push(d))
+
+      const id = { pgn: 129025, src: 0x10, dst: 255, prio: 2 }
+      const data = Buffer.from('0d474717e2da6910', 'hex')
+      const frame = fromBus(id, data)
+      lastSocket!.emit('data', frame.subarray(0, 5))
+      lastSocket!.emit('data', frame.subarray(5))
+      // The gateway's echo of a frame we sent.
+      lastSocket!.emit('data', encodeBst95(id, data))
+
+      expect(pushed).toHaveLength(1)
+      expect(pushed[0].pgn).toMatchObject({ pgn: 129025, src: 0x10, prio: 2 })
+      expect(pushed[0].length).toBe(8)
+      expect(pushed[0].data).toEqual(data)
+    })
+
+    test('TX: splits a fast-packet message into BST-95 frames, written as bytes', async () => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'w2k.local',
+        format: 'bst-95',
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+
+      gw.sendPGN({
+        pgn: 129029,
+        prio: 3,
+        src: 17,
+        dst: 255,
+        data: Buffer.from('000102030405060708090a0b', 'hex')
+      })
+
+      // 12 bytes: a first frame of 6, a second of 6 padded to 8, with the
+      // fast-packet sequence getPlainPGNs uses (2) for every CAN format.
+      expect(lastSocket!.raw.map((b) => b.toString('hex'))).toEqual([
+        encodeBst95(
+          { pgn: 129029, src: 17, dst: 255, prio: 3 },
+          Buffer.from('400c000102030405', 'hex')
+        ).toString('hex'),
+        encodeBst95(
+          { pgn: 129029, src: 17, dst: 255, prio: 3 },
+          Buffer.from('41060708090a0bff', 'hex')
+        ).toString('hex')
+      ])
     })
   })
 
