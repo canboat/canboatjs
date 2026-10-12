@@ -52,6 +52,7 @@ jest.mock('./persist', () => ({
 }))
 
 import { N2kIpGateway } from './n2kIpGateway'
+import { parseActisense, parseActisenseN2KASCII } from './stringMsg'
 
 function makeApp() {
   const app = new EventEmitter() as any
@@ -394,6 +395,58 @@ describe('N2kIpGateway', () => {
     pushed.forEach((frame) => {
       expect(frame.length).toBeLessThanOrEqual(8)
       expect(frame.data.length).toBeLessThanOrEqual(8)
+    })
+  })
+
+  describe.each([
+    ['actisense', parseActisense],
+    ['actisense-n2k-ascii', parseActisenseN2KASCII]
+  ])('TX %s (#513)', (format, parse) => {
+    const position = '509b3a1e2ed70a03'
+
+    test('writes a text line the format reads back', async () => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'gw.local',
+        format,
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+
+      gw.sendPGN({
+        pgn: 129025,
+        prio: 2,
+        src: 17,
+        dst: 255,
+        data: Buffer.from(position, 'hex')
+      })
+
+      expect(lastSocket!.written).toHaveLength(1)
+      const line = lastSocket!.written[0]
+      expect(line).toMatch(/^[ -~]+\r\n$/)
+      const read: any = parse(line.trimEnd())
+      expect([read.pgn, read.src, read.dst, read.prio]).toEqual([
+        129025, 17, 255, 2
+      ])
+      expect(read.data.toString('hex')).toBe(position)
+    })
+
+    test('keeps the data of a message given as an Actisense string', async () => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'gw.local',
+        format,
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+
+      gw.sendPGN(
+        '2017-03-13T01:00:00.146Z,2,129025,3,255,8,50,9b,3a,1e,2e,d7,0a,03'
+      )
+
+      const read: any = parse(lastSocket!.written[0].trimEnd())
+      expect([read.pgn, read.src]).toEqual([129025, 3])
+      expect(read.data.toString('hex')).toBe(position)
     })
   })
 
