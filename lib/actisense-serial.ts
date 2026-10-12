@@ -943,6 +943,9 @@ function finishTxList(that: any, failure?: string) {
 
 function onTxListAnswer(that: any, bem: any) {
   const tx = that.txList
+  // A Negative Ack names the command it refuses: on an NGT-1, its BEM id.
+  const nak = bem.bem === BEM_NEGATIVE_ACK && bem.data.length >= 4
+  const command = nak ? bem.data.readUInt32LE(0) : bem.bem
   if (tx.step === 'awaitStartup') {
     // Any operating mode answer will do, even a refusal: the gateway is
     // up, and its list does not depend on the mode.
@@ -962,13 +965,13 @@ function onTxListAnswer(that: any, bem: any) {
     }
   } else if (
     tx.step === 'readingF2' &&
-    (bem.bem === BEM_SUPPORTED_PGN_LIST ||
-      bem.bem === BEM_TX_PGN_ENABLE_LIST_F2)
+    (command === BEM_SUPPORTED_PGN_LIST ||
+      command === BEM_TX_PGN_ENABLE_LIST_F2)
   ) {
-    if (bem.error) {
+    if (bem.error || nak) {
       that.debug(
         'the gateway refused BEM 0x%s (error %s); reading the transmit PGN list with F1',
-        bem.bem.toString(16),
+        command.toString(16),
         describeError(bem.error)
       )
       readTxListF1(that, 1)

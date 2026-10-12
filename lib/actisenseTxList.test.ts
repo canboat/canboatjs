@@ -218,6 +218,14 @@ describe('the transmit PGN list sync (#504)', () => {
     expect(sent()).toEqual([READ_F1])
   })
 
+  test('a Negative Ack of the F2 read falls back to F1 at once', () => {
+    openAndRead([127508])
+    // As the NGT-1 refuses an unknown BEM command: error -1098, and the
+    // refused BEM id as the command id.
+    receive(header(0xf4, 1, -1098) + '4f000000')
+    expect(sent()).toEqual([READ_F1])
+  })
+
   test('an unanswered F2 read is retried, then read with F1', () => {
     openAndRead([127508])
     jest.advanceTimersByTime(10000)
