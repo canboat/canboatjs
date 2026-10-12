@@ -26,9 +26,24 @@ export const createDebug = (name: string, appOptions: any = undefined) => {
   }
 }
 
-export function getPlainPGNs(buffer: Buffer) {
+// The fast-packet sequence counter, per PGN and source address. A receiver
+// tells consecutive messages of a PGN from a source apart by it.
+const fastPacketSequences = new Map<string, number>()
+
+/* The next sequence counter (0-7) for a fast-packet message of `pgn` from
+   `src`. */
+export function nextFastPacketSequence(pgn?: number, src?: number): number {
+  const key = `${pgn}:${src}`
+  const sequence = fastPacketSequences.get(key) ?? 0
+  fastPacketSequences.set(key, (sequence + 1) & 0x07)
+  return sequence
+}
+
+/* Split a message into fast-packet frames. Give the PGN and source address
+   so consecutive messages get consecutive sequence counters (#517). */
+export function getPlainPGNs(buffer: Buffer, pgn?: number, src?: number) {
   const res = []
-  let bucket = 0x40 // 64
+  let bucket = nextFastPacketSequence(pgn, src) << 5
 
   const first = Buffer.alloc(8)
   first.writeUInt8(bucket++, 0)

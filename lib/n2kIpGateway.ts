@@ -563,7 +563,7 @@ N2kIpGateway.prototype.sendPGN = function (msg: any, force?: boolean) {
     this.formatSpec.splitFastPacket &&
     (buffer.length > 8 || pgn.pgn === 126720)
   ) {
-    payloads = getPlainPGNs(buffer)
+    payloads = getPlainPGNs(buffer, pgn.pgn, pgn.src)
   } else {
     payloads = [buffer]
   }

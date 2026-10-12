@@ -110,7 +110,7 @@ rl.on('line', function (line) {
     return
   } else {
     if (buffer.length > 8 || pgn.pgn == 126720) {
-      const pgns = getPlainPGNs(buffer)
+      const pgns = getPlainPGNs(buffer, pgn.pgn, pgn.src)
       pgns.forEach((pbuffer) => {
         if (!test) {
           channel.send({ id: canid, ext: true, data: pbuffer })

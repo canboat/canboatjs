@@ -555,21 +555,21 @@ describe('N2kIpGateway', () => {
       gw.sendPGN({
         pgn: 129029,
         prio: 3,
-        src: 17,
+        src: 18,
         dst: 255,
         data: Buffer.from('000102030405060708090a0b', 'hex')
       })
 
-      // 12 bytes: a first frame of 6, a second of 6 padded to 8, with the
-      // fast-packet sequence getPlainPGNs uses (2) for every CAN format.
+      // 12 bytes: a first frame of 6, a second of 6 padded to 8, with
+      // sequence counter 0, the first message of 129029 from source 18.
       expect(lastSocket!.raw.map((b) => b.toString('hex'))).toEqual([
         encodeBst95(
-          { pgn: 129029, src: 17, dst: 255, prio: 3 },
-          Buffer.from('400c000102030405', 'hex')
+          { pgn: 129029, src: 18, dst: 255, prio: 3 },
+          Buffer.from('000c000102030405', 'hex')
         ).toString('hex'),
         encodeBst95(
-          { pgn: 129029, src: 17, dst: 255, prio: 3 },
-          Buffer.from('41060708090a0bff', 'hex')
+          { pgn: 129029, src: 18, dst: 255, prio: 3 },
+          Buffer.from('01060708090a0bff', 'hex')
         ).toString('hex')
       ])
     })

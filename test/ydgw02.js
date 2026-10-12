@@ -135,7 +135,18 @@ describe('Send frames to a Yacht Devices gateway', function () {
     app.on('ydwg02-out', (msg) => sent.push(msg))
     const stream = new Ydgw02({ app }, 'udp')
     stream.sendPGN({ ...staticData })
-    sent.should.eql([frames.map((raw) => raw + '\r\n').join('')])
+    sent.length.should.equal(1)
+    // Each message gets the next fast-packet sequence counter (#517), so
+    // compare the frames without it.
+    const withoutSequence = (line) =>
+      line.slice(0, 9) +
+      (parseInt(line.slice(9, 11), 16) & 0x1f).toString(16).padStart(2, '0') +
+      line.slice(11)
+    sent[0]
+      .split('\r\n')
+      .slice(0, -1)
+      .map(withoutSequence)
+      .should.eql(frames.map(withoutSequence))
     done()
   })
 })
