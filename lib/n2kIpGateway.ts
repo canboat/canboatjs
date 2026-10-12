@@ -46,6 +46,7 @@ import {
   subscribeApp,
   unsubscribeApp
 } from './utilities'
+import { encodeBst95, readBst95 } from './bst95'
 
 type SupportedFormat =
   | 'candump3'
@@ -55,6 +56,7 @@ type SupportedFormat =
   | 'actisense'
   | 'actisense-n2k-ascii'
   | 'pcdin'
+  | 'bst-95'
 
 const DEFAULT_PORT = 2599
 const DEFAULT_RECONNECT_MS = 5000
@@ -96,7 +98,7 @@ type LineEncoder = (
   pgn: any,
   canid: number,
   buffer: Buffer
-) => string | string[]
+) => string | string[] | Buffer
 
 function encodeCandump3Line(pgn: any, _canid: number, buffer: Buffer) {
   return encodeCandump3({
@@ -171,6 +173,10 @@ function encodePCDINLine(pgn: any, _canid: number, buffer: Buffer) {
   })
 }
 
+function encodeBst95Line(pgn: any, _canid: number, buffer: Buffer) {
+  return encodeBst95(pgn, buffer)
+}
+
 const FORMATS: Record<
   SupportedFormat,
   {
@@ -181,6 +187,11 @@ const FORMATS: Record<
     splitFastPacket: boolean
     // Terminator appended after each encoded line before writing.
     terminator: string
+    // A binary format: read from the socket by `read` rather than as lines,
+    // and written as the encoder's Buffer.
+    read?: (data: Buffer, context: any, cb: (parsed: any) => void) => void
+    // The port the device listens on for this format, if not DEFAULT_PORT.
+    defaultPort?: number
   }
 > = {
   candump3: {
@@ -224,6 +235,16 @@ const FORMATS: Record<
     encode: encodePCDINLine,
     splitFastPacket: false,
     terminator: '\r\n'
+  },
+  // Actisense BST-95 raw CAN frames: a W2K-1 or PRO-NDC-1E2K in its "CAN
+  // Actisense" data mode.
+  'bst-95': {
+    parse: () => undefined,
+    encode: encodeBst95Line,
+    splitFastPacket: true,
+    terminator: '',
+    read: readBst95,
+    defaultPort: 60002
   }
 }
 
@@ -263,7 +284,6 @@ export function N2kIpGateway(this: any, options: N2kIpGatewayOptions) {
 
   this.options = options
   this.host = options.host
-  this.port = options.port ?? DEFAULT_PORT
   this.reconnectIntervalMs = options.reconnectIntervalMs ?? DEFAULT_RECONNECT_MS
 
   const fmt = (options.format ?? DEFAULT_FORMAT) as SupportedFormat
@@ -272,6 +292,7 @@ export function N2kIpGateway(this: any, options: N2kIpGatewayOptions) {
   }
   this.format = fmt
   this.formatSpec = FORMATS[fmt]
+  this.port = options.port ?? this.formatSpec.defaultPort ?? DEFAULT_PORT
 
   // Default is "be a CAN device" — matches the user's KISS expectation.
   this.actAsCanDevice = options.actAsCanDevice ?? true
@@ -348,6 +369,10 @@ N2kIpGateway.prototype.connect = function () {
     }
     this.socket = undefined
     this.reconnecting = false
+    // The next connection starts a fresh stream: drop any partial line or
+    // frame left from this one.
+    this.rxBuffer = ''
+    this.bst95 = undefined
     if (!this.stopping) {
       this.setProviderError('disconnected, reconnecting...')
       this.reconnectTimer = setTimeout(
@@ -384,6 +409,15 @@ N2kIpGateway.prototype.connect = function () {
 }
 
 N2kIpGateway.prototype._onData = function (chunk: Buffer) {
+  if (this.formatSpec.read) {
+    if (this.debugData.enabled) {
+      this.debugData(chunk.toString('hex'))
+    }
+    this.formatSpec.read(chunk, this, (parsed: any) =>
+      this._handleParsed(parsed)
+    )
+    return
+  }
   this.rxBuffer += chunk.toString('utf8')
   let nl: number
   while ((nl = this.rxBuffer.indexOf('\n')) >= 0) {
@@ -409,6 +443,10 @@ N2kIpGateway.prototype._handleLine = function (line: string) {
     this.debug(`parse error (${this.format}): ${e.message}`)
     return
   }
+  this._handleParsed(parsed)
+}
+
+N2kIpGateway.prototype._handleParsed = function (parsed: any) {
   if (!parsed || parsed.error || !parsed.data) {
     return
   }
@@ -453,9 +491,14 @@ N2kIpGateway.prototype._handleLine = function (line: string) {
   this.push(out)
 }
 
-N2kIpGateway.prototype.send = function (line: string) {
+N2kIpGateway.prototype.send = function (line: string | Buffer) {
   if (!this.socket) {
     this.debug('drop send: socket not connected')
+    return
+  }
+  if (this.formatSpec.read && Buffer.isBuffer(line)) {
+    this.debugOut('sending %s', line.toString('hex'))
+    this.socket.write(line)
     return
   }
   this.debugOut('sending %s', line)
@@ -528,7 +571,7 @@ N2kIpGateway.prototype.sendPGN = function (msg: any, force?: boolean) {
   payloads.forEach((payload) => {
     const encoded = this.formatSpec.encode(pgn, canid, payload)
     const lines = Array.isArray(encoded) ? encoded : [encoded]
-    lines.forEach((line: string) => this.send(line))
+    lines.forEach((line: string | Buffer) => this.send(line))
 
     if (
       this.options.app &&
