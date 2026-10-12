@@ -928,8 +928,9 @@ export class Parser extends EventEmitter {
         sourceString = encodeCandump2({
           ...pgn,
           data: buffer,
-          // A frame as received: never split again, even for 126720.
-          frame: buffer.length <= 8,
+          // A CAN frame as received is written as it is, even for 126720; a
+          // coalesced message is split into fast-packet frames as needed.
+          frame: !coalesced,
           bus: this.options.canBus || 'can0'
         })[0]
       }

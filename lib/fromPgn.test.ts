@@ -245,3 +245,26 @@ describe('a message that no definition describes', () => {
     expect(warnings[0]).toMatch(/^no conversion found for pgn/)
   })
 })
+
+describe('includeInputData', () => {
+  const pgn = { pgn: 126720, src: 9, dst: 255, prio: 7 }
+  const parse = (data: Buffer, coalesced: boolean) => {
+    const parser = new FromPgn({ includeInputData: true })
+    let input: string[] | undefined
+    parser.on('pgn', (m: any) => (input = m.input))
+    parser.parse({ pgn: { ...pgn }, length: data.length, data, coalesced })
+    return input
+  }
+
+  test('records a CAN frame as it came, even 126720', () => {
+    expect(parse(Buffer.from('a0043f9fccddffff', 'hex'), false)).toEqual([
+      'can0  1defff09   [8]  a0 04 3f 9f cc dd ff ff'
+    ])
+  })
+
+  test('records a coalesced 126720 as its fast-packet frame', () => {
+    const input = parse(Buffer.from('3f9fccdd', 'hex'), true)
+    expect(input).toHaveLength(1)
+    expect(input![0]).toMatch(/\[8\] {2}[02468ace]0 04 3f 9f cc dd ff ff$/)
+  })
+})
