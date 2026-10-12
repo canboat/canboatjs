@@ -20,11 +20,29 @@
 
 import { EventEmitter } from 'events'
 import { closeSync } from 'fs'
+import { constants } from 'os'
 
 const CAN_EFF_FLAG = 0x80000000
 const CAN_EFF_MASK = 0x1fffffff
 const CAN_FRAME_SIZE = 16 // sizeof(struct can_frame)
 const CAN_DATA_OFFSET = 8
+
+// A write the kernel turns away for now: the interface's transmit queue is
+// full (ENOBUFS: a CAN interface's queue holds 10 frames by default) or the
+// socket's send buffer is (EAGAIN). A fast-packet message is up to 32
+// frames, so this happens whenever one is sent: the frame is kept and
+// written again once the bus has taken some of the queue.
+const WRITE_FULL = [constants.errno.ENOBUFS, constants.errno.EAGAIN]
+// How long to wait before trying again: at 250 kbit/s a frame takes about
+// half a millisecond on the bus.
+const RETRY_MS = 2
+// The most frames kept waiting. Past this the bus is not taking frames at
+// all (no other device acknowledging them, say), and newer frames are
+// dropped.
+const MAX_QUEUED = 512
+// While the kernel keeps turning frames away, dropped frames are reported at
+// most this often.
+const REPORT_MS = 5000
 
 interface CanPollerHandle {
   close(): void
@@ -68,6 +86,12 @@ export class CanChannel extends EventEmitter {
   private poller: CanPollerHandle | null = null
   private stopped: boolean = false
   private exitHandler: (() => void) | null = null
+  // Frames waiting to be written, in order.
+  private queue: Buffer[] = []
+  private retryTimer: NodeJS.Timeout | null = null
+  // Frames dropped because the queue was full, since the last report.
+  private dropped = 0
+  private lastReport = 0
 
   constructor(ifname: string) {
     super()
@@ -137,6 +161,12 @@ export class CanChannel extends EventEmitter {
       this.poller.close()
       this.poller = null
     }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
+    this.reportDropped()
+    this.queue = []
     try {
       closeSync(this.readFd)
     } catch (_e) {}
@@ -159,6 +189,44 @@ export class CanChannel extends EventEmitter {
     frame[4] = msg.data.length
     msg.data.copy(frame, CAN_DATA_OFFSET, 0, Math.min(msg.data.length, 8))
 
-    native.writeCanFrame(this.writeFd, frame)
+    if (this.queue.length >= MAX_QUEUED) {
+      this.dropped++
+      return
+    }
+    this.queue.push(frame)
+    if (!this.retryTimer) {
+      this.flush()
+    }
+  }
+
+  // Write the queued frames in order until the kernel turns one away; then
+  // try again shortly.
+  private flush(): void {
+    this.retryTimer = null
+    while (this.queue.length > 0 && !this.stopped) {
+      const result = native.writeCanFrame(this.writeFd, this.queue[0])
+      if (result < 0 && WRITE_FULL.includes(-result)) {
+        this.retryTimer = setTimeout(() => this.flush(), RETRY_MS)
+        if (Date.now() - this.lastReport >= REPORT_MS) {
+          this.reportDropped()
+        }
+        return
+      }
+      // Written, or refused for good (the interface is down, say): the
+      // read side reports a broken interface.
+      this.queue.shift()
+    }
+    this.reportDropped()
+  }
+
+  private reportDropped(): void {
+    if (this.dropped > 0) {
+      this.emit(
+        'onError',
+        `CAN transmit queue full: dropped ${this.dropped} frame(s)`
+      )
+      this.dropped = 0
+      this.lastReport = Date.now()
+    }
   }
 }
