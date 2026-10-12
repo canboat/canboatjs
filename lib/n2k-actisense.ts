@@ -138,6 +138,16 @@ export const readN2KActisense = (
     cb && cb(last)
   }
 
+  const collect = (b: number) => {
+    if (d.buf.length < MAX_COLLECT) {
+      d.buf.push(b)
+    } else {
+      debug('message too long, dropped')
+      d.state = State.Idle
+      d.buf = []
+    }
+  }
+
   for (const b of data) {
     switch (d.state) {
       case State.Idle:
@@ -156,18 +166,14 @@ export const readN2KActisense = (
       case State.InFrame:
         if (b === DLE) {
           d.state = State.InFrameDle
-        } else if (d.buf.length < MAX_COLLECT) {
-          d.buf.push(b)
         } else {
-          debug('message too long, dropped')
-          d.state = State.Idle
-          d.buf = []
+          collect(b)
         }
         break
       case State.InFrameDle:
         if (b === DLE) {
           d.state = State.InFrame
-          d.buf.push(DLE)
+          collect(DLE)
         } else if (b === ETX) {
           emit()
         } else if (b === STX) {
