@@ -17,11 +17,85 @@
 import { PGN } from '@canboat/ts-pgns'
 import { createDebug } from './utilities'
 import { parseCanId, encodeCanId } from './canId'
-import { BitStream } from 'bit-buffer'
 import { binToActisense } from './utilities'
+import { getPgn, getCustomPgn } from './pgns'
 
 const debug = createDebug('canboatjs:w2k01')
 const debugData = createDebug('canboatjs:w2k01-data')
+
+/*
+  Actisense BST-D0 messages: whole NMEA 2000 messages, as a W2K-1 or
+  PRO-NDC-1E2K sends them in its "Actisense" data mode. Specified in the
+  Actisense SDK:
+  https://github.com/Actisense/SDK/blob/main/docs/DataFormats/Binary/bst-detail/BST-D0.md
+
+  A message travels in BDTP framing, DLE STX ... DLE ETX, with every DLE
+  inside doubled. Unframed, it is
+
+    D0 <L:u16 LE> <D> <S> <PDUS> <PDUF> <DPP> <C> <T:u32 LE> <data...> <checksum>
+
+  - L is the length of everything before the checksum: 13 + data.
+  - D is the destination; S PDUS PDUF DPP the CAN id, little-endian.
+  - C is the control byte: message type in bits 0-1 (0 single frame, 1
+    fast-packet, 2 ISO multi-packet), direction in bit 3 (1 = to the bus),
+    internally generated in bit 4, fast-packet sequence in bits 5-7.
+  - T is the device's millisecond clock. It is not used.
+  - The checksum makes the 8-bit sum of the whole message zero.
+
+  A frame with a bad length, checksum or escape is dropped, and reading
+  resumes at the next DLE STX. Other BST messages are skipped.
+*/
+
+const DLE = 0x10
+const STX = 0x02
+const ETX = 0x03
+const BST_D0 = 0xd0
+
+/* D0, L, D, the CAN id, C and T: everything before the data. */
+const HEADER_LEN = 13
+/* No NMEA 2000 message is longer than ISO transport's 255 packets of 7. */
+const MAX_DATA_LEN = 255 * 7
+const MAX_COLLECT = HEADER_LEN + MAX_DATA_LEN + 1
+/* The most a fast-packet message carries. */
+const FAST_PACKET_MAX_LEN = 223
+
+const C_SINGLE = 0
+const C_FAST_PACKET = 1
+const C_ISO_MULTI_PACKET = 2
+const C_TO_BUS = 1 << 3
+
+enum State {
+  Idle /* outside a frame, looking for DLE STX */,
+  IdleDle /* outside a frame, just after a DLE */,
+  InFrame /* inside a frame, collecting bytes */,
+  InFrameDle /* inside a frame, just after a DLE */
+}
+
+/* The decoder's state, kept in the caller's `context` between reads, so a
+   message split across reads is joined. */
+type Decoder = { state: State; buf: number[] }
+
+/* The CAN id and data of an unframed message, or undefined when it is not
+   a well-formed BST-D0 message. */
+function toMessage(m: number[]) {
+  if (m.length < HEADER_LEN + 1 || m[0] !== BST_D0) {
+    return undefined
+  }
+  const len = m[1] | (m[2] << 8)
+  if (len < HEADER_LEN || len + 1 !== m.length) {
+    debug('bad length: %d for %d bytes', len, m.length)
+    return undefined
+  }
+  if (m.reduce((sum, b) => (sum + b) & 0xff, 0) !== 0) {
+    debug('bad checksum: %s', Buffer.from(m).toString('hex'))
+    return undefined
+  }
+  const canId = (m[4] | (m[5] << 8) | (m[6] << 16) | (m[7] << 24)) >>> 0
+  return {
+    canId: canId & 0x1fffffff,
+    data: Buffer.from(m.slice(HEADER_LEN, len))
+  }
+}
 
 export const readN2KActisense = (
   data: Buffer,
@@ -29,8 +103,6 @@ export const readN2KActisense = (
   context: any,
   cb: (data: any) => void
 ) => {
-  const inBuf = Buffer.from(data)
-  let inOffset = 0
   let last
 
   if (debugData.enabled) {
@@ -39,114 +111,140 @@ export const readN2KActisense = (
     )
   }
 
-  try {
-    while (true) {
-      const len = inBuf.readUInt16LE(inOffset + 3)
+  if (!context.bstD0) {
+    context.bstD0 = { state: State.Idle, buf: [] }
+  }
+  const d: Decoder = context.bstD0
 
-      if (inBuf.length < inOffset + 5 + len) {
-        /*
-          I've never seen this happen
-        context.lastChunk = Buffer.alloc(inBuf.length - inOffset)
-        inBuf.copy(context.lastChunk, 0, inOffset, inBuf.length-1)
-        */
-
-        if (debug.enabled) {
-          debug(
-            'incomplete packet: (' +
-              len +
-              ') ' +
-              inBuf.toString('hex', inOffset)
-          )
-        }
-
-        return
-      } else if (
-        inBuf[inOffset + 5 + len - 1] != 0x03 ||
-        inBuf[inOffset + 5 + len - 2] != 0x10
-      ) {
-        if (debug.enabled) {
-          debug('bad packet: (' + len + ') ' + inBuf.toString('hex', inOffset))
-        }
-        //context.lastChunk = null
-        return
-      }
-
-      const buf = Buffer.alloc(len)
-      inBuf.copy(buf, 0, inOffset + 5, inOffset + len + 5)
-
-      //console.log('NextBuf: (' + buf.length + ') ' + buf.toString('hex'))
-
-      let offset = 0
-      const _dst = buf.readUInt8(offset)
-      offset += 1
-      const canid = buf.readUInt32LE(offset)
-      offset += 4
-      const _timestamp = buf.readUInt32LE(offset)
-      offset += 4
-      const _mhs = buf.readUInt8(offset)
-      offset += 1
-
-      const info = parseCanId(canid)
-
-      //console.log(`${len} ${mhs} ${dst} (${info.src}, ${info.dst}) ${info.pgn} ${timestamp}`)
-
-      const pgnData = Buffer.alloc(len - offset - 3)
-      buf.copy(pgnData, 0, offset, len - 3)
-      const timestamp = new Date().toISOString()
-
-      if (plainText) {
-        last = binToActisense(info, timestamp, pgnData, pgnData.length)
-        cb && cb(last)
-      } else {
-        last = {
-          pgn: info,
-          length: pgnData.length,
-          data: pgnData,
-          coalesced: true
-        }
-        cb && cb(last)
-      }
-
-      inOffset += len + 5
-      if (inOffset == inBuf.length) {
-        return last
+  const emit = () => {
+    const msg = toMessage(d.buf)
+    d.state = State.Idle
+    d.buf = []
+    if (!msg) {
+      return
+    }
+    const info = parseCanId(msg.canId)
+    const timestamp = new Date().toISOString()
+    if (plainText) {
+      last = binToActisense(info, timestamp, msg.data, msg.data.length)
+    } else {
+      last = {
+        pgn: info,
+        length: msg.data.length,
+        data: msg.data,
+        coalesced: true
       }
     }
-  } catch (error) {
-    debug(`[error] ${error}`)
-    //context.lastChunk = null
-    return
+    cb && cb(last)
   }
+
+  for (const b of data) {
+    switch (d.state) {
+      case State.Idle:
+        if (b === DLE) {
+          d.state = State.IdleDle
+        }
+        break
+      case State.IdleDle:
+        if (b === STX) {
+          d.state = State.InFrame
+          d.buf = []
+        } else if (b !== DLE) {
+          d.state = State.Idle
+        }
+        break
+      case State.InFrame:
+        if (b === DLE) {
+          d.state = State.InFrameDle
+        } else if (d.buf.length < MAX_COLLECT) {
+          d.buf.push(b)
+        } else {
+          debug('message too long, dropped')
+          d.state = State.Idle
+          d.buf = []
+        }
+        break
+      case State.InFrameDle:
+        if (b === DLE) {
+          d.state = State.InFrame
+          d.buf.push(DLE)
+        } else if (b === ETX) {
+          emit()
+        } else if (b === STX) {
+          // A new frame before this one ended: drop this one.
+          debug('frame cut short: %s', Buffer.from(d.buf).toString('hex'))
+          d.state = State.InFrame
+          d.buf = []
+        } else {
+          debug('bad escape: DLE %s', b.toString(16))
+          d.state = State.Idle
+          d.buf = []
+        }
+        break
+    }
+  }
+
+  return last
 }
 
-export const encodeN2KActisense = (pgn: PGN, data: Buffer) => {
-  const bs = new BitStream(Buffer.alloc(18 + data.length))
+/* The message type the gateway needs to put `data` on the bus. */
+function messageType(pgn: number, length: number) {
+  if (length > FAST_PACKET_MAX_LEN) {
+    return C_ISO_MULTI_PACKET
+  }
+  const custom = getCustomPgn(pgn)
+  const definitions = [
+    ...((custom && custom.definitions) || []),
+    ...(getPgn(pgn) || [])
+  ]
+  if (definitions.length > 0 && definitions[0].Type === 'Fast') {
+    return C_FAST_PACKET
+  }
+  return length > 8 ? C_ISO_MULTI_PACKET : C_SINGLE
+}
 
-  bs.writeUint8(0x10) //BST Message ID
-  bs.writeUint8(0x02)
-  bs.writeUint8(0xd0)
-
-  bs.writeUint16(13 + data.length) //len
-  bs.writeUint8(pgn.dst)
-  bs.writeUint32(
+/* `pgn` as one BDTP-framed BST-D0 message going to the bus. `data`
+   defaults to `pgn.data`, as a parsed Actisense string carries it. */
+export const encodeN2KActisense = (pgn: PGN, data?: Buffer) => {
+  if (data === undefined) {
+    data = (pgn as any).data as Buffer
+  }
+  const dst = pgn.dst === undefined ? 255 : pgn.dst
+  const m = Buffer.alloc(HEADER_LEN + data.length + 1)
+  m[0] = BST_D0
+  m.writeUInt16LE(HEADER_LEN + data.length, 1)
+  m[3] = dst
+  m.writeUInt32LE(
     encodeCanId({
       pgn: pgn.pgn,
       src: pgn.src || 0,
       prio: pgn.prio || 2,
-      dst: pgn.dst
-    })
+      dst
+    }) >>> 0,
+    4
   )
-  bs.writeUint32(0) //timestamp
-  bs.writeUint8(0) //mhs
-  data.copy(bs.view.buffer, bs.byteIndex, 0)
-  bs.byteIndex += data.length
-  bs.writeUint8(0) // ??
-  bs.writeUint8(0x10)
-  bs.writeUint8(0x03)
+  m[8] = messageType(pgn.pgn, data.length) | C_TO_BUS
+  // T, the time, is left 0, as the SDK allows.
+  data.copy(m, HEADER_LEN)
+  let sum = 0
+  for (let i = 0; i < m.length - 1; i++) {
+    sum = (sum + m[i]) & 0xff
+  }
+  m[m.length - 1] = (256 - sum) & 0xff
+
+  const out = [DLE, STX]
+  for (const b of m) {
+    out.push(b)
+    if (b === DLE) {
+      out.push(DLE)
+    }
+  }
+  out.push(DLE, ETX)
+  const encoded = Buffer.from(out)
 
   if (debugData.enabled) {
-    debugData('encoded: ' + bs.view.buffer.toString('hex'))
+    debugData('encoded: ' + encoded.toString('hex'))
   }
 
-  return bs.view.buffer
+  return encoded
 }

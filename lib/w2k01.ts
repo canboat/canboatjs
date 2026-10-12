@@ -122,7 +122,7 @@ W2K01Stream.prototype.sendW2KPGN = function (msg: string) {
     }
     this.send(ascii + '\r\n')
   } else {
-    const buf = actisenseToN2KActisenseFormat
+    const buf = actisenseToN2KActisenseFormat(msg)
     if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
       this.options.app.emit('canboatjs:rawsend', { data: buf })
     }
