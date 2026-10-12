@@ -769,10 +769,10 @@ Output:
   "description": "Position, Rapid Update",
   "timestamp": "2019-04-10T20:29:27.082Z",
   "dst": 255,
-  "prio": 0,
+  "prio": 2,
   "fields": {
-    "Latitude": 33.0875728,
-    "Longitude": -97.0205113
+    "Latitude": 20.7479619,
+    "Longitude": -105.3783356
   }
 }
 ```

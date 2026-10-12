@@ -38,7 +38,8 @@ Options:
   --format <format>         json, candump
   -c                        don't check for invalid values
   -n                        output null values
-  -r                        parse $MXPGN as little endian
+  -r                        ignored, kept for compatibility ($MXPGN is
+                            always read last byte first, as specified)
   --no-enums                don't output enum values
   --include-raw-data        include raw data in output
   --include-byte-mapping    include byte mapping in output
@@ -69,7 +70,6 @@ const filter = setupFilters(argv as unknown as FilterOptions)
 
 const parser = new FromPgn({
   returnNulls: argv['n'] === true,
-  littleEndianMXPGN: argv['r'] === true,
   checkForInvalidFields: argv['c'] !== true,
   useCamel: argv['camel'],
   useCamelCompat: argv['camel-compat'],
