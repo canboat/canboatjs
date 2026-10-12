@@ -45,7 +45,7 @@ export function getPlainPGNs(buffer: Buffer, pgn?: number, src?: number) {
   const res = []
   let bucket = nextFastPacketSequence(pgn, src) << 5
 
-  const first = Buffer.alloc(8)
+  const first = Buffer.alloc(8, 0xff)
   first.writeUInt8(bucket++, 0)
   first.writeUInt8(buffer.length, 1)
   buffer.copy(first, 2, 0, 6)
