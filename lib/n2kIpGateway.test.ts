@@ -288,6 +288,42 @@ describe('N2kIpGateway', () => {
     })
   })
 
+  test.each(['candump1', 'candump2', 'candump3', 'ydraw'])(
+    'TX %s: splits 126720, always fast-packet, only once',
+    async (format) => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'gw.local',
+        format,
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+
+      // 6 bytes: one fast-packet frame, its first byte the frame counter 0.
+      gw.sendPGN({
+        pgn: 126720,
+        prio: 3,
+        src: 17,
+        dst: 255,
+        data: Buffer.from('aabbccddeeff', 'hex')
+      })
+
+      expect(lastSocket!.written).toHaveLength(1)
+      // The frame's 8 data bytes, as hex: after the '#' in candump3, the last
+      // 8 words in the others.
+      const hex = lastSocket!.written[0]
+        .trim()
+        .split('#')
+        .pop()!
+        .split(/\s+/)
+        .slice(-8)
+        .join('')
+        .toLowerCase()
+      expect(parseInt(hex.slice(0, 2), 16) & 0x1f).toBe(0)
+      expect(hex.slice(2)).toBe('06aabbccddeeff')
+    }
+  )
+
   test('actAsCanDevice: true creates a CanDevice and emits address claim', async () => {
     jest.useFakeTimers({ doNotFake: ['setImmediate'] })
     try {

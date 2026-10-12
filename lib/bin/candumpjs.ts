@@ -120,6 +120,7 @@ channel.addListener('onMessage', (msg: any) => {
     const sourceString = encodeCandump2({
       ...pgn,
       data: msg.data,
+      frame: true,
       bus: canDevice
     })[0]
     console.log(sourceString)

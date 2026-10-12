@@ -100,9 +100,12 @@ type LineEncoder = (
   buffer: Buffer
 ) => string | string[] | Buffer
 
+// sendPGN splits fast-packet messages itself, so each of these gets one CAN
+// frame: `frame: true` keeps the encoder from splitting it again.
 function encodeCandump3Line(pgn: any, _canid: number, buffer: Buffer) {
   return encodeCandump3({
     data: buffer,
+    frame: true,
     pgn: pgn.pgn,
     src: pgn.src,
     dst: pgn.dst,
@@ -113,6 +116,7 @@ function encodeCandump3Line(pgn: any, _canid: number, buffer: Buffer) {
 function encodeCandump2Line(pgn: any, _canid: number, buffer: Buffer) {
   return encodeCandump2({
     data: buffer,
+    frame: true,
     pgn: pgn.pgn,
     src: pgn.src,
     dst: pgn.dst,
@@ -123,6 +127,7 @@ function encodeCandump2Line(pgn: any, _canid: number, buffer: Buffer) {
 function encodeCandump1Line(pgn: any, _canid: number, buffer: Buffer) {
   return encodeCandump1({
     data: buffer,
+    frame: true,
     pgn: pgn.pgn,
     src: pgn.src,
     dst: pgn.dst,
@@ -133,6 +138,7 @@ function encodeCandump1Line(pgn: any, _canid: number, buffer: Buffer) {
 function encodeYDRAWLine(pgn: any, _canid: number, buffer: Buffer) {
   return encodeYDRAW({
     data: buffer,
+    frame: true,
     pgn: pgn.pgn,
     src: pgn.src,
     dst: pgn.dst,

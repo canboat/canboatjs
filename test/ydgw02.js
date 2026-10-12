@@ -142,11 +142,12 @@ describe('Send frames to a Yacht Devices gateway', function () {
       line.slice(0, 9) +
       (parseInt(line.slice(9, 11), 16) & 0x1f).toString(16).padStart(2, '0') +
       line.slice(11)
-    sent[0]
-      .split('\r\n')
-      .slice(0, -1)
-      .map(withoutSequence)
-      .should.eql(frames.map(withoutSequence))
+    const lines = sent[0].split('\r\n').slice(0, -1)
+    lines.map(withoutSequence).should.eql(frames.map(withoutSequence))
+    // All frames of the message carry one sequence counter.
+    new Set(
+      lines.map((line) => parseInt(line.slice(9, 11), 16) >> 5)
+    ).size.should.equal(1)
     done()
   })
 })
