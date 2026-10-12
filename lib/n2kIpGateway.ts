@@ -369,6 +369,10 @@ N2kIpGateway.prototype.connect = function () {
     }
     this.socket = undefined
     this.reconnecting = false
+    // The next connection starts a fresh stream: drop any partial line or
+    // frame left from this one.
+    this.rxBuffer = ''
+    this.bst95 = undefined
     if (!this.stopping) {
       this.setProviderError('disconnected, reconnecting...')
       this.reconnectTimer = setTimeout(

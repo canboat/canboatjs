@@ -512,6 +512,37 @@ describe('N2kIpGateway', () => {
       expect(pushed[0].data).toEqual(data)
     })
 
+    test('RX: a frame cut off by a closed connection does not spoil the next one', async () => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'w2k.local',
+        format: 'bst-95',
+        actAsCanDevice: false,
+        reconnectIntervalMs: 1
+      })
+      await waitForConnect()
+      const pushed: any[] = []
+      gw.on('data', (d: any) => pushed.push(d))
+
+      const id = { pgn: 129025, src: 0x10, dst: 255, prio: 2 }
+      const data = Buffer.from('0d474717e2da6910', 'hex')
+      const frame = fromBus(id, data)
+      // Cut off just after a DLE inside the frame.
+      const first = lastSocket!
+      first.emit(
+        'data',
+        Buffer.concat([frame.subarray(0, 5), Buffer.from([0x10])])
+      )
+      first.emit('close')
+      await new Promise((r) => setTimeout(r, 5))
+      await waitForConnect()
+      expect(lastSocket).not.toBe(first)
+
+      lastSocket!.emit('data', frame)
+      expect(pushed).toHaveLength(1)
+      expect(pushed[0].data).toEqual(data)
+    })
+
     test('TX: splits a fast-packet message into BST-95 frames, written as bytes', async () => {
       const gw = newGateway({
         app: makeApp(),
