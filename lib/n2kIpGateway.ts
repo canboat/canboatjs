@@ -22,15 +22,13 @@ import util from 'util'
 
 import { CanDevice } from './candevice'
 import { CanID, encodeCanId } from './canId'
-import {
-  pgnToActisenseN2KAsciiFormat,
-  pgnToN2KActisenseFormat,
-  toPgn
-} from './toPgn'
+import { toPgn } from './toPgn'
 import {
   encodeCandump1,
   encodeCandump2,
   encodeCandump3,
+  encodeActisense,
+  encodeActisenseN2KACSII,
   encodeYDRAW,
   encodePCDIN,
   parseActisense,
@@ -140,18 +138,27 @@ function encodeYDRAWLine(pgn: any, _canid: number, buffer: Buffer) {
   })
 }
 
-function encodeActisenseLine(pgn: any, _canid: number, _buffer: Buffer) {
-  // Actisense format carries the entire (possibly long) PGN payload — no
-  // fast-packet split needed. The caller passes the full unsplit buffer.
-  return pgnToN2KActisenseFormat(pgn) as unknown as string
+// The Actisense formats carry the entire (possibly long) PGN payload — no
+// fast-packet split needed. The caller passes the full unsplit buffer, so a
+// message that came in as an Actisense string keeps its data.
+function encodeActisenseLine(pgn: any, _canid: number, buffer: Buffer) {
+  return encodeActisense({
+    pgn: pgn.pgn,
+    data: buffer,
+    src: pgn.src,
+    dst: pgn.dst,
+    prio: pgn.prio
+  })
 }
 
-function encodeActisenseN2KAsciiLine(
-  pgn: any,
-  _canid: number,
-  _buffer: Buffer
-) {
-  return pgnToActisenseN2KAsciiFormat(pgn)
+function encodeActisenseN2KAsciiLine(pgn: any, _canid: number, buffer: Buffer) {
+  return encodeActisenseN2KACSII({
+    pgn: pgn.pgn,
+    data: buffer,
+    src: pgn.src,
+    dst: pgn.dst,
+    prio: pgn.prio
+  })
 }
 
 function encodePCDINLine(pgn: any, _canid: number, buffer: Buffer) {
