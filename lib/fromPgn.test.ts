@@ -268,3 +268,51 @@ describe('includeInputData', () => {
     expect(input![0]).toMatch(/\[8\] {2}[02468ace]0 04 3f 9f cc dd ff ff$/)
   })
 })
+
+describe('a message cut short before a BITLOOKUP field', () => {
+  // PGN 127489 Engine Parameters, Dynamic: Discrete Status 1 and 2 are
+  // BITLOOKUPs at bytes 20..23 of 26. A capture cut after byte 20 still has
+  // the oil pressure, temperatures and alternator potential.
+  const full = pgnToActisenseSerialFormat({
+    pgn: 127489,
+    dst: 255,
+    src: 16,
+    prio: 2,
+    fields: {
+      instance: 'Single Engine or Dual Engine Port',
+      oilPressure: 300000,
+      temperature: 350,
+      discreteStatus1: ['Over Temperature']
+    }
+  } as any)
+
+  const newParser = () => {
+    const parser = new FromPgn({ useCamel: true })
+    const errors: any[] = []
+    parser.on('error', (_pgn: any, error: any) => errors.push(error))
+    parser.on('warning', () => {})
+    return { parser, errors }
+  }
+
+  test('keeps the fields it has and leaves the BITLOOKUP not available', () => {
+    const { parser, errors } = newParser()
+    // The header (timestamp .. length 26) and the first 20 data bytes
+    const cut = full
+      .split(',')
+      .slice(0, 6 + 20)
+      .join(',')
+    const pgn: any = parser.parseString(cut)
+    expect(errors).toEqual([])
+    expect(pgn).toBeDefined()
+    expect(pgn.fields.oilPressure).toBe(300000)
+    expect(pgn.fields.temperature).toBe(350)
+    expect(pgn.fields.discreteStatus1).toBeUndefined()
+  })
+
+  test('the whole message still decodes its BITLOOKUP', () => {
+    const { parser, errors } = newParser()
+    const pgn: any = parser.parseString(full)
+    expect(errors).toEqual([])
+    expect(pgn.fields.discreteStatus1).toEqual(['Over Temperature'])
+  })
+})

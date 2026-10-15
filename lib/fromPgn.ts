@@ -1855,8 +1855,18 @@ fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
 }
 
 fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
+  const bitLength = field.BitLength as number
+  // A message that ends before this field has no bits for it: not available,
+  // as readField treats every other field type. Reading on would throw and
+  // drop the whole message, fields already read included.
+  if (bs.bitsLeft < bitLength) {
+    if (bs.bitsLeft > 0) {
+      bs.readBits(bs.bitsLeft, false)
+    }
+    return null
+  }
   const value: any[] = []
-  for (let i = 0; i < (field.BitLength as number); i++) {
+  for (let i = 0; i < bitLength; i++) {
     if (bs.readBits(1, false)) {
       value.push(getBitEnumerationName(field.LookupBitEnumeration as string, i))
     }
