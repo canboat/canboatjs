@@ -131,9 +131,13 @@ export const isActisense = (input: string) =>
   isPlainLine(input)
 
 export const parseActisense = (input: string) => {
-  const [timestamp, prio, pgn, src, dst, len, ...data] = input
-    .replace(/[\r\n]+$/, '')
-    .split(',')
+  const parts = input.replace(/[\r\n]+$/, '').split(',')
+  // isActisense looks at two characters of the timestamp; a line cut after it
+  // (a truncated capture, or canboat's own test input) has no fields to read.
+  if (parts.length < 6) {
+    return buildErr('Actisense', 'Invalid parts.', input)
+  }
+  const [timestamp, prio, pgn, src, dst, len, ...data] = parts
   return buildMsg(
     buildCanId(prio.trim(), pgn.trim(), dst.trim(), src.trim()),
     'Actisense',
@@ -184,7 +188,11 @@ export const toActisenseSerialFormat = (
 export const isActisenseN2KASCII = (input: string) =>
   input.charAt(0) === 'A' && input.charAt(7) === '.' && input.charAt(11) === ' '
 export const parseActisenseN2KASCII = (input: string) => {
-  const [timestamp, srcdstp, pgn, data] = input.split(' ')
+  const parts = input.split(' ')
+  if (parts.length < 4) {
+    return buildErr('Actisense N2K ASCII', 'Invalid parts.', input)
+  }
+  const [timestamp, srcdstp, pgn, data] = parts
   const src = parseInt(srcdstp.substring(0, 2), 16)
   const dst = parseInt(srcdstp.substring(2, 4), 16)
   const prio = parseInt(srcdstp.substring(4))
@@ -297,7 +305,11 @@ export const isPCDIN = (msg: string) => {
 export const parsePCDIN = (input: string) => {
   const sentence = get0183Sentence(input)
   if (sentence) {
-    const [prefix, pgn, timeHex, src, data] = sentence.split(',')
+    const parts = sentence.split(',')
+    if (parts.length < 5) {
+      return buildErr('PCDIN', 'Invalid parts.', input)
+    }
+    const [prefix, pgn, timeHex, src, data] = parts
     let timer = parseInt(timeHex, 32)
 
     timer = timer / 1024
