@@ -38,8 +38,7 @@ Options:
   --format <format>         json, candump
   -c                        don't check for invalid values
   -n                        output null values
-  -r                        ignored, kept for compatibility ($MXPGN is
-                            always read last byte first, as specified)
+  -r                        ignored, kept for compatibility
   --no-enums                don't output enum values
   --include-raw-data        include raw data in output
   --include-byte-mapping    include byte mapping in output

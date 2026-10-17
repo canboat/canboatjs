@@ -69,10 +69,30 @@ describe('from mxpgn data converts', function () {
     })
   })
 
-  it('ignores the old littleEndianMXPGN option', function () {
+  it('reads the old littleEndianMXPGN: true as the default order', function () {
     parseOne('$MXPGN,01F801,2801,C1308AC40C5DE343*19', {
       littleEndianMXPGN: true
     }).should.jsonEqual(position)
+  })
+
+  // The same frame as the MiniPlex's above, its data in bus order, as an
+  // Actisense gateway emulating $MXPGN writes it.
+  const busOrder = '$MXPGN,01F801,2801,43E35D0CC48A30C1*19'
+
+  it('129025 in bus order with mxpgnBusOrder', function () {
+    parseOne(busOrder, { mxpgnBusOrder: true }).should.jsonEqual(position)
+  })
+
+  it('129025 in bus order with an explicit littleEndianMXPGN: false', function () {
+    parseOne(busOrder, { littleEndianMXPGN: false }).should.jsonEqual(position)
+  })
+
+  it('the Actisense SDK example (127508 at 12.00 V) in bus order', function () {
+    const pgn = parseOne('$MXPGN,01F214,6842,00B004FF7FFFFFFF', {
+      mxpgnBusOrder: true
+    })
+    pgn.should.include({ pgn: 127508, src: 0x42, prio: 6 })
+    pgn.fields.should.include({ Voltage: 12 })
   })
 
   it('127250 received from source 7', function () {
@@ -141,6 +161,26 @@ describe('to mxpgn', function () {
       dst: 9,
       data: Buffer.from('16F001', 'hex')
     }).should.equal('$MXPGN,00EA00,F309,01F016*68')
+  })
+
+  it('a global PGN in bus order with mxpgnBusOrder', function () {
+    encodeMXPGN(
+      {
+        pgn: 127250,
+        prio: 2,
+        data: Buffer.from('128016FF7FFF7FFC', 'hex')
+      },
+      { mxpgnBusOrder: true }
+    ).should.equal('$MXPGN,01F112,A800,128016FF7FFF7FFC*65')
+  })
+
+  it('reads back what it writes, in either order', function () {
+    const msg = { pgn: 129025, prio: 2, fields: position.fields }
+    for (const options of [undefined, { mxpgnBusOrder: true }]) {
+      parseOne(pgnToMXPGN(msg, options), options).fields.should.deep.equal(
+        position.fields
+      )
+    }
   })
 
   it('a fast-packet PGN, one sentence per frame', function () {

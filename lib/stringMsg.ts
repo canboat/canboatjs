@@ -328,7 +328,10 @@ export const encodePCDIN = ({
 //   $MXPGN,pppppp,aaaa,d--d*hh
 //
 // One sentence carries one CAN frame. The data is written as one number,
-// most significant byte first, so the frame's last byte comes first. The
+// most significant byte first, so the frame's last byte comes first. Some
+// gateways that emulate $MXPGN (an Actisense W2K-2, for one) write the data
+// the other way round, the frame's bytes in bus order: the mxpgnBusOrder
+// option reads and writes that order. The
 // attribute word is S(1) | priority(3) | DLC(4) | address(8): S=0 is a
 // received frame and the address is its source; S=1 asks the MiniPlex to
 // send it and the address is its destination, the source being the
@@ -344,7 +347,21 @@ export const isMXPGN = (msg: string) => {
 
 const isPDU1 = (pgn: number) => ((pgn >> 8) & 0xff) < 240
 
-export const parseMXPGN = (input: string) => {
+/**
+ * Whether `options` ask for $MXPGN data in bus order, first byte first, as
+ * some gateways emulating $MXPGN write it, rather than ShipModul's last byte
+ * first. `mxpgnBusOrder: true` asks for it. So does an explicit
+ * `littleEndianMXPGN: false`: that older option named ShipModul's order, and
+ * bus order was the default when it was unset.
+ */
+export const isMXPGNBusOrder = (options?: any) =>
+  options?.mxpgnBusOrder === true || options?.littleEndianMXPGN === false
+
+/** A frame's bytes as $MXPGN writes them, in either order. */
+const mxpgnOrder = (data: Buffer, busOrder: boolean) =>
+  busOrder ? data : Buffer.from(data).reverse()
+
+export const parseMXPGN = (input: string, options?: any) => {
   const sentence = get0183Sentence(input)
   if (sentence) {
     const [prefix, pgnField, attr = '', dataField = ''] = sentence.split(',')
@@ -376,7 +393,7 @@ export const parseMXPGN = (input: string) => {
     return buildMsg(
       buildCanId(prio, pgn, dst, src),
       'MXPGN',
-      Buffer.from(data, 'hex').reverse(),
+      mxpgnOrder(Buffer.from(data, 'hex'), isMXPGNBusOrder(options)),
       { prefix }
     )
   }
@@ -387,15 +404,14 @@ export const parseMXPGN = (input: string) => {
  * longer than one CAN frame is split into its fast-packet frames, one
  * sentence each, and comes back as an array; a single frame comes back as
  * a string. The source address is not encoded: the MiniPlex sends with its
- * own.
+ * own. The data is written last byte first, or with `mxpgnBusOrder` in
+ * `options`, first byte first (see isMXPGNBusOrder).
  */
-export const encodeMXPGN = ({
-  prefix = '$MXPGN',
-  pgn,
-  prio,
-  dst = 255,
-  data
-}: any) => {
+export const encodeMXPGN = (
+  { prefix = '$MXPGN', pgn, prio, dst = 255, data }: any,
+  options?: any
+) => {
+  const busOrder = isMXPGNBusOrder(options)
   prio = prio ?? 3
   const buffer = Buffer.from(data)
   const pdu1 = isPDU1(pgn)
@@ -411,7 +427,7 @@ export const encodeMXPGN = ({
       prefix,
       pgnField,
       toPaddedHexString(attribWord, 4),
-      Buffer.from(frame).reverse().toString('hex').toUpperCase()
+      mxpgnOrder(Buffer.from(frame), busOrder).toString('hex').toUpperCase()
     ].join(',')
     return sentence + compute0183Checksum(sentence)
   })
@@ -569,7 +585,7 @@ export const parseN2kString = (str: string, _options?: any): any => {
     return parsePCDIN(str)
   }
   if (isMXPGN(str)) {
-    return parseMXPGN(str)
+    return parseMXPGN(str, _options)
   }
   if (isPDGY(str)) {
     return parsePDGY(str)
@@ -611,6 +627,6 @@ export const isN2KOver0183 = (msg: string) => {
   return isPCDIN(msg) || isMXPGN(msg)
 }
 
-export const parseN2KOver0183 = (msg: string) => {
-  return parsePCDIN(msg) || parseMXPGN(msg)
+export const parseN2KOver0183 = (msg: string, options?: any) => {
+  return parsePCDIN(msg) || parseMXPGN(msg, options)
 }

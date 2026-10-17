@@ -554,6 +554,25 @@ device.start()
 | **candump2** | Linux CAN utils (Debian) | `can0  09F8027F   [8]  00 FC FF FF 00 00 FF FF` |
 | **candump3** | Linux CAN utils (log) | `(1502979132.106111) slcan0 09F50374#000A00FFFF00FFFF` |
 
+### $MXPGN byte order
+
+A ShipModul MiniPlex writes a frame's data as one number, most significant byte
+first, so the frame's last byte comes first. canboatjs reads and writes that
+order by default. Some gateways that emulate `$MXPGN` (an Actisense W2K-2, for
+one) write the frame's bytes in bus order instead, first byte first. For those,
+set `mxpgnBusOrder`:
+
+```javascript
+const parser = new FromPgn({ mxpgnBusOrder: true })
+const sentences = pgnToMXPGN(message, { mxpgnBusOrder: true })
+```
+
+In Signal K, add `"mxpgnBusOrder": true` to the NMEA 0183 connection's
+`subOptions` in `settings.json`. The older `littleEndianMXPGN` option is still
+read: `true` is the default ShipModul order, an explicit `false` is bus order.
+`analyzerjs --mxpgn-bus-order` and `to-pgn --format actisense-mxpgn` do the same
+on the command line.
+
 ### Output Format Support
 
 Generate data in any supported format from JSON:
