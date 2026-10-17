@@ -634,8 +634,8 @@ export function pgnToPCDIN(info: any) {
   return encodePCDIN({ ...info, data: toPgn(info) })
 }
 
-export function pgnToMXPGN(info: any) {
-  return encodeMXPGN({ ...info, data: toPgn(info) })
+export function pgnToMXPGN(info: any, options?: any) {
+  return encodeMXPGN({ ...info, data: toPgn(info) }, options)
 }
 
 export function pgnToCandump1(info: any) {
@@ -656,7 +656,8 @@ export const actisenseToYdgwFullRawFormat = _.flow(
   encodeYDRAWFull
 )
 export const actisenseToPCDIN = _.flow(parseActisense, encodePCDIN)
-export const actisenseToMXPGN = _.flow(parseActisense, encodeMXPGN)
+export const actisenseToMXPGN = (input: string, options?: any) =>
+  encodeMXPGN(parseActisense(input), options)
 export const actisenseToiKonvert = _.flow(parseActisense, encodePDGY)
 export const actisenseToN2KAsciiFormat = _.flow(
   parseActisense,
