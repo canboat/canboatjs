@@ -554,6 +554,25 @@ device.start()
 | **candump2** | Linux CAN utils (Debian) | `can0  09F8027F   [8]  00 FC FF FF 00 00 FF FF` |
 | **candump3** | Linux CAN utils (log) | `(1502979132.106111) slcan0 09F50374#000A00FFFF00FFFF` |
 
+### $MXPGN byte order
+
+A ShipModul MiniPlex writes a frame's data as one number, most significant byte
+first, so the frame's last byte comes first. canboatjs reads and writes that
+order by default. Some gateways that emulate `$MXPGN` (an Actisense W2K-2, for
+one) write the frame's bytes in bus order instead, first byte first. For those,
+set `mxpgnBusOrder`:
+
+```javascript
+const parser = new FromPgn({ mxpgnBusOrder: true })
+const sentences = pgnToMXPGN(message, { mxpgnBusOrder: true })
+```
+
+In Signal K, add `"mxpgnBusOrder": true` to the NMEA 0183 connection's
+`subOptions` in `settings.json`. The older `littleEndianMXPGN` option is still
+read: `true` is the default ShipModul order, an explicit `false` is bus order.
+`analyzerjs --mxpgn-bus-order` and `to-pgn --format actisense-mxpgn` do the same
+on the command line.
+
 ### Output Format Support
 
 Generate data in any supported format from JSON:
@@ -568,6 +587,11 @@ const ydwg = pgnToYdgwRawFormat(message)
 const pcdin = pgnToPCDIN(message)
 const mxpgn = pgnToMXPGN(message)
 ```
+
+`pgnToMXPGN` and `actisenseToMXPGN` return one string for a single-frame
+message, and an array of strings for a fast-packet one: `$MXPGN` carries one CAN
+frame per sentence. Send each element as its own sentence. The YDWG and candump
+encoders return an array in the same way.
 
 ## Building from Source
 
@@ -769,10 +793,10 @@ Output:
   "description": "Position, Rapid Update",
   "timestamp": "2019-04-10T20:29:27.082Z",
   "dst": 255,
-  "prio": 0,
+  "prio": 2,
   "fields": {
-    "Latitude": 33.0875728,
-    "Longitude": -97.0205113
+    "Latitude": 20.7479619,
+    "Longitude": -105.3783356
   }
 }
 ```

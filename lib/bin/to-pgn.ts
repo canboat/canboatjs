@@ -24,7 +24,8 @@ if (argv['help']) {
   console.error(`Usage: ${process.argv[0]} [options]
 
 Options:
-  --format <format>   actisense, actisensen2kascii, ikconvert, ydgw, yd-full, pcdin, mxpgn
+  --format <format>   actisense, actisensen2kascii, ikconvert, ydgw, yd-full, pcdin, mxpgn,
+                      actisense-mxpgn ($MXPGN with the data in bus order)
   -h, --help          output usage information`)
   process.exit(1)
 }
@@ -36,6 +37,7 @@ const formatters: { [key: string]: any } = {
   ydgw: pgnToYdgwRawFormat,
   pcdin: pgnToPCDIN,
   mxpgn: pgnToMXPGN,
+  'actisense-mxpgn': (msg: any) => pgnToMXPGN(msg, { mxpgnBusOrder: true }),
   'yd-full': pgnToYdgwFullRawFormat
 }
 

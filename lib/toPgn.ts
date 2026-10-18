@@ -634,8 +634,12 @@ export function pgnToPCDIN(info: any) {
   return encodePCDIN({ ...info, data: toPgn(info) })
 }
 
-export function pgnToMXPGN(info: any) {
-  return encodeMXPGN({ ...info, data: toPgn(info) })
+/**
+ * `info` as $MXPGN: one string for a single-frame message, an array of
+ * strings, one sentence each, for a fast-packet one (see encodeMXPGN).
+ */
+export function pgnToMXPGN(info: any, options?: any) {
+  return encodeMXPGN({ ...info, data: toPgn(info) }, options)
 }
 
 export function pgnToCandump1(info: any) {
@@ -656,7 +660,9 @@ export const actisenseToYdgwFullRawFormat = _.flow(
   encodeYDRAWFull
 )
 export const actisenseToPCDIN = _.flow(parseActisense, encodePCDIN)
-export const actisenseToMXPGN = _.flow(parseActisense, encodeMXPGN)
+/** An Actisense line as $MXPGN: a string, or an array of strings (see pgnToMXPGN). */
+export const actisenseToMXPGN = (input: string, options?: any) =>
+  encodeMXPGN(parseActisense(input), options)
 export const actisenseToiKonvert = _.flow(parseActisense, encodePDGY)
 export const actisenseToN2KAsciiFormat = _.flow(
   parseActisense,

@@ -20,6 +20,7 @@ import {
   hexByte
 } from './utilities'
 import { buildCanId, encodeCanIdString, parseCanIdStr } from './canId'
+import { getCustomPgn, getPgn } from './pgns'
 import moment from 'moment'
 
 /**
@@ -83,6 +84,7 @@ export const CAN_FRAME_MAX_LEN = 8
  */
 export const RAW_FRAME_FORMATS = new Set([
   'YDRAW',
+  'MXPGN',
   'candump1',
   'candump2',
   'candump3'
@@ -327,86 +329,129 @@ export const encodePCDIN = ({
   return sentence + compute0183Checksum(sentence)
 }
 
-const changeEndianness = (string: string) => {
-  const result = []
-  let len = string.length - 2
-  while (len >= 0) {
-    result.push(string.substr(len, 2))
-    len -= 2
-  }
-  return result.join('')
-}
-
+// ShipModul MiniPlex-3, as specified in the ShipModul Proprietary Command
+// Reference (https://www.shipmodul.com/download/commands-v3.40.0.pdf):
+//
+//   $MXPGN,pppppp,aaaa,d--d*hh
+//
+// One sentence carries one CAN frame. The data is written as one number,
+// most significant byte first, so the frame's last byte comes first. Some
+// gateways that emulate $MXPGN (an Actisense W2K-2, for one) write the data
+// the other way round, the frame's bytes in bus order: the mxpgnBusOrder
+// option reads and writes that order. The
+// attribute word is S(1) | priority(3) | DLC(4) | address(8): S=0 is a
+// received frame and the address is its source; S=1 asks the MiniPlex to
+// send it and the address is its destination, the source being the
+// MiniPlex's own. An empty attribute means S=1, priority 7, address 0.
+// A PDU1 (addressed) PGN can also carry its destination in the PGN's low
+// byte.
+//
 // $MXPGN,01F801,2801,C1308AC40C5DE343*19
 export const isMXPGN = (msg: string) => {
   const sentence = get0183Sentence(msg)
   return sentence ? sentence.startsWith('$MXPGN,') : false
 }
-export const parseMXPGN = (
-  input: string,
-  options: any | undefined = undefined
-) => {
+
+const isPDU1 = (pgn: number) => ((pgn >> 8) & 0xff) < 240
+
+/**
+ * Whether `pgn` is sent as a fast-packet, by its definition (canboat's, or a
+ * custom one): then even a payload of 8 bytes or fewer goes out in
+ * fast-packet frames, as 127513 does, its receiver reading the first byte
+ * as the frame header.
+ */
+const isFastPacketPgn = (pgn: number) =>
+  [...(getPgn(pgn) ?? []), ...(getCustomPgn(pgn)?.definitions ?? [])].some(
+    (definition: any) => definition.Type === 'Fast'
+  )
+
+/**
+ * Whether `options` ask for $MXPGN data in bus order, first byte first, as
+ * some gateways emulating $MXPGN write it, rather than ShipModul's last byte
+ * first. `mxpgnBusOrder: true` asks for it. So does an explicit
+ * `littleEndianMXPGN: false`: that older option named ShipModul's order, and
+ * bus order was the default when it was unset.
+ */
+export const isMXPGNBusOrder = (options?: any) =>
+  options?.mxpgnBusOrder === true || options?.littleEndianMXPGN === false
+
+/** A frame's bytes as $MXPGN writes them, in either order. */
+const mxpgnOrder = (data: Buffer, busOrder: boolean) =>
+  busOrder ? data : Buffer.from(data).reverse()
+
+export const parseMXPGN = (input: string, options?: any) => {
   const sentence = get0183Sentence(input)
   if (sentence) {
-    const [prefix, pgn, attr_word, data] = sentence.split(',')
+    const [prefix, pgnField, attr = '', dataField = ''] = sentence.split(',')
+    const data = rmChecksum(dataField)
 
-    const send_prio_len = parseInt(attr_word.substr(0, 2), 16)
-      .toString(2)
-      .padStart(8, '0')
-    const addr = parseInt(attr_word.substr(2, 2), 16)
-    const send = parseInt(send_prio_len.substr(0, 1), 2)
-    const prio = parseInt(send_prio_len.substr(1, 3), 2)
-    //const len = parseInt(send_prio_len.substr(4,4), 2);
-    let src = 0,
-      dst = 255
+    if (!/^[0-9A-Fa-f]{6}$/.test(pgnField)) {
+      return buildErr('MXPGN', 'Invalid PGN field.', input)
+    }
+    if (attr !== '' && !/^[0-9A-Fa-f]{4}$/.test(attr)) {
+      return buildErr('MXPGN', 'Invalid attribute word.', input)
+    }
+    if (!/^([0-9A-Fa-f]{2}){1,8}$/.test(data)) {
+      return buildErr('MXPGN', 'Data must be 1 to 8 bytes.', input)
+    }
 
-    send ? (dst = addr) : (src = addr)
+    const attrWord = attr === '' ? 0xf000 : parseInt(attr, 16)
+    const send = attrWord >> 15
+    const prio = (attrWord >> 12) & 0x7
+    const addr = attrWord & 0xff
 
-    let reversed
-
-    if (options && options.littleEndianMXPGN)
-      reversed = changeEndianness(rmChecksum(data))
-    else reversed = data
+    let pgn = parseInt(pgnField, 16)
+    let dst = 0xff
+    if (isPDU1(pgn)) {
+      dst = send && addr ? addr : pgn & 0xff
+      pgn &= ~0xff
+    }
+    const src = send ? 0 : addr
 
     return buildMsg(
-      buildCanId(prio, parseInt(pgn, 16), dst, src),
+      buildCanId(prio, pgn, dst, src),
       'MXPGN',
-      Buffer.from(reversed, 'hex'),
-      { coalesced: true, prefix }
+      mxpgnOrder(Buffer.from(data, 'hex'), isMXPGNBusOrder(options)),
+      { prefix }
     )
   }
 }
 
-export const encodeMXPGN = ({
-  prefix = '$MXPGN',
-  pgn,
-  prio,
-  src,
-  data
-}: any) => {
-  if (src > 255) src = 255
-  if (!prio) prio = 3
-  if (!src) src = 255
-  const dataLength = hexByte(
-    128 + prio * 16 + byteString(data, '').toUpperCase().length / 2
-  ).toUpperCase()
-  const attribWord = dataLength + hexByte(src).toUpperCase()
+/**
+ * Encode a message as $MXPGN sentences for a MiniPlex to send. A message
+ * longer than one CAN frame, or of a fast-packet PGN, is split into its
+ * fast-packet frames, one sentence each, and comes back as an array of
+ * strings; a single frame comes back as a string. The source address is not encoded: the MiniPlex sends with its
+ * own. The data is written last byte first, or with `mxpgnBusOrder` in
+ * `options`, first byte first (see isMXPGNBusOrder).
+ */
+export const encodeMXPGN = (
+  { prefix = '$MXPGN', pgn, prio, dst = 255, data }: any,
+  options?: any
+) => {
+  const busOrder = isMXPGNBusOrder(options)
+  prio = prio ?? 3
+  const buffer = Buffer.from(data)
+  const pdu1 = isPDU1(pgn)
+  const pgnField = toPaddedHexString(pdu1 ? pgn & ~0xff : pgn, 6)
+  const address = pdu1 ? dst & 0xff : 0
 
-  const buff = Buffer.from(byteString(data, ''), 'hex')
-  for (let i = 0, j = buff.length - 1; i < j; ++i, --j) {
-    const t = buff[j]
-
-    buff[j] = buff[i]
-    buff[i] = t
-  }
-
-  const sentence = [
-    prefix,
-    toPaddedHexString(pgn, 6),
-    attribWord,
-    buff.toString('hex').toUpperCase()
-  ].join(',')
-  return sentence + compute0183Checksum(sentence)
+  const frames =
+    buffer.length > 8 || pgn == 126720 || isFastPacketPgn(pgn)
+      ? getPlainPGNs(buffer)
+      : [buffer]
+  const sentences = frames.map((frame) => {
+    const attribWord =
+      0x8000 | ((prio & 0x7) << 12) | (frame.length << 8) | address
+    const sentence = [
+      prefix,
+      pgnField,
+      toPaddedHexString(attribWord, 4),
+      mxpgnOrder(Buffer.from(frame), busOrder).toString('hex').toUpperCase()
+    ].join(',')
+    return sentence + compute0183Checksum(sentence)
+  })
+  return sentences.length === 1 ? sentences[0] : sentences
 }
 
 // iKonvert
@@ -544,7 +589,7 @@ export const encodeCandump3 = ({
 }
 
 const hasErr = overSome([negate(isString), isEmpty])
-export const parseN2kString = (str: string, options?: any): any => {
+export const parseN2kString = (str: string, _options?: any): any => {
   if (hasErr(str)) {
     return buildErr('INVALID', 'Input not string or empty.', str)
   }
@@ -561,7 +606,7 @@ export const parseN2kString = (str: string, options?: any): any => {
     return parsePCDIN(str)
   }
   if (isMXPGN(str)) {
-    return parseMXPGN(str, options)
+    return parseMXPGN(str, _options)
   }
   if (isPDGY(str)) {
     return parsePDGY(str)
@@ -603,6 +648,6 @@ export const isN2KOver0183 = (msg: string) => {
   return isPCDIN(msg) || isMXPGN(msg)
 }
 
-export const parseN2KOver0183 = (msg: string) => {
-  return parsePCDIN(msg) || parseMXPGN(msg)
+export const parseN2KOver0183 = (msg: string, options?: any) => {
+  return parsePCDIN(msg) || parseMXPGN(msg, options)
 }

@@ -25,6 +25,7 @@ const argv = minimist(process.argv.slice(2), {
   boolean: [
     'n',
     'r',
+    'mxpgn-bus-order',
     'camel',
     'camel-compat',
     'show-non-matches',
@@ -48,7 +49,11 @@ if (argv['help']) {
 Options:
   -c                        don't check for invalid values
   -n                        output null values
-  -r                        parse $MXPGN as little endian
+  -r                        ignored, kept for compatibility ($MXPGN is
+                            read last byte first, as ShipModul specifies,
+                            unless --mxpgn-bus-order is given)
+  --mxpgn-bus-order         read $MXPGN data first byte first, as some
+                            gateways emulating it (Actisense) write it
   --no-enums                don't output enum values
   --include-raw-data        include raw data in output
   --include-byte-mapping    include byte mapping in output
@@ -107,7 +112,6 @@ try {
 
 const parser = new Parser({
   returnNulls: argv['n'] === true,
-  littleEndianMXPGN: argv['r'] === true,
   checkForInvalidFields: argv['c'] !== true,
   useCamel: argv['camel'],
   useCamelCompat: argv['camel-compat'],
@@ -118,6 +122,7 @@ const parser = new Parser({
   resolveEnums: argv['enums'] === undefined || argv['enums'] === true,
   includeRawData: argv['include-raw-data'],
   includeByteMapping: argv['include-byte-mapping'],
+  mxpgnBusOrder: argv['mxpgn-bus-order'] === true,
   quirks
 })
 
