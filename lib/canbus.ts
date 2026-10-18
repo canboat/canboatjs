@@ -29,7 +29,7 @@ import { CanDevice } from './candevice'
 import { getPlainPGNs, binToActisense } from './utilities'
 import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
-import { CanChannel } from './canSocket'
+import { CanChannel, parseExcludePgns } from './canSocket'
 import util from 'util'
 
 export function CanbusStream(this: any, options: any) {
@@ -48,6 +48,16 @@ export function CanbusStream(this: any, options: any) {
   this.plainText = false
   this.devices = {}
   this.options = options
+  // Checked once here, not on every reconnect: a wrong entry is skipped
+  // with a warning instead of keeping the bus down.
+  const { pgns, ignored } = parseExcludePgns(options.excludePgns)
+  this.excludePgns = pgns
+  // What the last connect reported about excludePgns, so it is logged only
+  // when it changes.
+  this.filterState = ''
+  if (ignored.length > 0) {
+    console.warn(`canbus: excludePgns: ignoring ${ignored.join(', ')}`)
+  }
   this.reconnecting = false // Guard flag to prevent concurrent reconnections
   this.stoppingChannel = false // Flag to track intentional stops
   this.start()
@@ -188,7 +198,24 @@ CanbusStream.prototype.connect = function () {
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const that = this
-    this.channel = new CanChannel(canDevice)
+    this.channel = new CanChannel(canDevice, { excludePgns: this.excludePgns })
+    const filterState = this.channel.filterError
+      ? 'failed'
+      : this.channel.excludedPgns.length > 0
+        ? 'applied'
+        : ''
+    if (filterState !== this.filterState) {
+      if (filterState === 'failed') {
+        console.warn(
+          `canbus ${canDevice}: excludePgns not applied, reading every PGN: ${this.channel.filterError}`
+        )
+      } else if (filterState === 'applied') {
+        console.log(
+          `canbus ${canDevice}: the kernel drops PGNs ${this.channel.excludedPgns.join(', ')} (excludePgns)`
+        )
+      }
+      this.filterState = filterState
+    }
     this.channel.addListener('onStopped', () => {
       // Check if we still have a channel reference (not already handled)
       if (!this.channel) {
@@ -268,7 +295,14 @@ CanbusStream.prototype.connect = function () {
     })
 
     this.channel.start()
-    this.setProviderStatus('Connected to CAN bus')
+    const excluded = this.channel.excludedPgns.length
+    this.setProviderStatus(
+      this.channel.filterError
+        ? 'Connected to CAN bus, excludePgns not applied'
+        : excluded > 0
+          ? `Connected to CAN bus, excluding ${excluded} PGN${excluded === 1 ? '' : 's'}`
+          : 'Connected to CAN bus'
+    )
     this.candevice = new CanDevice(this, this.options)
     this.candevice.start()
 
