@@ -337,6 +337,8 @@ export const parsePCDIN = (input: string) => {
     const data = rmChecksum(dataField)
     if (
       !/^[0-9A-Fa-f]{1,6}$/.test(pgn) ||
+      // the time: base 32, digits 0-9 and A-V
+      !/^[0-9A-Va-v]+$/.test(timeHex) ||
       !/^[0-9A-Fa-f]{1,2}$/.test(src) ||
       !/^([0-9A-Fa-f]{2})*$/.test(data)
     ) {
