@@ -20,6 +20,7 @@ import {
   hexByte
 } from './utilities'
 import { buildCanId, encodeCanIdString, parseCanIdStr } from './canId'
+import { getCustomPgn, getPgn } from './pgns'
 import moment from 'moment'
 
 /**
@@ -348,6 +349,17 @@ export const isMXPGN = (msg: string) => {
 const isPDU1 = (pgn: number) => ((pgn >> 8) & 0xff) < 240
 
 /**
+ * Whether `pgn` is sent as a fast-packet, by its definition (canboat's, or a
+ * custom one): then even a payload of 8 bytes or fewer goes out in
+ * fast-packet frames, as 127513 does, its receiver reading the first byte
+ * as the frame header.
+ */
+const isFastPacketPgn = (pgn: number) =>
+  [...(getPgn(pgn) ?? []), ...(getCustomPgn(pgn)?.definitions ?? [])].some(
+    (definition: any) => definition.Type === 'Fast'
+  )
+
+/**
  * Whether `options` ask for $MXPGN data in bus order, first byte first, as
  * some gateways emulating $MXPGN write it, rather than ShipModul's last byte
  * first. `mxpgnBusOrder: true` asks for it. So does an explicit
@@ -401,9 +413,9 @@ export const parseMXPGN = (input: string, options?: any) => {
 
 /**
  * Encode a message as $MXPGN sentences for a MiniPlex to send. A message
- * longer than one CAN frame is split into its fast-packet frames, one
- * sentence each, and comes back as an array; a single frame comes back as
- * a string. The source address is not encoded: the MiniPlex sends with its
+ * longer than one CAN frame, or of a fast-packet PGN, is split into its
+ * fast-packet frames, one sentence each, and comes back as an array of
+ * strings; a single frame comes back as a string. The source address is not encoded: the MiniPlex sends with its
  * own. The data is written last byte first, or with `mxpgnBusOrder` in
  * `options`, first byte first (see isMXPGNBusOrder).
  */
@@ -419,7 +431,9 @@ export const encodeMXPGN = (
   const address = pdu1 ? dst & 0xff : 0
 
   const frames =
-    buffer.length > 8 || pgn == 126720 ? getPlainPGNs(buffer) : [buffer]
+    buffer.length > 8 || pgn == 126720 || isFastPacketPgn(pgn)
+      ? getPlainPGNs(buffer)
+      : [buffer]
   const sentences = frames.map((frame) => {
     const attribWord =
       0x8000 | ((prio & 0x7) << 12) | (frame.length << 8) | address

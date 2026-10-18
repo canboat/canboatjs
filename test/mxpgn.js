@@ -183,6 +183,35 @@ describe('to mxpgn', function () {
     }
   })
 
+  it('a fast-packet PGN of 8 bytes still goes out in fast-packet frames', function () {
+    // 127513 Battery Configuration Status is fast-packet, 8 bytes long.
+    const msg = {
+      pgn: 127513,
+      prio: 6,
+      fields: {
+        Instance: 1,
+        'Battery Type': 'AGM',
+        'Supports Equalization': 'No',
+        'Nominal Voltage': '12V',
+        Chemistry: 'Lead Acid',
+        Capacity: 200,
+        'Temperature Coefficient': 0,
+        'Peukert Exponent': 1.25,
+        'Charge Efficiency Factor': 95
+      }
+    }
+    const sentences = pgnToMXPGN(msg)
+    sentences.should.be.an('array').with.length(2)
+    sentences.forEach((s) => s.should.match(/^\$MXPGN,01F219,E[0-9A-F]00,/))
+    // The first frame: the fast-packet header, then the length, 8.
+    sentences[0].should.match(/^\$MXPGN,01F219,E800,[0-9A-F]{12}08[0-9A-F]0\*/)
+    parseOne(sentences).fields.should.include({
+      Instance: 1,
+      'Battery Type': 'AGM',
+      'Nominal Voltage': '12V'
+    })
+  })
+
   it('a fast-packet PGN, one sentence per frame', function () {
     const msg = {
       pgn: 129029,

@@ -588,6 +588,11 @@ const pcdin = pgnToPCDIN(message)
 const mxpgn = pgnToMXPGN(message)
 ```
 
+`pgnToMXPGN` and `actisenseToMXPGN` return one string for a single-frame
+message, and an array of strings for a fast-packet one: `$MXPGN` carries one CAN
+frame per sentence. Send each element as its own sentence. The YDWG and candump
+encoders return an array in the same way.
+
 ## Building from Source
 
 ```bash
