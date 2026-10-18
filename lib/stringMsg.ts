@@ -130,10 +130,28 @@ export const isActisense = (input: string) =>
   (input.charAt(10) === '-' && input.charAt(23) === ',') ||
   isPlainLine(input)
 
+/** Whether every one of `values` is a whole number written in `radix`. */
+const allInts = (values: string[], radix: number) => {
+  const digits = radix === 16 ? /^[0-9A-Fa-f]+$/ : /^[0-9]+$/
+  return values.every((v) => digits.test(v.trim()))
+}
+
 export const parseActisense = (input: string) => {
-  const [timestamp, prio, pgn, src, dst, len, ...data] = input
-    .replace(/[\r\n]+$/, '')
-    .split(',')
+  const parts = input.replace(/[\r\n]+$/, '').split(',')
+  // isActisense looks at two characters of the timestamp; a line cut after it
+  // (a truncated capture, or canboat's own test input) has no fields to read.
+  if (parts.length < 6) {
+    return buildErr('Actisense', 'Invalid parts.', input)
+  }
+  const [timestamp, prio, pgn, src, dst, len, ...data] = parts
+  if (!allInts([prio, pgn, src, dst, len], 10)) {
+    return buildErr('Actisense', 'Invalid header.', input)
+  }
+  // A line cut short has fewer data bytes than it says: an error, rather than
+  // a message decoded from the bytes that are left.
+  if (data.length < Number(len) || !allInts(data.slice(0, Number(len)), 16)) {
+    return buildErr('Actisense', 'Invalid data.', input)
+  }
   return buildMsg(
     buildCanId(prio.trim(), pgn.trim(), dst.trim(), src.trim()),
     'Actisense',
@@ -183,16 +201,30 @@ export const toActisenseSerialFormat = (
 // A764027.880 05FF7 1EF00 E59861060202FFFFFFFF03030000FFFFFFFFFFFFFFFFFFFF0000FFFFFF7FFFFFFF7FFFFFFF7F0000FF7F
 export const isActisenseN2KASCII = (input: string) =>
   input.charAt(0) === 'A' && input.charAt(7) === '.' && input.charAt(11) === ' '
+// A000057.097 05FF7 1EF00 E59861060202FFFFFFFF03030000FFFFFFFFFFFFFFFFFFFF0000FFFFFF7FFFFFFF7F
+//  time, then src (2 hex digits) dst (2) prio (1), the PGN, and the data.
 export const parseActisenseN2KASCII = (input: string) => {
-  const [timestamp, srcdstp, pgn, data] = input.split(' ')
+  const parts = input.trim().split(/\s+/)
+  if (parts.length < 4) {
+    return buildErr('Actisense N2K ASCII', 'Invalid parts.', input)
+  }
+  const [timestamp, srcdstp, pgn, data] = parts
+  if (
+    !/^[0-9A-Fa-f]{5}$/.test(srcdstp) ||
+    !/^[0-9A-Fa-f]{1,5}$/.test(pgn) ||
+    !/^([0-9A-Fa-f]{2})+$/.test(data)
+  ) {
+    return buildErr('Actisense N2K ASCII', 'Invalid fields.', input)
+  }
   const src = parseInt(srcdstp.substring(0, 2), 16)
   const dst = parseInt(srcdstp.substring(2, 4), 16)
-  const prio = parseInt(srcdstp.substring(4))
+  const prio = parseInt(srcdstp.substring(4), 16)
+  const buffer = Buffer.from(data, 'hex')
   return buildMsg(
     buildCanId(prio, parseInt(pgn, 16), dst, src),
     'Actisense N2K ASCII',
-    Buffer.from(data, 'hex'),
-    { len: data.length, time: timestamp.substring(1) }
+    buffer,
+    { len: buffer.length, time: timestamp.substring(1) }
   )
 }
 export const encodeActisenseN2KACSII = ({
@@ -297,7 +329,21 @@ export const isPCDIN = (msg: string) => {
 export const parsePCDIN = (input: string) => {
   const sentence = get0183Sentence(input)
   if (sentence) {
-    const [prefix, pgn, timeHex, src, data] = sentence.split(',')
+    const parts = sentence.split(',')
+    if (parts.length < 5) {
+      return buildErr('PCDIN', 'Invalid parts.', input)
+    }
+    const [prefix, pgn, timeHex, src, dataField] = parts
+    const data = rmChecksum(dataField)
+    if (
+      !/^[0-9A-Fa-f]{1,6}$/.test(pgn) ||
+      // the time: base 32, digits 0-9 and A-V
+      !/^[0-9A-Va-v]+$/.test(timeHex) ||
+      !/^[0-9A-Fa-f]{1,2}$/.test(src) ||
+      !/^([0-9A-Fa-f]{2})*$/.test(data)
+    ) {
+      return buildErr('PCDIN', 'Invalid fields.', input)
+    }
     let timer = parseInt(timeHex, 32)
 
     timer = timer / 1024
@@ -307,7 +353,7 @@ export const parsePCDIN = (input: string) => {
     return buildMsg(
       buildCanId(0, parseInt(pgn, 16), 255, parseInt(src, 16)),
       'PCDIN',
-      Buffer.from(rmChecksum(data), 'hex'),
+      Buffer.from(data, 'hex'),
       { coalesced: true, prefix, timer, timestamp: new Date(timer) }
     )
   }

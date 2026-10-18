@@ -268,3 +268,77 @@ describe('includeInputData', () => {
     expect(input![0]).toMatch(/\[8\] {2}[02468ace]0 04 3f 9f cc dd ff ff$/)
   })
 })
+
+describe('a message shorter than its PGN, ending before a BITLOOKUP field', () => {
+  // PGN 127489 Engine Parameters, Dynamic: Discrete Status 1 and 2 are
+  // BITLOOKUPs at bytes 20..23 of 26. A device that sends only the first 20
+  // bytes still sends the oil pressure, temperatures and alternator potential.
+  const full = pgnToActisenseSerialFormat({
+    pgn: 127489,
+    dst: 255,
+    src: 16,
+    prio: 2,
+    fields: {
+      instance: 'Single Engine or Dual Engine Port',
+      oilPressure: 300000,
+      temperature: 350,
+      discreteStatus1: ['Over Temperature']
+    }
+  } as any)
+
+  /** `full` as a device sends it with only its first `bytes` data bytes. */
+  const shortened = (bytes: number) => {
+    const parts = full.split(',')
+    parts[5] = String(bytes)
+    return parts.slice(0, 6 + bytes).join(',')
+  }
+
+  const newParser = () => {
+    const parser = new FromPgn({ useCamel: true, includeByteMapping: true })
+    const errors: any[] = []
+    parser.on('error', (_pgn: any, error: any) => errors.push(error))
+    parser.on('warning', () => {})
+    return { parser, errors }
+  }
+
+  test('keeps the fields it has and leaves the BITLOOKUP not available', () => {
+    const { parser, errors } = newParser()
+    const pgn: any = parser.parseString(shortened(20))
+    expect(errors).toEqual([])
+    expect(pgn).toBeDefined()
+    expect(pgn.fields.oilPressure).toBe(300000)
+    expect(pgn.fields.temperature).toBe(350)
+    expect(pgn.fields.discreteStatus1).toBeUndefined()
+  })
+
+  test('a BITLOOKUP with only some of its bits is not available', () => {
+    // 21 bytes: 8 of Discrete Status 1's 16 bits.
+    const { parser, errors } = newParser()
+    const pgn: any = parser.parseString(shortened(21))
+    expect(errors).toEqual([])
+    expect(pgn.fields.temperature).toBe(350)
+    expect(pgn.fields.discreteStatus1).toBeUndefined()
+    // Its byte mapping holds the byte that is there, and no value.
+    const bm = pgn.byteMapping.discreteStatus1
+    expect(bm.bytes).toHaveLength(1)
+    expect(bm.value).toBeNull()
+  })
+
+  test('the whole message still decodes its BITLOOKUP', () => {
+    const { parser, errors } = newParser()
+    const pgn: any = parser.parseString(full)
+    expect(errors).toEqual([])
+    expect(pgn.fields.discreteStatus1).toEqual(['Over Temperature'])
+  })
+
+  test('a line cut short of the length it declares is an error', () => {
+    const { parser, errors } = newParser()
+    const cut = full
+      .split(',')
+      .slice(0, 6 + 20)
+      .join(',')
+    expect(parser.parseString(cut)).toBeUndefined()
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toMatch(/^Invalid data\./)
+  })
+})
