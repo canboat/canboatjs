@@ -1222,6 +1222,20 @@ function lookup(field: Field, value: number) {
   return name ? name : value
 }
 
+/**
+ * Field types read from however many bits the message has, rather than
+ * being not available when it has fewer than their width: binary data, a
+ * fixed string (Navico's 130821 sends only the text it has) and the
+ * variable-length strings.
+ */
+const READS_WHAT_IS_THERE = new Set<string>([
+  FieldType.Binary,
+  'STRING_FIX',
+  'STRING_LAU',
+  'STRING_LZ',
+  'String with start/stop byte'
+])
+
 function readField(
   definition: Definition,
   options: any,
@@ -1249,28 +1263,32 @@ function readField(
     return [value, undefined, bm]
   }
 
+  // A message that ends before a fixed-width field has no bits for it: the
+  // field is not available, and the fields already read are kept. Reading on
+  // would throw and drop the whole message.
+  if (
+    field.BitLength !== undefined &&
+    !READS_WHAT_IS_THERE.has(field.FieldType) &&
+    bs.bitsLeft < field.BitLength
+  ) {
+    bs.readBits(bs.bitsLeft, false)
+
+    if (options.includeByteMapping) {
+      bm = {
+        bytes: Array.from(
+          bs.view.buffer.subarray(start / 8, Math.ceil(bs.index / 8))
+        ),
+        value: null
+      }
+    }
+
+    return [null, undefined, bm]
+  }
+
   const reader = fieldTypeReaders[field.FieldType]
   if (reader) {
     value = reader(pgn, field, bs)
   } else {
-    if (
-      field.FieldType !== FieldType.Binary &&
-      field.BitLength !== undefined &&
-      bs.bitsLeft < field.BitLength
-    ) {
-      //no more data
-      bs.readBits(bs.bitsLeft, false)
-
-      if (options.includeByteMapping) {
-        bm = {
-          bytes: Array.from(
-            bs.view.buffer.subarray(start / 8, Math.ceil(bs.index / 8))
-          )
-        }
-      }
-
-      return [null, undefined, bm]
-    }
     ;[value, refField] = readValue(definition, options, pgn, field, bs)
     if (
       field.FieldType === 'DYNAMIC_FIELD_KEY' ||
@@ -1832,10 +1850,6 @@ fieldTypeReaders['String with start/stop byte'] = (pgn, field, bs) => {
 // An IEEE-754 single. NMEA 2000 sends a FLOAT that is not available as a
 // NaN (canboat's decode_float).
 fieldTypeReaders['FLOAT'] = (pgn, field, bs) => {
-  if (bs.bitsLeft < 32) {
-    bs.readBits(bs.bitsLeft, false)
-    return null
-  }
   const value = bs.readFloat32()
   return Number.isNaN(value) ? null : value
 }
@@ -1855,18 +1869,8 @@ fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
 }
 
 fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
-  const bitLength = field.BitLength as number
-  // A message that ends before this field has no bits for it: not available,
-  // as readField treats every other field type. Reading on would throw and
-  // drop the whole message, fields already read included.
-  if (bs.bitsLeft < bitLength) {
-    if (bs.bitsLeft > 0) {
-      bs.readBits(bs.bitsLeft, false)
-    }
-    return null
-  }
   const value: any[] = []
-  for (let i = 0; i < bitLength; i++) {
+  for (let i = 0; i < (field.BitLength as number); i++) {
     if (bs.readBits(1, false)) {
       value.push(getBitEnumerationName(field.LookupBitEnumeration as string, i))
     }
