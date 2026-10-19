@@ -600,7 +600,9 @@ Values are given in SI units, as the decoder gives them: a percentage as a ratio
 canboat's encoder refuses it, rather than wrapping into some other value:
 `field 'Instance': value 300 is outside its range 0 to 252`. A negative angle
 down to −π (as Signal K gives a port angle) is written as the same direction in
-a 0 to 2π field. Leave a field out, or give `null`, to send it as not available.
+a 0 to 2π field. Leave a field out, or give `null`, to send it as not available;
+its not-available value itself (`SID: 255`) is also accepted. A group function's
+parameter value (126208) is the exception: it must be given.
 
 ## Building from Source
 

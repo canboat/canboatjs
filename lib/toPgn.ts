@@ -454,11 +454,13 @@ function fullTurnAngle(field: Field, value: number) {
   }
   const full =
     field.Unit === 'rad' ? 2 * Math.PI : field.Unit === 'deg' ? 360 : undefined
-  // The top of the range is a step or a rounding short of the full turn.
+  // The top of the range is a step or a rounding short of the full turn:
+  // 359 for a field in whole degrees.
+  const step = Number(field.Resolution ?? 1)
   if (
     full !== undefined &&
     field.RangeMax !== undefined &&
-    field.RangeMax >= full * 0.999 &&
+    field.RangeMax >= Math.min(full * 0.999, full - step) &&
     value >= -full / 2
   ) {
     return value + full
@@ -471,26 +473,45 @@ function fullTurnAngle(field: Field, value: number) {
  * anyway it would wrap at the field width, or land on a not-available or
  * reserved value, and decode as some other value (#524). Raw is compared
  * with raw, so a value within half a step of an end still rounds onto it.
- * As canboat's encoder (canboat/canboat#975).
+ * As canboat's encoder (canboat/canboat#975), with one exception: the
+ * field's not-available value itself (SID 0xff, as Signal K's conversions
+ * send it) is written as given. A field without a range, as a custom PGN
+ * may have, is held to what its bits can carry.
  */
 function checkRange(field: Field, given: number, raw: number) {
-  if (field.RangeMin === undefined || field.RangeMax === undefined) {
+  if (raw === (field as any).UnknownValue) {
     return
   }
   const offset = field.Offset ? Number(field.Offset) : 0
   const resolution = field.Resolution ? Number(field.Resolution) : 1
   const rawOf = (v: number) => Number(((v - offset) / resolution).toFixed(0))
-  if (
-    !Number.isFinite(raw) ||
-    raw < rawOf(field.RangeMin) ||
-    raw > rawOf(field.RangeMax)
-  ) {
+  // An Excess-K field (Signed with an Offset) holds an unsigned raw value.
+  const bits = field.BitLength
+  const signed = !!field.Signed && !field.Offset
+  const minRaw =
+    field.RangeMin !== undefined
+      ? rawOf(field.RangeMin)
+      : bits === undefined
+        ? -Infinity
+        : signed
+          ? -(2 ** (bits - 1))
+          : 0
+  const maxRaw =
+    field.RangeMax !== undefined
+      ? rawOf(field.RangeMax)
+      : bits === undefined
+        ? Infinity
+        : signed
+          ? 2 ** (bits - 1) - 1
+          : 2 ** bits - 1
+  if (!Number.isFinite(raw) || raw < minRaw || raw > maxRaw) {
     // The range in SI, the unit the value was given in.
     const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
     const toSI = (v: number) => (si ? (v * si.mul) / si.div : v)
+    const min = toSI(field.RangeMin ?? minRaw * resolution + offset)
+    const max = toSI(field.RangeMax ?? maxRaw * resolution + offset)
     throw new Error(
-      `field '${field.Name}': value ${given} is outside its range ` +
-        `${toSI(field.RangeMin)} to ${toSI(field.RangeMax)}`
+      `field '${field.Name}': value ${given} is outside its range ${min} to ${max}`
     )
   }
 }

@@ -1,5 +1,6 @@
 const { expect } = require('chai')
 const { FromPgn, toPgn } = require('../dist/index')
+const { addCustomPgns } = require('../dist/pgns')
 
 // A number outside its field's range is refused rather than wrapped at the
 // field width into some other value (#524), as canboat/canboat#975.
@@ -29,7 +30,7 @@ describe('encoding a value outside its range', function () {
       "field 'Instance': value 300 is outside its range 0 to 252"
     )
     expect(() => battery({ 'Charge Efficiency Factor': 1.3 })).to.throw(
-      "field 'Charge Efficiency Factor': value 1.3 is outside its range -1.27 to 1.24"
+      "field 'Charge Efficiency Factor': value 1.3 is outside its range -1.28 to 1.24"
     )
     expect(() => battery({ 'Charge Efficiency Factor': 2.56 })).to.throw(
       /Charge Efficiency Factor/
@@ -59,5 +60,77 @@ describe('encoding a value outside its range', function () {
     expect(decodeWind(wind(-0.5))).to.equal(5.7832)
     expect(decodeWind(wind(-Math.PI))).to.equal(3.1416)
     expect(() => wind(-3.2)).to.throw(/Wind Angle/)
+  })
+
+  it("writes a field's not-available value as given", function () {
+    // Signal K's conversions send SID 0xff for "no SID".
+    const data = toPgn({ pgn: 128267, fields: { SID: 0xff, Depth: 4.5 } })
+    expect(data[0]).to.equal(0xff)
+    expect(() => toPgn({ pgn: 128267, fields: { SID: 254 } })).to.throw(
+      "field 'SID': value 254 is outside its range 0 to 252"
+    )
+  })
+
+  describe('in a custom PGN', function () {
+    before(function () {
+      addCustomPgns(
+        {
+          PGNs: [
+            {
+              PGN: 130998,
+              Id: 'testRange',
+              Description: 'Range test',
+              Type: 'Single',
+              Complete: true,
+              Length: 3,
+              Fields: [
+                {
+                  Order: 1,
+                  Id: 'bearing',
+                  Name: 'Bearing',
+                  BitLength: 16,
+                  BitOffset: 0,
+                  BitStart: 0,
+                  FieldType: 'NUMBER',
+                  Resolution: 1,
+                  Unit: 'deg',
+                  PhysicalQuantity: 'ANGLE',
+                  Signed: false,
+                  RangeMin: 0,
+                  RangeMax: 359
+                },
+                {
+                  Order: 2,
+                  Id: 'count',
+                  Name: 'Count',
+                  BitLength: 8,
+                  BitOffset: 16,
+                  BitStart: 0,
+                  FieldType: 'NUMBER',
+                  Resolution: 1,
+                  Signed: false
+                }
+              ]
+            }
+          ]
+        },
+        'test'
+      )
+    })
+    const encode = (fields) => toPgn({ pgn: 130998, fields })
+
+    it('takes a negative angle in a field of whole degrees', function () {
+      // -10 degrees, given in radians, is 350 degrees.
+      expect(
+        encode({ bearing: (-10 * Math.PI) / 180 }).readUInt16LE(0)
+      ).to.equal(350)
+    })
+
+    it('holds a field without a range to what its bits carry', function () {
+      expect(encode({ count: 255 })[2]).to.equal(255)
+      expect(() => encode({ count: 256 })).to.throw(
+        "field 'Count': value 256 is outside its range 0 to 255"
+      )
+    })
   })
 })

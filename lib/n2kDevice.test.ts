@@ -252,6 +252,26 @@ describe('N2kDevice unique number', () => {
     expect((dev.addressClaim as any).fields.uniqueNumber).toBe(424242)
     dev.stop()
   })
+
+  test('folds one stored by an older release above the highest allowed', () => {
+    // 2097149 and 2097150 decode as not available; the encoder refuses them.
+    persist.getPersistedData.mockImplementation(
+      (_o: unknown, _id: string, key: string) =>
+        key === 'uniqueNumber' ? 2097150 : undefined
+    )
+    const dev = new CanDevice(
+      { sendPGN: () => undefined },
+      makeOptions({ uniqueNumber: undefined })
+    )
+    expect((dev.addressClaim as any).fields.uniqueNumber).toBe(2097147)
+    expect(persist.savePersistedData).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'uniqueNumber',
+      2097147
+    )
+    dev.stop()
+  })
 })
 
 describe('N2kDevice address claim, as canboat runs it', () => {
