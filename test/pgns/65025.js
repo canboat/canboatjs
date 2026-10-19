@@ -10,7 +10,7 @@ module.exports = [
       fields: {
         reactivePower: 282,
         powerFactorLagging: 'Lagging',
-        powerFactor: 1.8984375,
+        powerFactor: 0.8984375,
         reserved: null
       }
     },
