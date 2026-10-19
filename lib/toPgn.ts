@@ -340,10 +340,14 @@ function writeField(
     // The value is SI, as the decoder gives it: back to the unit the
     // database states the resolution in (J to kWh, ratio to %, ...)
     // before the resolution comes off.
+    const given = value
     if (typeof value === 'number') {
       const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
       if (si !== undefined) {
         value = (value * si.div) / si.mul
+      }
+      if (field.FieldType === 'NUMBER') {
+        value = fullTurnAngle(field, value)
       }
       // canboat's Offset is in the field's own units, so remove it before
       // scaling to the raw value.
@@ -358,6 +362,10 @@ function writeField(
         field.FieldType === 'FLOAT'
           ? value / field.Resolution
           : Number((value / field.Resolution).toFixed(0))
+    }
+
+    if (field.FieldType === 'NUMBER' && typeof value === 'number') {
+      checkRange(field, given, value)
     }
 
     if (field.FieldType && fieldTypeWriters[field.FieldType]) {
@@ -428,6 +436,63 @@ function writeField(
     }
   }
   //dumpWritten(bs, field, startPos, value)
+}
+
+/**
+ * An angle field that covers a full turn (0 to 2 pi rad, 0 to 360 deg)
+ * takes a negative angle down to minus half a turn as the same direction:
+ * -0.5 rad is 2 pi - 0.5. Signal K gives a port angle as -pi..0. `value`
+ * is in the field's unit. As canboat's full_turn_angle.
+ */
+function fullTurnAngle(field: Field, value: number) {
+  if (
+    (field as any).PhysicalQuantity !== 'ANGLE' ||
+    field.RangeMin !== 0 ||
+    value >= 0
+  ) {
+    return value
+  }
+  const full =
+    field.Unit === 'rad' ? 2 * Math.PI : field.Unit === 'deg' ? 360 : undefined
+  // The top of the range is a step or a rounding short of the full turn.
+  if (
+    full !== undefined &&
+    field.RangeMax !== undefined &&
+    field.RangeMax >= full * 0.999 &&
+    value >= -full / 2
+  ) {
+    return value + full
+  }
+  return value
+}
+
+/**
+ * Refuse a NUMBER whose raw value is outside the field's range: written
+ * anyway it would wrap at the field width, or land on a not-available or
+ * reserved value, and decode as some other value (#524). Raw is compared
+ * with raw, so a value within half a step of an end still rounds onto it.
+ * As canboat's encoder (canboat/canboat#975).
+ */
+function checkRange(field: Field, given: number, raw: number) {
+  if (field.RangeMin === undefined || field.RangeMax === undefined) {
+    return
+  }
+  const offset = field.Offset ? Number(field.Offset) : 0
+  const resolution = field.Resolution ? Number(field.Resolution) : 1
+  const rawOf = (v: number) => Number(((v - offset) / resolution).toFixed(0))
+  if (
+    !Number.isFinite(raw) ||
+    raw < rawOf(field.RangeMin) ||
+    raw > rawOf(field.RangeMax)
+  ) {
+    // The range in SI, the unit the value was given in.
+    const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+    const toSI = (v: number) => (si ? (v * si.mul) / si.div : v)
+    throw new Error(
+      `field '${field.Name}': value ${given} is outside its range ` +
+        `${toSI(field.RangeMin)} to ${toSI(field.RangeMax)}`
+    )
+  }
 }
 
 function writeVariableLengthField(

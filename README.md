@@ -595,6 +595,13 @@ message, and an array of strings for a fast-packet one: `$MXPGN` carries one CAN
 frame per sentence. Send each element as its own sentence. The YDWG and candump
 encoders return an array in the same way.
 
+Values are given in SI units, as the decoder gives them: a percentage as a ratio
+(`0.95`), a charge in coulombs. A number outside its field's range throws, as
+canboat's encoder refuses it, rather than wrapping into some other value:
+`field 'Instance': value 300 is outside its range 0 to 252`. A negative angle
+down to −π (as Signal K gives a port angle) is written as the same direction in
+a 0 to 2π field. Leave a field out, or give `null`, to send it as not available.
+
 ## Building from Source
 
 ```bash

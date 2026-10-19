@@ -38,45 +38,45 @@ describe('N2kDevice address claim options', () => {
     // The encoder ignores both and reads `.fields.uniqueNumber` only,
     // so we promote the legacy value into `.fields` rather than letting
     // options.uniqueNumber / persistence silently overwrite it.
-    const legacyClaim: any = { uniqueNumber: 7777777 }
+    const legacyClaim: any = { uniqueNumber: 777777 }
     dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({
         addressClaim: legacyClaim,
-        uniqueNumber: 1111111 // would otherwise win
+        uniqueNumber: 111111 // would otherwise win
       })
     )
     const ac: any = dev.addressClaim
-    expect(ac.fields.uniqueNumber).toBe(7777777)
+    expect(ac.fields.uniqueNumber).toBe(777777)
   })
 
   test("caller-supplied addressClaim with legacy 'Unique Number' key is honored", () => {
     // Same fallback as the previous test, but supplied via the
     // human-readable key the canboat JSON uses. Exercises the
     // `ac['Unique Number']` arm of the `??` chain.
-    const legacyClaim: any = { 'Unique Number': 9999999 }
+    const legacyClaim: any = { 'Unique Number': 999999 }
     dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({
         addressClaim: legacyClaim,
-        uniqueNumber: 1111111 // would otherwise win
+        uniqueNumber: 111111 // would otherwise win
       })
     )
     const ac: any = dev.addressClaim
-    expect(ac.fields.uniqueNumber).toBe(9999999)
+    expect(ac.fields.uniqueNumber).toBe(999999)
   })
 
   test('caller-supplied addressClaim with .fields.uniqueNumber is honored', () => {
-    const claim: any = { fields: { uniqueNumber: 8888888 } }
+    const claim: any = { fields: { uniqueNumber: 888888 } }
     dev = new CanDevice(
       { sendPGN: () => undefined },
       makeOptions({
         addressClaim: claim,
-        uniqueNumber: 2222222 // would otherwise win
+        uniqueNumber: 222222 // would otherwise win
       })
     )
     const ac: any = dev.addressClaim
-    expect(ac.fields.uniqueNumber).toBe(8888888)
+    expect(ac.fields.uniqueNumber).toBe(888888)
   })
 
   test('uniqueNumber from options lands on addressClaim.fields (not top-level)', () => {
@@ -288,7 +288,7 @@ describe('N2kDevice address claim, as canboat runs it', () => {
   }
   const claimsSent = () => sent.filter((p) => p.pgn === 60928).map((p) => p.src)
   // A claim for `src` by another device; its NAME is ours with another
-  // unique number: lower for 0, higher for 0x1fffff.
+  // unique number: lower for 0, higher for 0x1ffffc, the highest there is.
   const peerClaim = (d: CanDevice, src: number, uniqueNumber: number) => {
     const claim = JSON.parse(JSON.stringify(d.addressClaim))
     claim.fields.uniqueNumber = uniqueNumber
@@ -368,7 +368,7 @@ describe('N2kDevice address claim, as canboat runs it', () => {
     const d = device(42)
     d.start()
     jest.advanceTimersByTime(1250)
-    d.n2kMessage(peerClaim(d, 42, 0x1fffff))
+    d.n2kMessage(peerClaim(d, 42, 0x1ffffc))
     expect(claimsSent()).toEqual([42, 42])
     expect(d.cansend).toBe(true) // still sending while it re-claims
     jest.advanceTimersByTime(250)

@@ -85,7 +85,8 @@ export class N2kDevice extends EventEmitter {
         if (derived !== undefined) {
           uniqueNumber = derived
         } else {
-          uniqueNumber = Math.floor(Math.random() * Math.floor(2097151))
+          // 0 to 2097148: the three values above decode as not available.
+          uniqueNumber = Math.floor(Math.random() * 2097149)
           this.savePersistedData('uniqueNumber', uniqueNumber)
         }
       }
