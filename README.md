@@ -558,9 +558,11 @@ device.start()
 
 A ShipModul MiniPlex writes a frame's data as one number, most significant byte
 first, so the frame's last byte comes first. canboatjs reads and writes that
-order by default. Some gateways that emulate `$MXPGN` (an Actisense W2K-2, for
-one) write the frame's bytes in bus order instead, first byte first. For those,
-set `mxpgnBusOrder`:
+order by default, and so do Actisense gateways from firmware v3.121. Actisense
+firmware up to and including v3.120 writes the frame's bytes in bus order
+instead, first byte first
+([Actisense/SDK#6](https://github.com/Actisense/SDK/issues/6#issuecomment-6269025270)).
+Upgrade such a gateway if you can; if not, set `mxpgnBusOrder`:
 
 ```javascript
 const parser = new FromPgn({ mxpgnBusOrder: true })
