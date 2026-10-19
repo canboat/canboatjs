@@ -381,11 +381,11 @@ export const encodePCDIN = ({
 //   $MXPGN,pppppp,aaaa,d--d*hh
 //
 // One sentence carries one CAN frame. The data is written as one number,
-// most significant byte first, so the frame's last byte comes first. Some
-// gateways that emulate $MXPGN (an Actisense W2K-2, for one) write the data
-// the other way round, the frame's bytes in bus order: the mxpgnBusOrder
-// option reads and writes that order. The
-// attribute word is S(1) | priority(3) | DLC(4) | address(8): S=0 is a
+// most significant byte first, so the frame's last byte comes first, as
+// Actisense gateways also do from firmware v3.121. Actisense firmware up to
+// and including v3.120 writes the data the other way round, the frame's
+// bytes in bus order: the mxpgnBusOrder option reads and writes that order.
+// The attribute word is S(1) | priority(3) | DLC(4) | address(8): S=0 is a
 // received frame and the address is its source; S=1 asks the MiniPlex to
 // send it and the address is its destination, the source being the
 // MiniPlex's own. An empty attribute means S=1, priority 7, address 0.
@@ -413,8 +413,8 @@ const isFastPacketPgn = (pgn: number) =>
 
 /**
  * Whether `options` ask for $MXPGN data in bus order, first byte first, as
- * some gateways emulating $MXPGN write it, rather than ShipModul's last byte
- * first. `mxpgnBusOrder: true` asks for it. So does an explicit
+ * Actisense firmware up to v3.120 writes it, rather than ShipModul's last
+ * byte first. `mxpgnBusOrder: true` asks for it. So does an explicit
  * `littleEndianMXPGN: false`: that older option named ShipModul's order, and
  * bus order was the default when it was unset.
  */

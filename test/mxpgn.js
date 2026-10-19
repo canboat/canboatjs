@@ -75,8 +75,8 @@ describe('from mxpgn data converts', function () {
     }).should.jsonEqual(position)
   })
 
-  // The same frame as the MiniPlex's above, its data in bus order, as an
-  // Actisense gateway emulating $MXPGN writes it.
+  // The same frame as the MiniPlex's above, its data in bus order, as
+  // Actisense firmware up to v3.120 writes it.
   const busOrder = '$MXPGN,01F801,2801,43E35D0CC48A30C1*19'
 
   it('129025 in bus order with mxpgnBusOrder', function () {
@@ -87,7 +87,14 @@ describe('from mxpgn data converts', function () {
     parseOne(busOrder, { littleEndianMXPGN: false }).should.jsonEqual(position)
   })
 
-  it('the Actisense SDK example (127508 at 12.00 V) in bus order', function () {
+  it('the Actisense SDK example (127508 at 12.00 V), firmware v3.121 on', function () {
+    // https://github.com/Actisense/SDK/issues/6
+    const pgn = parseOne('$MXPGN,01F214,6842,FFFFFF7FFF04B000*1F')
+    pgn.should.include({ pgn: 127508, src: 0x42, prio: 6 })
+    pgn.fields.should.include({ Instance: 0, Voltage: 12 })
+  })
+
+  it('the old Actisense SDK example in bus order, firmware up to v3.120', function () {
     const pgn = parseOne('$MXPGN,01F214,6842,00B004FF7FFFFFFF', {
       mxpgnBusOrder: true
     })
