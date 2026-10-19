@@ -170,13 +170,7 @@ function encodeActisenseN2KAsciiLine(pgn: any, _canid: number, buffer: Buffer) {
 }
 
 function encodePCDINLine(pgn: any, _canid: number, buffer: Buffer) {
-  return encodePCDIN({
-    pgn: pgn.pgn,
-    data: buffer,
-    src: pgn.src,
-    dst: pgn.dst,
-    prio: pgn.prio
-  })
+  return encodePCDIN({ pgn: pgn.pgn, data: buffer, src: pgn.src })
 }
 
 function encodeBst95Line(pgn: any, _canid: number, buffer: Buffer) {

@@ -321,6 +321,18 @@ const get0183Sentence = (msg: string) => {
   return sentence
 }
 
+// Chetco SeaSmart.Net:
+//
+//   $PCDIN,<PGN>,<time stamp>,<source>,<data>*hh
+//
+// The sentence has no priority or destination. Its time stamp means
+// different things on different gateways: base-32 seconds since 2010 on
+// Chetco's later firmware, hex milliseconds since start-up on Yacht Devices
+// and early Chetco firmware, and always 00000000 on Quark-elec. So a parsed
+// message gets no timestamp, and FromPgn gives it the time it reads it, as
+// canboat does for a live gateway. `timer` still holds the field read as
+// Chetco's later firmware writes it.
+//
 // $PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59
 export const isPCDIN = (msg: string) => {
   const sentence = get0183Sentence(msg)
@@ -354,22 +366,19 @@ export const parsePCDIN = (input: string) => {
       buildCanId(0, parseInt(pgn, 16), 255, parseInt(src, 16)),
       'PCDIN',
       Buffer.from(data, 'hex'),
-      { coalesced: true, prefix, timer, timestamp: new Date(timer) }
+      { coalesced: true, prefix, timer }
     )
   }
 }
 
-export const encodePCDIN = ({
-  prefix = '$PCDIN',
-  pgn,
-  data,
-  dst = 255
-}: any) => {
+// The time stamp is written as 00000000, as Chetco's own firmware does when
+// it sends $PCDIN; no gateway documents reading it.
+export const encodePCDIN = ({ prefix = '$PCDIN', pgn, data, src = 0 }: any) => {
   const sentence = [
     prefix,
     toPaddedHexString(pgn, 6),
-    '0000180C',
-    hexByte(dst).toUpperCase(),
+    '00000000',
+    hexByte(src).toUpperCase(),
     byteString(data, '').toUpperCase()
   ].join(',')
   return sentence + compute0183Checksum(sentence)

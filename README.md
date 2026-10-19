@@ -920,8 +920,8 @@ const matches1 =
     pgn: 127257,
     prio: 0,
     src: 15,
-    timer: 0,
-    timestamp: new Date(0),
+    timer: 1262304000000,
+    coalesced: true,
   };
 
 const n2kParts2 = parseN2kString(
