@@ -37,22 +37,24 @@ describe('values below RangeMin', function () {
     expect(pitch(-31417)).to.equal(undefined)
   })
 
-  it('leaves out the most negative raw value where RangeMin leaves it out', function () {
-    // Water depth offset: 16 bits at 0.001 m, RangeMin -32.767, so raw
-    // -32768 (0x8000) is outside it.
+  it('keeps the most negative raw value where RangeMin reaches it', function () {
+    // Water depth offset: 16 bits at 0.001 m. Since canboat/canboat#986 a
+    // signed field's RangeMin reaches the full negative end of its bits, so
+    // raw -32768 (0x8000) is -32.768, not out of range.
     const offset = (lo, hi) =>
       decode(
         `2026-01-01T00:00:00.000Z,3,128267,1,255,8,ff,10,27,00,00,${lo},${hi},ff`
       ).offset
     expect(offset('01', '80')).to.equal(-32.767)
-    expect(offset('00', '80')).to.equal(undefined)
+    expect(offset('00', '80')).to.equal(-32.768)
   })
 
   it('is part of the optional range check', function () {
+    // Attitude pitch raw -31417 is below RangeMin -pi.
     const fields = decode(
-      '2026-01-01T00:00:00.000Z,3,128267,1,255,8,ff,10,27,00,00,00,80,ff',
+      '2026-01-01T00:00:00.000Z,3,127257,1,255,8,ff,ff,7f,47,85,ff,7f,ff',
       { checkForInvalidFields: false }
     )
-    expect(fields.offset).to.equal(-32.768)
+    expect(fields.pitch).to.equal(-3.1417)
   })
 })
