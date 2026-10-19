@@ -6,6 +6,7 @@ jest.mock('./persist', () => ({
 }))
 
 import { CanDevice } from './candevice'
+import { toPgn } from './toPgn'
 
 function makeOptions(overrides: Record<string, unknown> = {}) {
   return {
@@ -346,6 +347,21 @@ describe('N2kDevice address claim, as canboat runs it', () => {
     jest.advanceTimersByTime(60 * 1000)
     const heartbeats = sent.filter((p) => p.pgn === 126993)
     expect(heartbeats.map((p) => p.src)).toEqual([43])
+  })
+
+  test('sends a heartbeat every 60 s, and says so in its interval', () => {
+    // Data transmit offset counts in ms: 60 s is 60 EA. 3.20.0 sent 70 17,
+    // 6 s, and a Raymarine Axiom timed the device out between heartbeats
+    // (#527).
+    const d = device(42)
+    d.start()
+    jest.advanceTimersByTime(1250)
+    sent = []
+    jest.advanceTimersByTime(60 * 1000)
+    const heartbeats = sent.filter((p) => p.pgn === 126993)
+    expect(heartbeats).toHaveLength(1)
+    const data = toPgn(heartbeats[0])!
+    expect(data.subarray(0, 2).toString('hex')).toBe('60ea')
   })
 
   test('keeps its address against a higher NAME and claims it again', () => {
