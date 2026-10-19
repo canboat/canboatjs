@@ -62,10 +62,19 @@ describe('encoding a value outside its range', function () {
     expect(() => wind(-3.2)).to.throw(/Wind Angle/)
   })
 
-  it("writes a field's not-available value as given", function () {
-    // Signal K's conversions send SID 0xff for "no SID".
+  it("writes a field's not-available value as given, warning once", async function () {
+    // Signal K's conversions send SID 0xff for "no SID". Deprecated: the
+    // next major release refuses it.
+    const warnings = []
+    const onWarning = (w) => warnings.push(w)
+    process.on('warning', onWarning)
     const data = toPgn({ pgn: 128267, fields: { SID: 0xff, Depth: 4.5 } })
+    toPgn({ pgn: 128267, fields: { SID: 0xff, Depth: 4.5 } })
+    await new Promise((resolve) => setImmediate(resolve))
+    process.off('warning', onWarning)
     expect(data[0]).to.equal(0xff)
+    expect(warnings.map((w) => w.name)).to.deep.equal(['DeprecationWarning'])
+    expect(warnings[0].message).to.include("field 'SID' was given 255")
     expect(() => toPgn({ pgn: 128267, fields: { SID: 254 } })).to.throw(
       "field 'SID': value 254 is outside its range 0 to 252"
     )

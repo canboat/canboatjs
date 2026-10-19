@@ -468,6 +468,25 @@ function fullTurnAngle(field: Field, value: number) {
   return value
 }
 
+const warnedNotAvailable = new Set<string>()
+
+/**
+ * Warn, once per field, that a not-available value was given as a number
+ * where it should be left out or given as null.
+ */
+function warnNotAvailableValue(field: Field, given: number) {
+  if (warnedNotAvailable.has(field.Name)) {
+    return
+  }
+  warnedNotAvailable.add(field.Name)
+  process.emitWarning(
+    `canboatjs: field '${field.Name}' was given ${given}, its not-available ` +
+      'value. Leave the field out or give null instead: the next major ' +
+      'release refuses it as out of range.',
+    'DeprecationWarning'
+  )
+}
+
 /**
  * Refuse a NUMBER whose raw value is outside the field's range: written
  * anyway it would wrap at the field width, or land on a not-available or
@@ -475,11 +494,13 @@ function fullTurnAngle(field: Field, value: number) {
  * with raw, so a value within half a step of an end still rounds onto it.
  * As canboat's encoder (canboat/canboat#975), with one exception: the
  * field's not-available value itself (SID 0xff, as Signal K's conversions
- * send it) is written as given. A field without a range, as a custom PGN
- * may have, is held to what its bits can carry.
+ * send it) is written as given, with a deprecation warning; the next
+ * major release refuses it, as canboat does. A field without a range, as
+ * a custom PGN may have, is held to what its bits can carry.
  */
 function checkRange(field: Field, given: number, raw: number) {
   if (raw === (field as any).UnknownValue) {
+    warnNotAvailableValue(field, given)
     return
   }
   const offset = field.Offset ? Number(field.Offset) : 0
