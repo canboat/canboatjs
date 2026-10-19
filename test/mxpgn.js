@@ -201,10 +201,11 @@ describe('to mxpgn', function () {
         'Supports Equalization': 'No',
         'Nominal Voltage': '12V',
         Chemistry: 'Lead Acid',
-        Capacity: 200,
+        // SI: 200 Ah in coulombs, 95 % as a ratio.
+        Capacity: 720000,
         'Temperature Coefficient': 0,
         'Peukert Exponent': 1.25,
-        'Charge Efficiency Factor': 95
+        'Charge Efficiency Factor': 0.95
       }
     }
     const sentences = pgnToMXPGN(msg)

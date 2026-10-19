@@ -80,12 +80,19 @@ export class N2kDevice extends EventEmitter {
       uniqueNumber = options.uniqueNumber
     } else {
       uniqueNumber = this.getPersistedData('uniqueNumber')
+      if (uniqueNumber !== undefined && uniqueNumber > 2097148) {
+        // An older release could store 2097149 or 2097150, which decode as
+        // not available and which the encoder refuses: fold them below.
+        uniqueNumber -= 3
+        this.savePersistedData('uniqueNumber', uniqueNumber)
+      }
       if (uniqueNumber === undefined) {
         const derived = machineUniqueNumber(options.providerId)
         if (derived !== undefined) {
           uniqueNumber = derived
         } else {
-          uniqueNumber = Math.floor(Math.random() * Math.floor(2097151))
+          // 0 to 2097148: the three values above decode as not available.
+          uniqueNumber = Math.floor(Math.random() * 2097149)
           this.savePersistedData('uniqueNumber', uniqueNumber)
         }
       }
