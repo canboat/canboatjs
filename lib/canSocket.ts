@@ -10,9 +10,10 @@
  * lets process.exit() terminate cleanly without hanging on a blocked syscall.
  *
  * Reads and writes use separate CAN sockets bound to the same interface:
- * the read socket has the default (full) RX filter, the write socket has an
+ * by default the read socket has the full RX filter, the write socket has an
  * empty RX filter so the kernel doesn't queue frames into a buffer nobody
- * reads.
+ * reads. The read socket can be told to drop PGNs in the kernel
+ * (excludePgns), so frames nobody wants cost no JavaScript at all.
  *
  * Copyright 2025 Signal K contributors
  * Licensed under the Apache License, Version 2.0
@@ -24,6 +25,43 @@ import { constants } from 'os'
 
 const CAN_EFF_FLAG = 0x80000000
 const CAN_EFF_MASK = 0x1fffffff
+const CAN_INV_FILTER = 0x20000000
+const CAN_FILTER_SIZE = 8 // sizeof(struct can_filter)
+// Each excluded PGN is one CAN filter, and the kernel takes at most 512 per
+// socket (linux/can/raw.h, since Linux 4.12); canboatjs keeps to that on any
+// kernel.
+const CAN_RAW_FILTER_MAX = 512
+// The PGN is in bits 8-25 of the 29-bit identifier: extended data page,
+// data page, PF and PS. NMEA 2000, like J1939, has two kinds of PGN:
+// - PDU2 (PF 240 and up) is broadcast, and PS is part of the PGN: 127250 is
+//   0x1F112.
+// - PDU1 (PF below 240) is sent to one device, and PS is that device's
+//   address, not part of the PGN. These PGNs end in 00 in hex: an ISO
+//   Request (59904, 0xEA00) to device 0x23 has 0xEA23 in its identifier.
+// So for PDU1 only bits 16-25 name the PGN.
+const PGN_MASK_PDU2 = 0x3ffff00
+const PGN_MASK_PDU1 = 0x3ff0000
+// NMEA 2000 PGNs use the data page but not the extended data page.
+const PGN_MAX = 0x1ffff
+
+// Network management, which excludePgns leaves alone. canboatjs's own
+// device (n2kDevice.ts) claims an address and answers requests with them,
+// long messages arrive through the transport protocol, and Signal K's device
+// list and discovery read the heartbeat and device information. They are
+// rare, so dropping them would save nothing and break these.
+const PROTECTED_PGNS = [
+  59392, // ISO Acknowledgement
+  59904, // ISO Request
+  60160, // ISO Transport Protocol, Data Transfer
+  60416, // ISO Transport Protocol, Connection Management
+  60928, // ISO Address Claim
+  65240, // ISO Commanded Address
+  126208, // NMEA Group Function
+  126464, // PGN List
+  126993, // Heartbeat
+  126996, // Product Information
+  126998 // Configuration Information
+]
 const CAN_FRAME_SIZE = 16 // sizeof(struct can_frame)
 const CAN_DATA_OFFSET = 8
 
@@ -53,6 +91,8 @@ interface NativeBindings {
   openCanWriteSocket: (ifname: string) => number
   writeCanFrame: (fd: number, buffer: Buffer) => number
   readCanFrames: (fd: number) => Buffer[]
+  // Missing in an addon built before excludePgns.
+  setCanReadFilter?: (fd: number, filters: Buffer) => void
   CanPoller: new (fd: number, callback: () => void) => CanPollerHandle
 }
 
@@ -70,6 +110,74 @@ try {
   }
 }
 
+export interface CanChannelOptions {
+  /**
+   * PGNs the kernel drops before they reach this process. Parsed with
+   * parseExcludePgns; entries it ignores are dropped without a warning.
+   */
+  excludePgns?: unknown
+}
+
+/**
+ * The PGNs of an excludePgns option, as an array or a comma or space
+ * separated string, that the kernel can drop: whole numbers that are PGNs,
+ * without the network management PGNs, each once, at most 512. Everything
+ * else is returned in `ignored`, with the reason.
+ */
+export function parseExcludePgns(option: unknown): {
+  pgns: number[]
+  ignored: string[]
+} {
+  const entries = Array.isArray(option)
+    ? option
+    : typeof option === 'string' || typeof option === 'number'
+      ? String(option).split(/[\s,]+/)
+      : []
+  const pgns: number[] = []
+  const ignored: string[] = []
+  for (const entry of entries) {
+    const text = String(entry).trim()
+    if (text === '') {
+      continue
+    }
+    const pgn = Number(text)
+    if (!Number.isInteger(pgn) || pgn < 0 || pgn > PGN_MAX) {
+      ignored.push(`${text} (not a PGN)`)
+    } else if (((pgn >> 8) & 0xff) < 240 && (pgn & 0xff) !== 0) {
+      // A PDU1 PGN with a destination address added (59905 for 59904): the
+      // filter would drop the whole PGN ending in 00, for every destination,
+      // and that may be a network management one.
+      ignored.push(`${text} (PDU1 PGN with a destination, use ${pgn & ~0xff})`)
+    } else if (PROTECTED_PGNS.includes(pgn)) {
+      ignored.push(`${text} (network management)`)
+    } else if (pgns.includes(pgn)) {
+      continue
+    } else if (pgns.length >= CAN_RAW_FILTER_MAX) {
+      ignored.push(`${text} (more than ${CAN_RAW_FILTER_MAX})`)
+    } else {
+      pgns.push(pgn)
+    }
+  }
+  return { pgns, ignored }
+}
+
+/**
+ * struct can_filter entries that, joined (CAN_RAW_JOIN_FILTERS), pass every
+ * frame except those of the given PGNs: one inverted filter per PGN. Like the
+ * rest of this file, assumes a little-endian host.
+ */
+export function excludePgnFilters(pgns: number[]): Buffer {
+  const buf = Buffer.alloc(pgns.length * CAN_FILTER_SIZE)
+  pgns.forEach((pgn, i) => {
+    const pdu1 = ((pgn >> 8) & 0xff) < 240
+    const mask = pdu1 ? PGN_MASK_PDU1 : PGN_MASK_PDU2
+    const id = ((pgn << 8) & mask) | CAN_EFF_FLAG | CAN_INV_FILTER
+    buf.writeUInt32LE(id >>> 0, i * CAN_FILTER_SIZE)
+    buf.writeUInt32LE((mask | CAN_EFF_FLAG) >>> 0, i * CAN_FILTER_SIZE + 4)
+  })
+  return buf
+}
+
 export interface CanMessage {
   id: number
   data: Buffer
@@ -82,6 +190,10 @@ export interface CanMessage {
  */
 export class CanChannel extends EventEmitter {
   private readFd: number
+  /** PGNs the kernel drops on the read socket. */
+  readonly excludedPgns: number[] = []
+  /** Why excludePgns could not be applied, if it couldn't. */
+  readonly filterError: string | undefined
   private writeFd: number
   private poller: CanPollerHandle | null = null
   private stopped: boolean = false
@@ -93,13 +205,30 @@ export class CanChannel extends EventEmitter {
   private dropped = 0
   private lastReport = 0
 
-  constructor(ifname: string) {
+  constructor(ifname: string, options: CanChannelOptions = {}) {
     super()
     if (native === undefined) {
       const detail = nativeLoadError ? `: ${nativeLoadError.message}` : ''
       throw new Error(`Failed to load native canSocket module${detail}`)
     }
     this.readFd = native.openCanReadSocket(ifname)
+    const { pgns } = parseExcludePgns(options.excludePgns)
+    if (pgns.length > 0) {
+      // Without the filter everything still works, only slower: an old
+      // kernel (before 4.1, no CAN_RAW_JOIN_FILTERS) or an addon built
+      // before setCanReadFilter existed must not take the bus down.
+      if (typeof native.setCanReadFilter !== 'function') {
+        this.filterError =
+          'the native canSocket module is too old, rebuild canboatjs'
+      } else {
+        try {
+          native.setCanReadFilter(this.readFd, excludePgnFilters(pgns))
+          this.excludedPgns = pgns
+        } catch (e) {
+          this.filterError = (e as Error).message
+        }
+      }
+    }
     try {
       this.writeFd = native.openCanWriteSocket(ifname)
     } catch (e) {
