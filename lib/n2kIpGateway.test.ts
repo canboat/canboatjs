@@ -324,6 +324,79 @@ describe('N2kIpGateway', () => {
     }
   )
 
+  test.each(['candump1', 'candump2', 'candump3', 'ydraw'])(
+    'TX %s: splits a fast-packet PGN of 8 bytes, only once (#523)',
+    async (format) => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'gw.local',
+        format,
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+
+      // 127513 Battery Configuration Status is fast-packet, 8 bytes long:
+      // two frames, the first with the frame counter 0 and the length.
+      gw.sendPGN({
+        pgn: 127513,
+        prio: 6,
+        src: 17,
+        dst: 255,
+        data: Buffer.from('0102030405060708', 'hex')
+      })
+
+      expect(lastSocket!.written).toHaveLength(2)
+      const hex = lastSocket!.written.map((line) =>
+        line
+          .trim()
+          .split('#')
+          .pop()!
+          .split(/\s+/)
+          .slice(-8)
+          .join('')
+          .toLowerCase()
+      )
+      expect(parseInt(hex[0].slice(0, 2), 16) & 0x1f).toBe(0)
+      expect(hex[0].slice(2)).toBe('08010203040506')
+      expect(parseInt(hex[1].slice(0, 2), 16) & 0x1f).toBe(1)
+      expect(hex[1].slice(2, 6)).toBe('0708')
+    }
+  )
+
+  test.each(['candump1', 'candump2', 'candump3', 'ydraw'])(
+    'TX %s: relays a frame given with frame: true as it is',
+    async (format) => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'gw.local',
+        format,
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+
+      // The first frame of a 127513 message, already split by its sender.
+      gw.sendPGN({
+        pgn: 127513,
+        prio: 6,
+        src: 17,
+        dst: 255,
+        data: Buffer.from('2008010203040506', 'hex'),
+        frame: true
+      })
+
+      expect(lastSocket!.written).toHaveLength(1)
+      const hex = lastSocket!.written[0]
+        .trim()
+        .split('#')
+        .pop()!
+        .split(/\s+/)
+        .slice(-8)
+        .join('')
+        .toLowerCase()
+      expect(hex).toBe('2008010203040506')
+    }
+  )
+
   test('actAsCanDevice: true creates a CanDevice and emits address claim', async () => {
     jest.useFakeTimers({ doNotFake: ['setImmediate'] })
     try {

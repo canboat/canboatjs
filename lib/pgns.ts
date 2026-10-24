@@ -49,3 +49,17 @@ export const addCustomPgns = (pgns: any, setter: any) => {
 export const getCustomPgn = (pgnNum: number) => {
   return customPgns[pgnNum]
 }
+
+/**
+ * Whether a message of `pgn`, `length` bytes long, goes out in fast-packet
+ * frames: when it does not fit one CAN frame, or when its PGN is defined as
+ * fast-packet (by canboat or a custom definition). Then even a payload of 8
+ * bytes or fewer is split, as 127513's is, since its receiver reads the
+ * first byte as the frame header (#523). 126720 is always fast-packet.
+ */
+export const isFastPacket = (pgn: number, length: number) =>
+  length > 8 ||
+  pgn == 126720 ||
+  [...(getPgn(pgn) ?? []), ...(getCustomPgn(pgn)?.definitions ?? [])].some(
+    (definition: any) => definition.Type === 'Fast'
+  )

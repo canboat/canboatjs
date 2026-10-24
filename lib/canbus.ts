@@ -27,6 +27,7 @@ import { toPgn } from './toPgn'
 import _ from 'lodash'
 import { CanDevice } from './candevice'
 import { getPlainPGNs, binToActisense } from './utilities'
+import { isFastPacket } from './pgns'
 import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
 import { CanChannel } from './canSocket'
@@ -380,8 +381,7 @@ CanbusStream.prototype.sendPGN = function (
       return
     }
 
-    //seems as though 126720 should always be encoded this way
-    if (buffer.length > 8 || pgn.pgn == 126720) {
+    if (isFastPacket(pgn.pgn, buffer.length)) {
       const pgns = getPlainPGNs(buffer, pgn.pgn, pgn.src)
       pgns.forEach((pbuffer) => {
         this.channel.send({ id: canid, ext: true, data: pbuffer })

@@ -24,6 +24,7 @@ import {
   createDebug,
   byteStringArray
 } from './utilities'
+import { isFastPacket } from './pgns'
 import { CanChannel } from './canSocket'
 import _ from 'lodash'
 
@@ -139,8 +140,7 @@ SimpleCan.prototype.sendPGN = function (msg: any, force: boolean) {
       return
     }
 
-    //seems as though 126720 should always be encoded this way
-    if (buffer.length > 8 || pgn.pgn == 126720) {
+    if (isFastPacket(pgn.pgn, buffer.length)) {
       const pgns = getPlainPGNs(buffer, pgn.pgn, pgn.src)
       pgns.forEach((pbuffer) => {
         this.channel.send({ id: canid, ext: true, data: pbuffer })

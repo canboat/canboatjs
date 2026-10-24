@@ -3,6 +3,7 @@
 import { parseN2kString } from '../stringMsg'
 import { toPgn } from '../toPgn'
 import { getPlainPGNs, binToActisense } from '../utilities'
+import { isFastPacket } from '../pgns'
 import { encodeCanId } from '../canId'
 import readline from 'readline'
 import minimist from 'minimist'
@@ -109,7 +110,7 @@ rl.on('line', function (line) {
     console.error('unable to encode: %s', line)
     return
   } else {
-    if (buffer.length > 8 || pgn.pgn == 126720) {
+    if (isFastPacket(pgn.pgn, buffer.length)) {
       const pgns = getPlainPGNs(buffer, pgn.pgn, pgn.src)
       pgns.forEach((pbuffer) => {
         if (!test) {

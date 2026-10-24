@@ -46,6 +46,7 @@ import {
   subscribeApp,
   unsubscribeApp
 } from './utilities'
+import { isFastPacket } from './pgns'
 import { encodeBst95, readBst95 } from './bst95'
 
 type SupportedFormat =
@@ -558,10 +559,13 @@ N2kIpGateway.prototype.sendPGN = function (msg: any, force?: boolean) {
   }
   const canid = encodeCanId(pgn as CanID)
 
+  // `frame: true` says a caller's `data` is one CAN frame already, as the
+  // encoders take it: relayed as it is, never split again.
   let payloads: Buffer[]
   if (
     this.formatSpec.splitFastPacket &&
-    (buffer.length > 8 || pgn.pgn === 126720)
+    !pgn.frame &&
+    isFastPacket(pgn.pgn, buffer.length)
   ) {
     payloads = getPlainPGNs(buffer, pgn.pgn, pgn.src)
   } else {
