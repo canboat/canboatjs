@@ -559,8 +559,14 @@ N2kIpGateway.prototype.sendPGN = function (msg: any, force?: boolean) {
   }
   const canid = encodeCanId(pgn as CanID)
 
+  // `frame: true` says a caller's `data` is one CAN frame already, as the
+  // encoders take it: relayed as it is, never split again.
   let payloads: Buffer[]
-  if (this.formatSpec.splitFastPacket && isFastPacket(pgn.pgn, buffer.length)) {
+  if (
+    this.formatSpec.splitFastPacket &&
+    !pgn.frame &&
+    isFastPacket(pgn.pgn, buffer.length)
+  ) {
     payloads = getPlainPGNs(buffer, pgn.pgn, pgn.src)
   } else {
     payloads = [buffer]

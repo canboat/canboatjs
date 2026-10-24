@@ -363,6 +363,40 @@ describe('N2kIpGateway', () => {
     }
   )
 
+  test.each(['candump1', 'candump2', 'candump3', 'ydraw'])(
+    'TX %s: relays a frame given with frame: true as it is',
+    async (format) => {
+      const gw = newGateway({
+        app: makeApp(),
+        host: 'gw.local',
+        format,
+        actAsCanDevice: false
+      })
+      await waitForConnect()
+
+      // The first frame of a 127513 message, already split by its sender.
+      gw.sendPGN({
+        pgn: 127513,
+        prio: 6,
+        src: 17,
+        dst: 255,
+        data: Buffer.from('2008010203040506', 'hex'),
+        frame: true
+      })
+
+      expect(lastSocket!.written).toHaveLength(1)
+      const hex = lastSocket!.written[0]
+        .trim()
+        .split('#')
+        .pop()!
+        .split(/\s+/)
+        .slice(-8)
+        .join('')
+        .toLowerCase()
+      expect(hex).toBe('2008010203040506')
+    }
+  )
+
   test('actAsCanDevice: true creates a CanDevice and emits address claim', async () => {
     jest.useFakeTimers({ doNotFake: ['setImmediate'] })
     try {
