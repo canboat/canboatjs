@@ -20,7 +20,7 @@ import {
   hexByte
 } from './utilities'
 import { buildCanId, encodeCanIdString, parseCanIdStr } from './canId'
-import { getCustomPgn, getPgn } from './pgns'
+import { isFastPacket } from './pgns'
 import moment from 'moment'
 
 /**
@@ -281,10 +281,10 @@ export const parseYDRAWOut = (input: string) => {
   return buildMsg(parseCanIdStr(canId), 'YDRAW', buffer)
 }
 /* The CAN frames to write for a message: its fast-packet frames when it is
-   longer than 8 bytes, or 126720, which is always fast-packet. `frame: true`
-   says `data` is one CAN frame already, split by the caller. */
+   longer than 8 bytes or its PGN is fast-packet (see isFastPacket). `frame:
+   true` says `data` is one CAN frame already, split by the caller. */
 const canFrames = ({ data, pgn, src, frame }: any): Buffer[] =>
-  !frame && (data.length > 8 || pgn == 126720)
+  !frame && isFastPacket(pgn, data.length)
     ? getPlainPGNs(data, pgn, src)
     : [data]
 
@@ -410,17 +410,6 @@ export const isMXPGN = (msg: string) => {
 const isPDU1 = (pgn: number) => ((pgn >> 8) & 0xff) < 240
 
 /**
- * Whether `pgn` is sent as a fast-packet, by its definition (canboat's, or a
- * custom one): then even a payload of 8 bytes or fewer goes out in
- * fast-packet frames, as 127513 does, its receiver reading the first byte
- * as the frame header.
- */
-const isFastPacketPgn = (pgn: number) =>
-  [...(getPgn(pgn) ?? []), ...(getCustomPgn(pgn)?.definitions ?? [])].some(
-    (definition: any) => definition.Type === 'Fast'
-  )
-
-/**
  * Whether `options` ask for $MXPGN data in bus order, first byte first, as
  * Actisense firmware up to v3.120 writes it, rather than ShipModul's last
  * byte first. `mxpgnBusOrder: true` asks for it. So does an explicit
@@ -491,10 +480,9 @@ export const encodeMXPGN = (
   const pgnField = toPaddedHexString(pdu1 ? pgn & ~0xff : pgn, 6)
   const address = pdu1 ? dst & 0xff : 0
 
-  const frames =
-    buffer.length > 8 || pgn == 126720 || isFastPacketPgn(pgn)
-      ? getPlainPGNs(buffer)
-      : [buffer]
+  const frames = isFastPacket(pgn, buffer.length)
+    ? getPlainPGNs(buffer)
+    : [buffer]
   const sentences = frames.map((frame) => {
     const attribWord =
       0x8000 | ((prio & 0x7) << 12) | (frame.length << 8) | address

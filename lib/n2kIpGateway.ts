@@ -46,6 +46,7 @@ import {
   subscribeApp,
   unsubscribeApp
 } from './utilities'
+import { isFastPacket } from './pgns'
 import { encodeBst95, readBst95 } from './bst95'
 
 type SupportedFormat =
@@ -559,10 +560,7 @@ N2kIpGateway.prototype.sendPGN = function (msg: any, force?: boolean) {
   const canid = encodeCanId(pgn as CanID)
 
   let payloads: Buffer[]
-  if (
-    this.formatSpec.splitFastPacket &&
-    (buffer.length > 8 || pgn.pgn === 126720)
-  ) {
+  if (this.formatSpec.splitFastPacket && isFastPacket(pgn.pgn, buffer.length)) {
     payloads = getPlainPGNs(buffer, pgn.pgn, pgn.src)
   } else {
     payloads = [buffer]
