@@ -9,7 +9,11 @@ permissions:
   id-token: write  # Required for OIDC
   contents: read
 jobs:
+  prebuild:
+    uses: ./.github/workflows/prebuild.yml
+
   build:
+    needs: prebuild
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -24,6 +28,19 @@ jobs:
         npm install
         npm ci && npm cache clean --force
         npm run build
+
+    - name: Add prebuilt native addons
+      uses: actions/download-artifact@v4
+      with:
+        pattern: prebuilds-*
+        path: prebuilds
+        merge-multiple: true
+
+    - name: Check prebuilt native addons
+      # One per platform prebuild.yml builds.
+      run: |
+        find prebuilds -type f
+        test "$(find prebuilds -name '*.node' | wc -l)" -eq 3
 
     - name: Set tag variable
       id: vars
