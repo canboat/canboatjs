@@ -21,6 +21,7 @@
 import { EventEmitter } from 'events'
 import { closeSync } from 'fs'
 import { constants } from 'os'
+import { join } from 'path'
 
 const CAN_EFF_FLAG = 0x80000000
 const CAN_EFF_MASK = 0x1fffffff
@@ -56,18 +57,36 @@ interface NativeBindings {
   CanPoller: new (fd: number, callback: () => void) => CanPollerHandle
 }
 
+// The package root, which holds build/ (an addon compiled at install) and
+// prebuilds/ (the binaries shipped for common Linux platforms).
+const packageRoot = join(__dirname, '..')
+
 let native: NativeBindings
 let nativeLoadError: Error | undefined
 try {
+  // A compiled addon in build/ if there is one, else the matching prebuilt
+  // one.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  native = require('../build/Release/canSocket.node')
-} catch (releaseErr) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    native = require('../build/Debug/canSocket.node')
-  } catch (_debugErr) {
-    nativeLoadError = releaseErr as Error
+  native = require('node-gyp-build')(packageRoot)
+} catch (err) {
+  nativeLoadError = err as Error
+}
+
+// Why there is no native addon, and what to do about it.
+function nativeLoadFailure(): Error {
+  if (process.platform !== 'linux') {
+    return new Error(
+      `canbus connections need SocketCAN, which is Linux only (this is ${process.platform})`
+    )
   }
+  const detail = nativeLoadError
+    ? `: ${nativeLoadError.message.split('\n')[0]}`
+    : ''
+  return new Error(
+    `Failed to load native canSocket module${detail}. ` +
+      `To build it, run "npx node-gyp rebuild" in ${packageRoot} ` +
+      '(needs python3, make and a C++ compiler), then restart'
+  )
 }
 
 export interface CanMessage {
@@ -96,8 +115,7 @@ export class CanChannel extends EventEmitter {
   constructor(ifname: string) {
     super()
     if (native === undefined) {
-      const detail = nativeLoadError ? `: ${nativeLoadError.message}` : ''
-      throw new Error(`Failed to load native canSocket module${detail}`)
+      throw nativeLoadFailure()
     }
     this.readFd = native.openCanReadSocket(ifname)
     try {

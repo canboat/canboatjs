@@ -11,7 +11,8 @@
     "code-coverage": "jest --coverage && nyc mocha --exit",
     "build_ios": "webpack -c ./webpack.config.js --mode development ./ios.js -o ios_canboat.js",
     "build_prod_ios": "webpack -c ./webpack.config.js --mode production ./ios.js -o ios_canboat.js",
-    "install": "node-gyp rebuild || echo 'Native CAN socket addon not available on this platform'",
+    "install": "node scripts/install-native.js",
+    "prebuildify": "prebuildify --napi --strip --tag-armv --tag-libc",
     "build": "tsc -b  --pretty false",
     "watch": "tsc --watch",
     "prepare": "npm run build",
@@ -69,6 +70,7 @@
     "moment": "^2.30.1",
     "mqtt": "^2.18.8",
     "node-addon-api": "^8.6.0",
+    "node-gyp-build": "^4.8.4",
     "split": "^1.0.1"
   },
   "devDependencies": {
@@ -93,6 +95,7 @@
     "lint-staged": "^16.1.2",
     "mocha": "^11.0.0",
     "nyc": "^15.1.0",
+    "prebuildify": "^6.0.1",
     "prettier": "^3.9.9",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",

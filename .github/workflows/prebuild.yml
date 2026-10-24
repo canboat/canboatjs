@@ -1,0 +1,82 @@
+name: Prebuild native addon
+
+# Builds the native SocketCAN addon (native/canSocket.cpp) for the common
+# Linux platforms, so installs there need no compiler (#533). Each binary is
+# built with Node-API, so one works on every Node version canboatjs supports,
+# and in Debian bullseye, so it loads on any glibc from 2.28 on. Other
+# platforms (musl, armv6) compile the addon at install as before.
+#
+# Called by publish.yml, which ships the binaries in prebuilds/; runs on its
+# own for changes to the addon or how it is built.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "master" ]
+    paths:
+      - 'native/**'
+      - 'binding.gyp'
+      - 'scripts/install-native.js'
+      - 'package.json'
+      - '.github/workflows/prebuild.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prebuild:
+    name: 'prebuild (linux-${{ matrix.arch }})'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+          # GitHub's arm64 runners can't run 32-bit code, so armv7 is emulated.
+          - arch: armv7
+            runner: ubuntu-24.04-arm
+            platform: linux/arm/v7
+            qemu: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      if: matrix.qemu
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm
+
+    - name: Build and load
+      # The load check uses only prebuilds/ (PREBUILDS_ONLY), and expects the
+      # "no PF_CAN" error a runner gives, not a failure to load the addon.
+      run: |
+        docker run --rm --platform ${{ matrix.platform }} \
+          -v "$PWD":/src -w /src node:20-bullseye sh -ec '
+            npm install --ignore-scripts --no-audit --no-fund
+            npm run build
+            npm run prebuildify
+            rm -rf build
+            find prebuilds -type f
+            PREBUILDS_ONLY=1 node -e "
+              const { CanChannel } = require(\"./dist/canSocket.js\")
+              try {
+                new CanChannel(\"can0\")
+              } catch (e) {
+                console.log(e.message)
+                if (/canSocket module/.test(e.message)) process.exit(1)
+              }
+            "
+          '
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: prebuilds-linux-${{ matrix.arch }}
+        path: prebuilds/
+        if-no-files-found: error

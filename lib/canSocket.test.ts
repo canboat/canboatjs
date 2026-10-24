@@ -12,27 +12,23 @@ const kernel = {
   refusals: 0
 }
 
-jest.mock(
-  '../build/Release/canSocket.node',
-  () => ({
-    openCanReadSocket: () => 100,
-    openCanWriteSocket: () => 101,
-    readCanFrames: () => [],
-    CanPoller: class {
-      close() {}
-    },
-    writeCanFrame: (_fd: number, frame: Buffer) => {
-      if (kernel.queued >= kernel.room) {
-        kernel.refusals++
-        return -constants.errno.ENOBUFS
-      }
-      kernel.queued++
-      kernel.sent.push(frame[8])
-      return frame.length
+jest.mock('node-gyp-build', () => () => ({
+  openCanReadSocket: () => 100,
+  openCanWriteSocket: () => 101,
+  readCanFrames: () => [],
+  CanPoller: class {
+    close() {}
+  },
+  writeCanFrame: (_fd: number, frame: Buffer) => {
+    if (kernel.queued >= kernel.room) {
+      kernel.refusals++
+      return -constants.errno.ENOBUFS
     }
-  }),
-  { virtual: true }
-)
+    kernel.queued++
+    kernel.sent.push(frame[8])
+    return frame.length
+  }
+}))
 
 jest.mock('fs', () => ({ ...jest.requireActual('fs'), closeSync: () => {} }))
 
