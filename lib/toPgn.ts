@@ -749,8 +749,12 @@ fieldTypeWriters['FLOAT'] = (pgn, field, value, bs) => {
 }
 
 // DECIMAL: two decimal digits per byte, first digits first, as fromPgn
-// reads them: "2350763930" is 23 50 76 39 30. A shorter number is padded
-// with leading zeros; an unset value is all 0xff (not available).
+// reads them: "2350763930" is 23 50 76 39 30. Digits are written from the
+// start and a shorter value is filled out with 0s at the end, so a 9-digit
+// MMSI "235076393" goes out as 2350763930, the 0 a DSC call adds after it
+// (ITU-R M.585). A number has lost its leading zeros (a group or coast
+// station MMSI starts with 0 or 00), so it is first zero-filled to 9 digits.
+// An unset value is all 0xff (not available).
 fieldTypeWriters['DECIMAL'] = (pgn, field, value, bs) => {
   const bits = field.BitLength ?? 0
   const nbytes = Math.floor(bits / 8)
@@ -759,11 +763,14 @@ fieldTypeWriters['DECIMAL'] = (pgn, field, value, bs) => {
       bs.writeUint8(0xff)
     }
   } else {
-    const digits = String(value).trim()
+    let digits = String(value).trim()
     if (!/^[0-9]+$/.test(digits) || digits.length > nbytes * 2) {
       throw new Error(`Invalid value for ${field.Name}: '${value}'`)
     }
-    const padded = digits.padStart(nbytes * 2, '0')
+    if (typeof value === 'number' && digits.length < nbytes * 2) {
+      digits = digits.padStart(nbytes * 2 - 1, '0')
+    }
+    const padded = digits.padEnd(nbytes * 2, '0')
     for (let i = 0; i < nbytes; i++) {
       bs.writeUint8(Number(padded.slice(i * 2, i * 2 + 2)))
     }
