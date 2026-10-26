@@ -10,6 +10,12 @@
 #include <cstring>
 #include <cerrno>
 
+// Linux 4.1+. linux/can/raw.h declares it in an enum, not as a macro, so
+// this define always applies; 6 is its value.
+#ifndef CAN_RAW_JOIN_FILTERS
+#define CAN_RAW_JOIN_FILTERS 6
+#endif
+
 // Open a PF_CAN raw socket bound to the given interface in non-blocking mode.
 // Both reads and writes use non-blocking I/O so the libuv threadpool is never
 // occupied by a blocking syscall — this allows process.exit() to terminate
@@ -117,6 +123,45 @@ Napi::Value WriteCanFrame(const Napi::CallbackInfo& info) {
     return Napi::Number::New(env, -errno);
   }
   return Napi::Number::New(env, static_cast<int>(written));
+}
+
+// Replace the RX filter of a read socket with `filters`: struct can_filter
+// entries (can_id, can_mask: two native-endian uint32 each), joined
+// (CAN_RAW_JOIN_FILTERS), so a frame must match every filter instead of any
+// one. A list of inverted filters then drops each of their IDs. An empty list
+// is refused: the kernel would then deliver no frames at all.
+Napi::Value SetCanReadFilter(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsBuffer()) {
+    Napi::TypeError::New(env, "setCanReadFilter(fd, buffer) expected")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  int fd = info[0].As<Napi::Number>().Int32Value();
+  Napi::Buffer<uint8_t> buf = info[1].As<Napi::Buffer<uint8_t>>();
+  if (buf.Length() == 0 || buf.Length() % sizeof(struct can_filter) != 0) {
+    Napi::RangeError::New(env,
+                          "filter buffer is not one or more whole filters")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  int join = 1;
+  if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_JOIN_FILTERS, &join, sizeof(join)) <
+      0) {
+    std::string msg =
+        std::string("setsockopt(CAN_RAW_JOIN_FILTERS): ") + strerror(errno);
+    Napi::Error::New(env, msg).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, buf.Data(), buf.Length()) <
+      0) {
+    std::string msg =
+        std::string("setsockopt(CAN_RAW_FILTER): ") + strerror(errno);
+    Napi::Error::New(env, msg).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  return env.Undefined();
 }
 
 // Drain all currently-readable frames from the non-blocking fd into an
@@ -252,6 +297,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
               Napi::Function::New(env, OpenCanWriteSocket));
   exports.Set("writeCanFrame", Napi::Function::New(env, WriteCanFrame));
   exports.Set("readCanFrames", Napi::Function::New(env, ReadCanFrames));
+  exports.Set("setCanReadFilter", Napi::Function::New(env, SetCanReadFilter));
   CanPoller::Init(env, exports);
   return exports;
 }

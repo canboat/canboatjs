@@ -10,9 +10,10 @@
  * lets process.exit() terminate cleanly without hanging on a blocked syscall.
  *
  * Reads and writes use separate CAN sockets bound to the same interface:
- * the read socket has the default (full) RX filter, the write socket has an
+ * by default the read socket has the full RX filter, the write socket has an
  * empty RX filter so the kernel doesn't queue frames into a buffer nobody
- * reads.
+ * reads. The read socket can be told to drop PGNs in the kernel
+ * (excludePgns), so frames nobody wants cost no JavaScript at all.
  *
  * Copyright 2025 Signal K contributors
  * Licensed under the Apache License, Version 2.0
@@ -22,9 +23,26 @@ import { EventEmitter } from 'events'
 import { closeSync } from 'fs'
 import { constants } from 'os'
 import { join } from 'path'
+import { parseExcludePgns } from './excludePgns'
 
 const CAN_EFF_FLAG = 0x80000000
 const CAN_EFF_MASK = 0x1fffffff
+const CAN_INV_FILTER = 0x20000000
+const CAN_FILTER_SIZE = 8 // sizeof(struct can_filter)
+// Each excluded PGN is one CAN filter, and the kernel takes at most 512 per
+// socket (linux/can/raw.h, since Linux 4.12); canboatjs keeps to that on any
+// kernel. FromPgn still drops the PGNs past it.
+export const CAN_RAW_FILTER_MAX = 512
+// The PGN is in bits 8-25 of the 29-bit identifier: extended data page,
+// data page, PF and PS. NMEA 2000, like J1939, has two kinds of PGN:
+// - PDU2 (PF 240 and up) is broadcast, and PS is part of the PGN: 127250 is
+//   0x1F112.
+// - PDU1 (PF below 240) is sent to one device, and PS is that device's
+//   address, not part of the PGN. These PGNs end in 00 in hex: an ISO
+//   Request (59904, 0xEA00) to device 0x23 has 0xEA23 in its identifier.
+// So for PDU1 only bits 16-25 name the PGN.
+const PGN_MASK_PDU2 = 0x3ffff00
+const PGN_MASK_PDU1 = 0x3ff0000
 const CAN_FRAME_SIZE = 16 // sizeof(struct can_frame)
 const CAN_DATA_OFFSET = 8
 
@@ -54,6 +72,8 @@ interface NativeBindings {
   openCanWriteSocket: (ifname: string) => number
   writeCanFrame: (fd: number, buffer: Buffer) => number
   readCanFrames: (fd: number) => Buffer[]
+  // Missing in an addon built before excludePgns.
+  setCanReadFilter?: (fd: number, filters: Buffer) => void
   CanPoller: new (fd: number, callback: () => void) => CanPollerHandle
 }
 
@@ -89,6 +109,32 @@ function nativeLoadFailure(): Error {
   )
 }
 
+export interface CanChannelOptions {
+  /**
+   * PGNs the kernel drops before they reach this process. Parsed with
+   * parseExcludePgns; entries it ignores, and those past the 512th, are
+   * left out without a warning.
+   */
+  excludePgns?: unknown
+}
+
+/**
+ * struct can_filter entries that, joined (CAN_RAW_JOIN_FILTERS), pass every
+ * frame except those of the given PGNs: one inverted filter per PGN. Like the
+ * rest of this file, assumes a little-endian host.
+ */
+export function excludePgnFilters(pgns: number[]): Buffer {
+  const buf = Buffer.alloc(pgns.length * CAN_FILTER_SIZE)
+  pgns.forEach((pgn, i) => {
+    const pdu1 = ((pgn >> 8) & 0xff) < 240
+    const mask = pdu1 ? PGN_MASK_PDU1 : PGN_MASK_PDU2
+    const id = ((pgn << 8) & mask) | CAN_EFF_FLAG | CAN_INV_FILTER
+    buf.writeUInt32LE(id >>> 0, i * CAN_FILTER_SIZE)
+    buf.writeUInt32LE((mask | CAN_EFF_FLAG) >>> 0, i * CAN_FILTER_SIZE + 4)
+  })
+  return buf
+}
+
 export interface CanMessage {
   id: number
   data: Buffer
@@ -101,6 +147,10 @@ export interface CanMessage {
  */
 export class CanChannel extends EventEmitter {
   private readFd: number
+  /** PGNs the kernel drops on the read socket. */
+  readonly excludedPgns: number[] = []
+  /** Why excludePgns could not be applied, if it couldn't. */
+  readonly filterError: string | undefined
   private writeFd: number
   private poller: CanPollerHandle | null = null
   private stopped: boolean = false
@@ -112,12 +162,32 @@ export class CanChannel extends EventEmitter {
   private dropped = 0
   private lastReport = 0
 
-  constructor(ifname: string) {
+  constructor(ifname: string, options: CanChannelOptions = {}) {
     super()
     if (native === undefined) {
       throw nativeLoadFailure()
     }
     this.readFd = native.openCanReadSocket(ifname)
+    const pgns = parseExcludePgns(options.excludePgns).pgns.slice(
+      0,
+      CAN_RAW_FILTER_MAX
+    )
+    if (pgns.length > 0) {
+      // Without the filter everything still works, only slower: an old
+      // kernel (before 4.1, no CAN_RAW_JOIN_FILTERS) or an addon built
+      // before setCanReadFilter existed must not take the bus down.
+      if (typeof native.setCanReadFilter !== 'function') {
+        this.filterError =
+          'the native canSocket module is too old, rebuild canboatjs'
+      } else {
+        try {
+          native.setCanReadFilter(this.readFd, excludePgnFilters(pgns))
+          this.excludedPgns = pgns
+        } catch (e) {
+          this.filterError = (e as Error).message
+        }
+      }
+    }
     try {
       this.writeFd = native.openCanWriteSocket(ifname)
     } catch (e) {
