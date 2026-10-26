@@ -42,6 +42,7 @@ import {
 import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
 import { parseQuirks, Quirks } from './quirks'
+import { parseExcludePgns } from './excludePgns'
 import {
   roundToDecimals,
   scaleOf,
@@ -118,6 +119,8 @@ export class Parser extends EventEmitter {
   devices: { [key: number]: { [key: number]: any } }
   private reassembler: Reassembler
   mixedFormat: boolean
+  // PGNs dropped before reassembly and decoding (excludePgns).
+  private excludedPgns: Set<number>
 
   constructor(opts: any = {}) {
     super()
@@ -167,6 +170,15 @@ export class Parser extends EventEmitter {
       parsedQuirks.set(this.options, parseQuirks(this.options.quirks))
     } catch (e: any) {
       throw new Error(`Invalid quirks option: ${e.message}`)
+    }
+
+    // A deny-list, as in Signal K's connection filters: a PGN nobody
+    // knows yet still comes through. On SocketCAN the kernel can drop these
+    // before they get here (canSocket.ts); this catches every other input.
+    const { pgns, ignored } = parseExcludePgns(this.options.excludePgns)
+    this.excludedPgns = new Set(pgns)
+    if (ignored.length > 0) {
+      console.warn(`canboatjs: excludePgns: ignoring ${ignored.join(', ')}`)
     }
 
     this.name = pkg.name
@@ -684,6 +696,13 @@ export class Parser extends EventEmitter {
       return
     }
 
+    // Before reassembly: a fast-packet frame of an excluded PGN is not even
+    // kept. Transport protocol frames are never excluded, so a message they
+    // carry is checked once it is complete, below.
+    if (this.excludedPgns.has(pgn.pgn)) {
+      return
+    }
+
     try {
       // ISO TP transport frames are plumbing for a longer message: hand
       // them to the reassembler and decode the PGN they carry once it is
@@ -724,6 +743,10 @@ export class Parser extends EventEmitter {
           ;(pgn as any).input = res.frame.input
           sourceString = undefined
         }
+      }
+
+      if (this.excludedPgns.has(pgn.pgn)) {
+        return
       }
 
       const pgnList = this.getPGNDefinitionList(pgn)

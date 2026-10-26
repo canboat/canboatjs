@@ -415,11 +415,55 @@ Leave them off when replaying an old capture: `gps-rollover` cannot tell
 a rolled-over date from a genuinely pre-2019 one, and will move every
 date it corrects forward by twenty years.
 
+#### Excluding PGNs
+
+On a busy network most messages may be PGNs nobody uses. `excludePgns`
+drops them before anything decodes them:
+
+```javascript
+const parser = new FromPgn({ excludePgns: [130824, 127251] })
+```
+
+It is a deny-list, like Signal K's connection filters: a PGN that no
+one knows yet still comes through, so it can be recorded and worked out
+later. It takes an array or a comma or space separated string; a PGN
+given twice counts once. Skipped, with a warning:
+
+- network management PGNs (59392, 59904, 60160, 60416, 60928, 65240,
+  126208, 126464, 126993, 126996, 126998), which are never dropped
+- entries that aren't a PGN, and PDU1 PGNs with a destination in the low
+  byte (126721 instead of 126720): give the PGN with a low byte of 0
+
+`FromPgn` drops these PGNs on every input, before fast-packet reassembly
+and decoding; a message sent with the ISO transport protocol is dropped
+once it is complete. The input line itself is still read.
+
+`canbus` takes the same option and lets the kernel drop them on its read
+socket, so they cost no JavaScript at all (see below).
+
 #### `canbus` - CAN Bus Interface
 ```javascript
 const canbus = new canbus(options)
 canbus.sendPGN(message)      // Send N2K message
 ```
+
+With `excludePgns`, the kernel drops those PGNs on the read socket:
+
+```javascript
+const stream = new canbus({ canDevice: 'can0', excludePgns: [130824, 127251] })
+```
+
+The kernel takes the first 512; give the same list to `FromPgn` to drop
+the rest too. The PGNs are dropped on this stream's socket only, so other
+programs on the interface (candump) still see them; that includes the
+frames of those PGNs this process sends itself. Single-frame and
+fast-packet messages are dropped; a message sent with the ISO transport
+protocol still arrives, as its frames are 60160 and 60416. The provider
+status then reads "Connected to CAN bus, excluding N PGNs". If the filter
+can't be set, every PGN is read, with a warning, and the status says
+"excludePgns not applied": on a kernel without `CAN_RAW_JOIN_FILTERS`
+(before Linux 4.1), or with a native addon built before this option
+(rebuild canboatjs).
 
 #### Device-Specific Streams
 - `Ydwg02` - Yacht Devices YDWG-02 interface

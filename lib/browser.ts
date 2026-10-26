@@ -38,6 +38,7 @@ export {
   pgnToCandump3
 } from './toPgn'
 export { setupFilters, filterPGN } from './utilities'
+export { parseExcludePgns, NETWORK_MANAGEMENT_PGNS } from './excludePgns'
 export type { FilterConfig, FilterOptions } from './utilities'
 
 import { getEnumerationValue, getEnumerationName } from '@canboat/ts-pgns'
