@@ -2,6 +2,7 @@ import {
   getPGNWithNumber,
   getEnumeration,
   getBitEnumeration,
+  getEnumerationName,
   updateLookup,
   updateBitLookup
 } from '@canboat/ts-pgns'
@@ -9,6 +10,23 @@ import { createDebug } from './utilities'
 const debug = createDebug('canboatjs:pgns')
 
 export const getPgn = getPGNWithNumber
+
+/**
+ * The name a field with a Match value is decoded as: its lookup's name for
+ * the value, as canboat gives it (canboat#1097), else the field's
+ * description.
+ */
+export const matchName = (field: any): string | undefined =>
+  (field.FieldType === 'LOOKUP' && field.LookupEnumeration
+    ? getEnumerationName(field.LookupEnumeration, field.Match)
+    : undefined) ?? field.Description
+
+/**
+ * Whether a string names a field's Match value: its lookup name, or its
+ * description, as canboatjs gave it before 4.0.
+ */
+export const isMatchName = (field: any, value: string) =>
+  value === matchName(field) || value === field.Description
 export const customPgns: any = {}
 
 /**
