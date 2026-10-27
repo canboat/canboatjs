@@ -1932,11 +1932,16 @@ fieldTypeReaders['STRING_FIX'] = (pgn, field, bs) => {
   return decodeText(raw.subarray(0, len), fieldEncoding(field))
 }
 
+// A set bit is named by the field's bit lookup; a bit it has no name for is
+// given as its value (bit 27 is 134217728), as canboat gives it, so it is
+// not lost.
 fieldTypeReaders['BITLOOKUP'] = (pgn, field, bs) => {
-  const value: any[] = []
+  const value: (string | number)[] = []
   for (let i = 0; i < (field.BitLength as number); i++) {
     if (bs.readBits(1, false)) {
-      value.push(getBitEnumerationName(field.LookupBitEnumeration as string, i))
+      value.push(
+        getBitEnumerationName(field.LookupBitEnumeration as string, i) ?? 2 ** i
+      )
     }
   }
   return value

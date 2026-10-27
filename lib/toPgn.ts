@@ -675,7 +675,8 @@ export const actisenseToN2KActisenseFormat = _.flow(
 
 function bitIsSet(field: Field, index: number, value: any) {
   // A BITLOOKUP value may arrive either as a raw numeric bitmask or as an
-  // array (or string) of the set enumeration names.
+  // array (or string) of the set enumeration names, and the values of set
+  // bits without a name.
   if (typeof value === 'number') {
     return Math.floor(value / Math.pow(2, index)) % 2 === 1
   }
@@ -685,7 +686,11 @@ function bitIsSet(field: Field, index: number, value: any) {
     index
   )
 
-  return enumName ? value.indexOf(enumName) != -1 : false
+  // A bit without a name is given as its value, as the decoder gives it.
+  return (
+    (enumName !== undefined && value.indexOf(enumName) != -1) ||
+    (Array.isArray(value) && value.indexOf(2 ** index) != -1)
+  )
 }
 
 fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
