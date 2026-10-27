@@ -1430,6 +1430,36 @@ function convertField(
   return value
 }
 
+// Whether the field a DECIMAL's TrailingZeroIsDigitField names holds
+// TrailingZeroIsDigitValue, so its last 0 is a digit. That field always sits at
+// a fixed position before the DECIMAL, so its BitOffset is where it is.
+function trailingZeroIsDigit(
+  definition: Definition,
+  field: Field,
+  bs: BitStream
+): boolean {
+  const { TrailingZeroIsDigitField: order, TrailingZeroIsDigitValue: value } =
+    field as Field & {
+      TrailingZeroIsDigitField?: number
+      TrailingZeroIsDigitValue?: number
+    }
+  if (order === undefined || value === undefined) {
+    return false
+  }
+  const key = definition.Fields.find(
+    (f) => (f as Field & { Order?: number }).Order === order
+  )
+  if (
+    key === undefined ||
+    key.BitOffset === undefined ||
+    key.BitLength === undefined ||
+    key.BitOffset + key.BitLength > bs.length
+  ) {
+    return false
+  }
+  return bs.view.getBits(key.BitOffset, key.BitLength, false) === value
+}
+
 function readValue(
   definition: Definition,
   options: any,
@@ -1466,6 +1496,17 @@ function readValue(
     const remainder = actualBitLength % 8
     if (remainder > 0) {
       bs.readBits(remainder, false)
+    }
+    // A DSC call sends a 9-digit MMSI as 10 digits with a 0 added at the end
+    // (ITU-R M.585); drop it, so 2440608070 reads as MMSI 244060807, the same
+    // as an MMSI field. Not when the field names another field whose value
+    // makes all ten digits count (a geographical area, DSC Format 102).
+    if (
+      isValid &&
+      s.endsWith('0') &&
+      !trailingZeroIsDigit(definition, field, bs)
+    ) {
+      s = s.slice(0, -1)
     }
     return isValid ? [s, undefined] : [null, undefined]
   } else {
