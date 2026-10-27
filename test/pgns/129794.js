@@ -27,7 +27,7 @@ module.exports = [
         gnssType: 'GPS',
         dte: 'Available',
         aisTransceiverInformation: 'Channel B VDL reception',
-        reserved: 1,
+        reserved: null,
         reserved21: null,
         sequenceId: null
       }

@@ -39,7 +39,7 @@ module.exports = [
         deviceClass: 'Communication',
         systemInstance: 0,
         industryGroup: 'Marine Industry',
-        spare: 0,
+        spare: null,
         arbitraryAddressCapable: 'Yes'
       }
     },

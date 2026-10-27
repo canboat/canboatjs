@@ -289,7 +289,11 @@ function writeField(
     throw new Error(`Parameter ${parameter} of PGN ${target} has no value`)
   }
   if (value === undefined || value === null) {
-    if (field.FieldType && fieldTypeWriters[field.FieldType]) {
+    if (field.FieldType === 'SPARE' && bitLength !== undefined) {
+      // A spare field is zero, as canboat's encoder writes it; every other
+      // field without a value is not available, all ones.
+      writeZeros(bs, bitLength)
+    } else if (field.FieldType && fieldTypeWriters[field.FieldType]) {
       fieldTypeWriters[field.FieldType](pgn_number, field, value, bs)
     } else if (bitLength !== undefined && bitLength % 8 == 0) {
       const bytes = bitLength / 8
@@ -686,6 +690,13 @@ function bitIsSet(field: Field, index: number, value: any) {
   )
 
   return enumName ? value.indexOf(enumName) != -1 : false
+}
+
+/** Write `bits` zero bits, in pieces of at most 32. */
+function writeZeros(bs: BitStream, bits: number) {
+  for (let left = bits; left > 0; left -= 32) {
+    bs.writeBits(0, Math.min(left, 32))
+  }
 }
 
 fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
