@@ -509,28 +509,28 @@ function checkRange(field: Field, given: number, raw: number) {
   // An Excess-K field (Signed with an Offset) holds an unsigned raw value.
   const bits = field.BitLength
   const signed = !!field.Signed && !field.Offset
-  const minRaw =
-    field.RangeMin !== undefined
-      ? rawOf(field.RangeMin)
-      : bits === undefined
-        ? -Infinity
-        : signed
-          ? -(2 ** (bits - 1))
-          : 0
-  const maxRaw =
-    field.RangeMax !== undefined
-      ? rawOf(field.RangeMax)
-      : bits === undefined
-        ? Infinity
-        : signed
-          ? 2 ** (bits - 1) - 1
-          : 2 ** bits - 1
+  // What the bits can carry bounds a declared range too: a custom PGN may
+  // declare a range wider than its field.
+  const bitsMin =
+    bits === undefined ? -Infinity : signed ? -(2 ** (bits - 1)) : 0
+  const bitsMax =
+    bits === undefined ? Infinity : signed ? 2 ** (bits - 1) - 1 : 2 ** bits - 1
+  const declaredMin =
+    field.RangeMin !== undefined ? rawOf(field.RangeMin) : -Infinity
+  const declaredMax =
+    field.RangeMax !== undefined ? rawOf(field.RangeMax) : Infinity
+  const minRaw = Math.max(declaredMin, bitsMin)
+  const maxRaw = Math.min(declaredMax, bitsMax)
   if (!Number.isFinite(raw) || raw < minRaw || raw > maxRaw) {
     // The range in SI, the unit the value was given in.
     const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
     const toSI = (v: number) => (si ? (v * si.mul) / si.div : v)
-    const min = toSI(field.RangeMin ?? minRaw * resolution + offset)
-    const max = toSI(field.RangeMax ?? maxRaw * resolution + offset)
+    const min = toSI(
+      minRaw === declaredMin ? field.RangeMin! : minRaw * resolution + offset
+    )
+    const max = toSI(
+      maxRaw === declaredMax ? field.RangeMax! : maxRaw * resolution + offset
+    )
     throw new Error(
       `field '${field.Name}': value ${given} is outside its range ${min} to ${max}`
     )

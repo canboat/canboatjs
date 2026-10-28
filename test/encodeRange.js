@@ -91,7 +91,7 @@ describe('encoding a value outside its range', function () {
               Description: 'Range test',
               Type: 'Single',
               Complete: true,
-              Length: 3,
+              Length: 4,
               Fields: [
                 {
                   Order: 1,
@@ -118,6 +118,19 @@ describe('encoding a value outside its range', function () {
                   FieldType: 'NUMBER',
                   Resolution: 1,
                   Signed: false
+                },
+                {
+                  Order: 3,
+                  Id: 'wide',
+                  Name: 'Wide',
+                  BitLength: 8,
+                  BitOffset: 24,
+                  BitStart: 0,
+                  FieldType: 'NUMBER',
+                  Resolution: 1,
+                  Signed: false,
+                  RangeMin: -5,
+                  RangeMax: 300
                 }
               ]
             }
@@ -139,6 +152,16 @@ describe('encoding a value outside its range', function () {
       expect(encode({ count: 255 })[2]).to.equal(255)
       expect(() => encode({ count: 256 })).to.throw(
         "field 'Count': value 256 is outside its range 0 to 255"
+      )
+    })
+
+    it('holds a range wider than its bits to what they carry', function () {
+      expect(encode({ wide: 255 })[3]).to.equal(255)
+      expect(() => encode({ wide: 256 })).to.throw(
+        "field 'Wide': value 256 is outside its range 0 to 255"
+      )
+      expect(() => encode({ wide: -1 })).to.throw(
+        "field 'Wide': value -1 is outside its range 0 to 255"
       )
     })
   })
