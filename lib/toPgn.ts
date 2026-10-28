@@ -103,7 +103,18 @@ export function toPgn(data: any): Buffer | undefined {
   // Pick the definition before writing anything: each definition names its
   // fields its own way (129808's distress and general calls), so a value
   // can only be read once it is known which definition it belongs to.
-  const selected = selectDefinition(pgnList, data)
+  // A custom definition comes before the built-in ones, so it overrides
+  // them.
+  const custom = new Set<unknown>(customPgns?.definitions)
+  const selected =
+    selectDefinition(
+      pgnList.filter((pgn) => custom.has(pgn)),
+      data
+    ) ??
+    selectDefinition(
+      pgnList.filter((pgn) => !custom.has(pgn)),
+      data
+    )
   if (selected) {
     pgnList = [selected]
     pgnData = selected
@@ -265,13 +276,17 @@ function dumpWritten(bs, field, startPos, value) {
 
 /**
  * The first definition whose every Match field the data gives, under that
- * definition's own field name or id, as the matched value or its name.
+ * definition's own field name or id, as the matched value or its name. One
+ * with Match fields goes before one without, which any data fits: canboat
+ * lists such a catch-all variant last, a custom PGN may not.
  */
 function selectDefinition<T extends { Fields: Field[] }>(
   pgnList: T[],
   data: any
 ): T | undefined {
-  return pgnList.find((pgn) =>
+  const hasMatch = (pgn: T) =>
+    pgn.Fields.some((field) => field.Match !== undefined)
+  const fits = (pgn: T) =>
     pgn.Fields.every((field) => {
       if (field.Match === undefined) {
         return true
@@ -282,7 +297,7 @@ function selectDefinition<T extends { Fields: Field[] }>(
         ? isMatchName(field, value)
         : value !== undefined && field.Match == value
     })
-  )
+  return pgnList.find((pgn) => hasMatch(pgn) && fits(pgn)) ?? pgnList.find(fits)
 }
 
 function writeField(

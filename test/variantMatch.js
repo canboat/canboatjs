@@ -3,6 +3,7 @@ chai.Should()
 
 const { FromPgn, pgnToActisenseSerialFormat } = require('../dist/index')
 const { toPgn } = require('../dist/toPgn')
+const { addCustomPgns } = require('../dist/pgns')
 
 // Choosing a PGN variant by its match fields: a variant that ends before a
 // match field drops out rather than breaking the decode.
@@ -130,5 +131,61 @@ describe('a variant chosen after its first fields', () => {
     )
     again.id.should.equal(pgn.id)
     again.fields.should.deep.equal(pgn.fields)
+  })
+})
+
+// A custom PGN may list a variant without match fields, which any data
+// fits, before one that has them.
+describe('a custom PGN with a catch-all variant first', () => {
+  const field = (order, id, bitOffset, extra = {}) => ({
+    Order: order,
+    Id: id,
+    Name: id,
+    BitLength: 8,
+    BitOffset: bitOffset,
+    BitStart: 0,
+    FieldType: 'NUMBER',
+    Resolution: 1,
+    Signed: false,
+    ...extra
+  })
+  before(() => {
+    addCustomPgns(
+      {
+        PGNs: [
+          {
+            PGN: 130995,
+            Id: 'testAnyKind',
+            Description: 'Any kind',
+            Type: 'Single',
+            Complete: true,
+            Length: 2,
+            Fields: [field(1, 'kind', 0), field(2, 'value', 8)]
+          },
+          {
+            PGN: 130995,
+            Id: 'testLevel',
+            Description: 'Level',
+            Type: 'Single',
+            Complete: true,
+            Length: 2,
+            Fields: [field(1, 'kind', 0, { Match: 5 }), field(2, 'level', 8)]
+          }
+        ]
+      },
+      'test'
+    )
+  })
+
+  it('writes the variant whose match field the data gives', () => {
+    Buffer.from(toPgn({ pgn: 130995, fields: { kind: 5, level: 42 } }))
+      .toString('hex')
+      .should.equal('052a')
+  })
+
+  it('writes the catch-all for data no other variant fits', () => {
+    Buffer.from(toPgn({ pgn: 130995, fields: { kind: 3, value: 7 } }))
+      .toString('hex')
+      .should.equal('0307')
   })
 })
