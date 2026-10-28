@@ -100,6 +100,15 @@ export function toPgn(data: any): Buffer | undefined {
     data = data.fields
   }
 
+  // Pick the definition before writing anything: each definition names its
+  // fields its own way (129808's distress and general calls), so a value
+  // can only be read once it is known which definition it belongs to.
+  const selected = selectDefinition(pgnList, data)
+  if (selected) {
+    pgnList = [selected]
+    pgnData = selected
+  }
+
   if (pgn_number === 126208 && !data[a126208_newKey] && data[a126208_oldKey]) {
     //a bit of a hack because this field name changed and I'm sure there is code out
     //there that still uses the old field name
@@ -253,6 +262,28 @@ function dumpWritten(bs, field, startPos, value) {
   console.log(string + `] ${value}`)
 }
 */
+
+/**
+ * The first definition whose every Match field the data gives, under that
+ * definition's own field name or id, as the matched value or its name.
+ */
+function selectDefinition<T extends { Fields: Field[] }>(
+  pgnList: T[],
+  data: any
+): T | undefined {
+  return pgnList.find((pgn) =>
+    pgn.Fields.every((field) => {
+      if (field.Match === undefined) {
+        return true
+      }
+      const value =
+        data[field.Name] !== undefined ? data[field.Name] : data[field.Id]
+      return _.isString(value)
+        ? isMatchName(field, value)
+        : value !== undefined && field.Match == value
+    })
+  )
+}
 
 function writeField(
   bs: BitStream,

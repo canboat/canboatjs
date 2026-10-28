@@ -41,7 +41,10 @@ describe('PGN 129808 DSC Call Information', () => {
       dscFrame(116, value as number)
     )
     expect(pgn.description).toBe('DSC Call Information')
-    expect(pgn.fields.dscCategory).toBe(name)
+    // Named as the general variant names it, not as the distress variant
+    // the decoder tried first.
+    expect(pgn.fields.dscCategorySymbol).toBe(name)
+    expect(pgn.fields.dscCategory).toBeUndefined()
   })
 
   test('leaves an unavailable value null rather than post-processing it', () => {
@@ -52,12 +55,15 @@ describe('PGN 129808 DSC Call Information', () => {
       '2017-04-15T16:02:48.913Z,3,61184,3,255,2,3b,87'
     )
     expect(pgn.description).toBe('Seatalk: Wireless Keypad Control')
-    expect(pgn.fields.proprietaryId).toBeNull()
+    expect(pgn.fields.PID).toBeNull()
   })
 
   test('still resolves the distress variant', () => {
+    // Format and category both Distress, as a distress alert has them: the
+    // distress variant whether it matches on the category (canboat 9.0) or
+    // the format (9.1, where All ships and Distress is a relay).
     const pgn: any = new FromPgn({ useCamelCompat: true }).parseString(
-      dscFrame(116, 112)
+      dscFrame(112, 112)
     )
     expect(pgn.description).toBe('DSC Distress Call Information')
     expect(pgn.fields.dscCategory).toBe('Distress')
