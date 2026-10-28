@@ -554,44 +554,24 @@ export class Parser extends EventEmitter {
               value = lookup(field, value)
             }
           }
+        } else if (preferredVariant(pgnList) !== pgnData) {
+          // Another variant describes this message. Start over from the
+          // first byte with it, as with the catch-all above: the fields read
+          // so far were named, and may have been laid out, as the variant
+          // that no longer matches has them (129808's general call read as
+          // its distress call).
+          bs.index = start
+          return this.readFields(pgn, pgnList, preferredVariant(pgnList), bs)
         } else {
           previousMatch = pgnData
-          pgnData = pgnList[0]
-          fields = pgnData.Fields
-          //console.log(`using ${JSON.stringify(pgnData, null, 2)}`)
-          const resolved = pgnData.Fields[i]
-          if (resolved.Match !== undefined) {
-            // Named by its lookup, as any other lookup field, and by the
-            // field's description only when the lookup has no name for it,
-            // as canboat does (canboat#1097): Suzuki's manufacturer code is
-            // "Suzuki Motor", not the description "Suzuki Motor Corporation".
-            value = matchName(resolved)
-            if (value == null) {
-              value = resolved.Match
-            }
-          } else if (
-            resolved.BitLength === field.BitLength &&
-            Number(resolved.Resolution ?? 1) ===
-              Number(field.Resolution ?? 1) &&
-            Number(resolved.Offset ?? 0) === Number(field.Offset ?? 0) &&
-            !!resolved.Signed === !!field.Signed
-          ) {
-            // Resolved to a non-match sibling: the field carries a real value
-            // here, so keep what readField decoded and convert it as any
-            // other field (post-processing, scaling to SI, lookup), which
-            // hasMatch skipped. Only safe when the sibling occupies the same
-            // bits on the same scale — the value was read against the match
-            // field, so a differing width or resolution would make it a
-            // misreading rather than a missing field.
-            value = convertField(resolved, value, true, this.options, pgn)
-          } else {
-            // Sibling reads different bits: keep the pre-existing behaviour and
-            // drop the value rather than report a misreading.
-            value = undefined
+          // Named by its lookup, as any other lookup field, and by the
+          // field's description only when the lookup has no name for it,
+          // as canboat does (canboat#1097): Suzuki's manufacturer code is
+          // "Suzuki Motor", not the description "Suzuki Motor Corporation".
+          value = matchName(field)
+          if (value == null) {
+            value = field.Match
           }
-          RepeatingFields = pgnData.RepeatingFieldSet1Size ?? 0
-          totalRepeatingFields =
-            RepeatingFields + (pgnData.RepeatingFieldSet2Size ?? 0)
         }
       }
 
@@ -1227,6 +1207,19 @@ export function getField(pgn_number: number, index: number, data: any) {
     }
   }
   return null
+}
+
+/**
+ * The variant to decode with among those still matching: the first with
+ * match fields, before a catch-all, which any data fits. canboat lists such
+ * a catch-all last, a custom PGN may not.
+ */
+function preferredVariant(pgnList: Definition[]): Definition {
+  return (
+    pgnList.find((pgn) =>
+      pgn.Fields.some((field) => field.Match !== undefined)
+    ) ?? pgnList[0]
+  )
 }
 
 function pad2(x: number) {
