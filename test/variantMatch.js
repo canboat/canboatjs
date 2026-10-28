@@ -183,6 +183,23 @@ describe('a custom PGN with a catch-all variant first', () => {
       .should.equal('052a')
   })
 
+  const decodeLine = (data) =>
+    new FromPgn({ useCamel: true }).parseString(
+      `2026-10-28T12:00:00.000Z,2,130995,1,255,2,${data}`
+    )
+
+  it('reads the variant whose match field the message has', () => {
+    const pgn = decodeLine('05,2a')
+    pgn.id.should.equal('testLevel')
+    pgn.fields.should.deep.equal({ kind: 5, level: 42 })
+  })
+
+  it('reads the catch-all for a message no other variant fits', () => {
+    const pgn = decodeLine('03,07')
+    pgn.id.should.equal('testAnyKind')
+    pgn.fields.should.deep.equal({ kind: 3, value: 7 })
+  })
+
   it('writes the catch-all for data no other variant fits', () => {
     Buffer.from(toPgn({ pgn: 130995, fields: { kind: 3, value: 7 } }))
       .toString('hex')

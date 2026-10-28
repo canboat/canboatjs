@@ -554,14 +554,14 @@ export class Parser extends EventEmitter {
               value = lookup(field, value)
             }
           }
-        } else if (pgnList[0] !== pgnData) {
+        } else if (preferredVariant(pgnList) !== pgnData) {
           // Another variant describes this message. Start over from the
           // first byte with it, as with the catch-all above: the fields read
           // so far were named, and may have been laid out, as the variant
           // that no longer matches has them (129808's general call read as
           // its distress call).
           bs.index = start
-          return this.readFields(pgn, pgnList, pgnList[0], bs)
+          return this.readFields(pgn, pgnList, preferredVariant(pgnList), bs)
         } else {
           previousMatch = pgnData
           // Named by its lookup, as any other lookup field, and by the
@@ -1207,6 +1207,19 @@ export function getField(pgn_number: number, index: number, data: any) {
     }
   }
   return null
+}
+
+/**
+ * The variant to decode with among those still matching: the first with
+ * match fields, before a catch-all, which any data fits. canboat lists such
+ * a catch-all last, a custom PGN may not.
+ */
+function preferredVariant(pgnList: Definition[]): Definition {
+  return (
+    pgnList.find((pgn) =>
+      pgn.Fields.some((field) => field.Match !== undefined)
+    ) ?? pgnList[0]
+  )
 }
 
 function pad2(x: number) {
