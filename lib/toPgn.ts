@@ -432,6 +432,13 @@ function writeField(
       } else if (_.isBuffer(value)) {
         value.copy(bs.view.buffer, bs.byteIndex)
         bs.byteIndex += value.length
+      } else if (
+        field.FieldType === 'BINARY' &&
+        _.isString(value) &&
+        bitLength !== undefined &&
+        (bitLength > 64 || isHexBytes(value))
+      ) {
+        writeBinary(bs, field, value, bitLength)
       } else if (bitLength !== undefined) {
         // An Excess-K field (Signed with an Offset) holds an unsigned raw
         // value, as the decoder reads it.
@@ -461,7 +468,7 @@ function writeField(
             val++
           }
           while (count-- > 0) {
-            if (value > 0) {
+            if (value >= 0) {
               bs.writeUint8(val & 255)
               val /= 256
             } else {
@@ -850,6 +857,52 @@ function bitIsSet(field: Field, index: number, value: any) {
   )
 }
 
+/**
+ * Bytes as the decoder gives a BINARY field wider than 64 bits: two or more
+ * hex pairs, "02 08". A narrower one it gives as a number, which callers
+ * also pass as a decimal string ("33188"), so a lone "10" is not hex.
+ */
+const isHexBytes = (value: string) =>
+  /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})+$/.test(value.trim())
+
+/**
+ * A BINARY field given as hex bytes ("02 08"), as the decoder gives it:
+ * written as given and padded with zeros to the field's width, as canboat's
+ * encoder does. Bit by bit, so a field that is not byte-aligned (the 19-bit
+ * AIS communication state) takes its bits too; a bit set past its width is
+ * refused rather than dropped.
+ */
+function writeBinary(
+  bs: BitStream,
+  field: Field,
+  value: string,
+  bitLength: number
+) {
+  const hex = value.replace(/[\s:]/g, '')
+  if (!/^([0-9a-fA-F]{2})*$/.test(hex)) {
+    throw new Error(`field '${field.Name}': '${value}' is not hex bytes`)
+  }
+  const bytes = Buffer.from(hex, 'hex')
+  if (bytes.length > Math.ceil(bitLength / 8)) {
+    throw new Error(
+      `field '${field.Name}': ${bytes.length} bytes do not fit in ${bitLength} bits`
+    )
+  }
+  const spare = bitLength % 8
+  if (
+    spare !== 0 &&
+    bytes.length === Math.ceil(bitLength / 8) &&
+    bytes[bytes.length - 1] >> spare !== 0
+  ) {
+    throw new Error(
+      `field '${field.Name}': '${value}' has bits set past its ${bitLength} bits`
+    )
+  }
+  for (let left = bitLength, i = 0; left > 0; left -= 8, i++) {
+    bs.writeBits(bytes[i] ?? 0, Math.min(left, 8))
+  }
+}
+
 /** Write `bits` zero bits, in pieces of at most 32. */
 function writeZeros(bs: BitStream, bits: number) {
   for (let left = bits; left > 0; left -= 32) {
@@ -859,7 +912,10 @@ function writeZeros(bs: BitStream, bits: number) {
 
 fieldTypeWriters['BITLOOKUP'] = (pgn, field, value, bs) => {
   if (field.BitLength !== undefined) {
-    if (value === undefined || value.length === 0) {
+    if (Array.isArray(value) && value.length === 0) {
+      // No bit set.
+      writeZeros(bs, field.BitLength)
+    } else if (value === undefined || value.length === 0) {
       if (field.BitLength % 8 == 0) {
         const bytes = field.BitLength / 8
         //const lastByte = field.Signed ? 0x7f : 0xff
