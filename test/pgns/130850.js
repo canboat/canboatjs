@@ -16,7 +16,7 @@ module.exports = [
         commandType: 'AP Command',
         event: 'No Drift mode',
         reserved10: null,
-        spare9: 0
+        spare9: null
       },
       description: 'Simnet: Command AP NoDrift'
     },
@@ -42,7 +42,7 @@ module.exports = [
         networkGroup: null,
         commandType: 'AP Command',
         event: 'Change course',
-        spare9: 0,
+        spare9: null,
         direction: 'Starboard',
         angle: 0.1745,
         reserved12: null

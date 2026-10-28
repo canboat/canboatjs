@@ -21,7 +21,7 @@ module.exports = [
         aisTransceiverInformation: 'Channel B VDL reception',
         specialManeuverIndicator: 'Not available',
         reserved: 0,
-        spare18: 0,
+        spare18: null,
         reserved19: 0,
         sequenceId: null,
         rateOfTurn: null,

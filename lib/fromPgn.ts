@@ -1323,6 +1323,18 @@ function readField(
     value = reader(pgn, field, bs)
   } else {
     ;[value, refField] = readValue(definition, options, pgn, field, bs)
+    // As canboat: a reserved field is left out when all its bits are set,
+    // also when it is a single bit, and a spare field when they are all
+    // clear (fieldPrintReserved and fieldPrintSpare in canboat's print.c).
+    // Anything else in them is shown: the definition may be wrong.
+    if (
+      typeof value === 'number' &&
+      field.BitLength !== undefined &&
+      ((field.FieldType === 'RESERVED' && value === 2 ** field.BitLength - 1) ||
+        (field.FieldType === 'SPARE' && value === 0))
+    ) {
+      value = null
+    }
     if (
       field.FieldType === 'DYNAMIC_FIELD_KEY' ||
       field.FieldType === 'DYNAMIC_FIELD_LENGTH'

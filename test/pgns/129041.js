@@ -19,7 +19,7 @@ module.exports = [
         offPositionIndicator: 'No',
         virtualAtonFlag: 'Yes',
         assignedModeFlag: 'Autonomous and continuous',
-        spare: 0,
+        spare: null,
         positionFixingDeviceType: 'Surveyed',
         reserved19: 0,
         atonStatus: 0,
