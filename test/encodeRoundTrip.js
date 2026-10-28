@@ -153,6 +153,33 @@ describe('a BINARY field given as hex bytes', () => {
     position('53 2f 00').should.equal(position(12115))
   })
 
+  it('takes a decimal string in a field of up to 64 bits as the number', () => {
+    // As n2k-signalk's tests give 129038's communication state
+    const position = (communicationState) =>
+      hex({
+        pgn: 129038,
+        fields: {
+          messageId: 'Scheduled Class A position report',
+          userId: '244650941',
+          communicationState
+        }
+      })
+    position('33188').should.equal(position(33188))
+    position('0').should.equal(position(0))
+  })
+
+  it('refuses a bit set past the width of a field that is not byte-aligned', () => {
+    ;(() =>
+      hex({
+        pgn: 129038,
+        fields: {
+          messageId: 'Scheduled Class A position report',
+          userId: '244650941',
+          communicationState: '53 2f 80'
+        }
+      })).should.throw('has bits set past its 19 bits')
+  })
+
   it('refuses text that is not hex bytes, or too many bytes', () => {
     ;(() =>
       hex({
