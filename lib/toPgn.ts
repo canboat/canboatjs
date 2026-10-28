@@ -23,7 +23,7 @@ import {
   getBitEnumerationName
 } from '@canboat/ts-pgns'
 import { getField } from './fromPgn'
-import { getPgn, getCustomPgn } from './pgns'
+import { getPgn, getCustomPgn, isMatchName } from './pgns'
 import _ from 'lodash'
 import { scaleOf, siConversion } from './units'
 import { BitStream } from 'bit-buffer'
@@ -137,8 +137,8 @@ export function toPgn(data: any): Buffer | undefined {
       if (_.isString(value)) {
         pgnList = pgnList.filter(
           (f) =>
-            (f.Fields[index].Description == value ||
-              f.Fields[index].Description === undefined) &&
+            (f.Fields[index].Match === undefined ||
+              isMatchName(f.Fields[index], value)) &&
             f.Fallback !== true
         )
       } else {

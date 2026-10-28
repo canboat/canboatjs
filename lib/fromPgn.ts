@@ -31,7 +31,13 @@ import { createDebug, byteString, isPGNProprietary } from './utilities'
 import { EventEmitter } from 'events'
 import pkg from '../package.json'
 import _ from 'lodash'
-import { getPgn, getCustomPgn, addCustomPgns } from './pgns'
+import {
+  getPgn,
+  getCustomPgn,
+  addCustomPgns,
+  matchName,
+  isMatchName
+} from './pgns'
 import { BitStream, BitView } from 'bit-buffer'
 import { Int64LE, Uint64LE } from 'int64-buffer'
 import {
@@ -555,7 +561,11 @@ export class Parser extends EventEmitter {
           //console.log(`using ${JSON.stringify(pgnData, null, 2)}`)
           const resolved = pgnData.Fields[i]
           if (resolved.Match !== undefined) {
-            value = resolved.Description
+            // Named by its lookup, as any other lookup field, and by the
+            // field's description only when the lookup has no name for it,
+            // as canboat does (canboat#1097): Suzuki's manufacturer code is
+            // "Suzuki Motor", not the description "Suzuki Motor Corporation".
+            value = matchName(resolved)
             if (value == null) {
               value = resolved.Match
             }
@@ -1186,7 +1196,7 @@ export function getField(pgn_number: number, index: number, data: any) {
             pgnList = pgnList.filter((f) => {
               return (
                 f.Fields[idx].Match == value ||
-                f.Fields[idx].Description == value
+                (typeof value === 'string' && isMatchName(f.Fields[idx], value))
               )
             })
             if (pgnList.length == 0) {
