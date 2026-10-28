@@ -344,10 +344,14 @@ function writeField(
     // The value is SI, as the decoder gives it: back to the unit the
     // database states the resolution in (J to kWh, ratio to %, ...)
     // before the resolution comes off.
+    const given = value
     if (typeof value === 'number') {
       const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
       if (si !== undefined) {
         value = (value * si.div) / si.mul
+      }
+      if (field.FieldType === 'NUMBER') {
+        value = fullTurnAngle(field, value)
       }
       // canboat's Offset is in the field's own units, so remove it before
       // scaling to the raw value.
@@ -362,6 +366,10 @@ function writeField(
         field.FieldType === 'FLOAT'
           ? value / field.Resolution
           : Number((value / field.Resolution).toFixed(0))
+    }
+
+    if (field.FieldType === 'NUMBER' && typeof value === 'number') {
+      checkRange(field, given, value)
     }
 
     if (field.FieldType && fieldTypeWriters[field.FieldType]) {
@@ -432,6 +440,105 @@ function writeField(
     }
   }
   //dumpWritten(bs, field, startPos, value)
+}
+
+/**
+ * An angle field that covers a full turn (0 to 2 pi rad, 0 to 360 deg)
+ * takes a negative angle down to minus half a turn as the same direction:
+ * -0.5 rad is 2 pi - 0.5. Signal K gives a port angle as -pi..0. `value`
+ * is in the field's unit. As canboat's full_turn_angle.
+ */
+function fullTurnAngle(field: Field, value: number) {
+  if (
+    (field as any).PhysicalQuantity !== 'ANGLE' ||
+    field.RangeMin !== 0 ||
+    value >= 0
+  ) {
+    return value
+  }
+  const full =
+    field.Unit === 'rad' ? 2 * Math.PI : field.Unit === 'deg' ? 360 : undefined
+  // The top of the range is a step or a rounding short of the full turn:
+  // 359 for a field in whole degrees.
+  const step = Number(field.Resolution ?? 1)
+  if (
+    full !== undefined &&
+    field.RangeMax !== undefined &&
+    field.RangeMax >= Math.min(full * 0.999, full - step) &&
+    value >= -full / 2
+  ) {
+    return value + full
+  }
+  return value
+}
+
+const warnedNotAvailable = new Set<string>()
+
+/**
+ * Warn, once per field, that a not-available value was given as a number
+ * where it should be left out or given as null.
+ */
+function warnNotAvailableValue(field: Field, given: number) {
+  if (warnedNotAvailable.has(field.Name)) {
+    return
+  }
+  warnedNotAvailable.add(field.Name)
+  process.emitWarning(
+    `canboatjs: field '${field.Name}' was given ${given}, its not-available ` +
+      'value. Leave the field out or give null instead: the next major ' +
+      'release refuses it as out of range.',
+    'DeprecationWarning'
+  )
+}
+
+/**
+ * Refuse a NUMBER whose raw value is outside the field's range: written
+ * anyway it would wrap at the field width, or land on a not-available or
+ * reserved value, and decode as some other value (#524). Raw is compared
+ * with raw, so a value within half a step of an end still rounds onto it.
+ * As canboat's encoder (canboat/canboat#975), with one exception: the
+ * field's not-available value itself (SID 0xff, as Signal K's conversions
+ * send it) is written as given, with a deprecation warning; the next
+ * major release refuses it, as canboat does. A field without a range, as
+ * a custom PGN may have, is held to what its bits can carry.
+ */
+function checkRange(field: Field, given: number, raw: number) {
+  if (raw === (field as any).UnknownValue) {
+    warnNotAvailableValue(field, given)
+    return
+  }
+  const offset = field.Offset ? Number(field.Offset) : 0
+  const resolution = field.Resolution ? Number(field.Resolution) : 1
+  const rawOf = (v: number) => Number(((v - offset) / resolution).toFixed(0))
+  // An Excess-K field (Signed with an Offset) holds an unsigned raw value.
+  const bits = field.BitLength
+  const signed = !!field.Signed && !field.Offset
+  // What the bits can carry bounds a declared range too: a custom PGN may
+  // declare a range wider than its field.
+  const bitsMin =
+    bits === undefined ? -Infinity : signed ? -(2 ** (bits - 1)) : 0
+  const bitsMax =
+    bits === undefined ? Infinity : signed ? 2 ** (bits - 1) - 1 : 2 ** bits - 1
+  const declaredMin =
+    field.RangeMin !== undefined ? rawOf(field.RangeMin) : -Infinity
+  const declaredMax =
+    field.RangeMax !== undefined ? rawOf(field.RangeMax) : Infinity
+  const minRaw = Math.max(declaredMin, bitsMin)
+  const maxRaw = Math.min(declaredMax, bitsMax)
+  if (!Number.isFinite(raw) || raw < minRaw || raw > maxRaw) {
+    // The range in SI, the unit the value was given in.
+    const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+    const toSI = (v: number) => (si ? (v * si.mul) / si.div : v)
+    const min = toSI(
+      minRaw === declaredMin ? field.RangeMin! : minRaw * resolution + offset
+    )
+    const max = toSI(
+      maxRaw === declaredMax ? field.RangeMax! : maxRaw * resolution + offset
+    )
+    throw new Error(
+      `field '${field.Name}': value ${given} is outside its range ${min} to ${max}`
+    )
+  }
 }
 
 function writeVariableLengthField(

@@ -30,7 +30,9 @@ import { execFileSync } from 'child_process'
  */
 
 const SALT = 'canboatjs'
-const ALL_ONES = 0x1fffff
+// The highest unique number canboat.json allows: the three above it are
+// the not-available, out-of-range and reserved values.
+const MAX_UNIQUE = 0x1ffffc
 
 /** 64-bit FNV-1a, as canboat's fnv1a_64. */
 export function fnv1a64(text: string): bigint {
@@ -111,8 +113,9 @@ export function uniqueNumberFor(
       ? `${SALT}|${machine}|${connection}`
       : `${SALT}|${machine}`
   const unique = Number(fnv1a64(key) & 0x1fffffn)
-  // All ones is the unset value, which some analyzers hide a device for.
-  return unique === ALL_ONES ? ALL_ONES - 1 : unique
+  // The three values above MAX_UNIQUE decode as not available (analyzers
+  // hide a device for all ones), and the encoder refuses them.
+  return unique > MAX_UNIQUE ? unique - 3 : unique
 }
 
 /** uniqueNumberFor this machine. */

@@ -118,9 +118,9 @@ describe('dynamic field values', () => {
         manufacturerCode: 'Simrad',
         industryCode: 'Marine Industry',
         address: 255,
-        instance: 255,
+        instance: null, // not available: 0xff, as source
         networkGroup: 'Default',
-        source: 255,
+        source: null,
         key: 17671,
         operation: 'Set',
         value
