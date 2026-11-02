@@ -110,6 +110,43 @@ describe('Gateway transmit event', function () {
         expect(sentA).to.have.length(0)
         expect(sentB).to.have.length(2)
       })
+
+      it('listens on each event of a comma-separated list', function () {
+        const app = newApp()
+        const sent = record(app, 'tx:a')
+        driver.create({
+          app,
+          txEvent: 'tx:a',
+          outEvent: 'nmea2000out, out:a',
+          jsonOutEvent: 'nmea2000JsonOut, json:a'
+        })
+        app.emit('nmea2000JsonOut', { ...heading })
+        app.emit('json:a', { ...heading })
+        app.emit('nmea2000out', actisense)
+        app.emit('out:a', actisense)
+        expect(sent).to.have.length(4)
+      })
+
+      it('does not listen on its own transmit event', function () {
+        const app = newApp()
+        const sent = record(app, 'loop')
+        const error = console.error
+        const errors = []
+        console.error = (msg) => errors.push(msg)
+        try {
+          driver.create({
+            app,
+            txEvent: 'loop',
+            outEvent: 'loop',
+            jsonOutEvent: 'nmea2000JsonOut,loop'
+          })
+        } finally {
+          console.error = error
+        }
+        expect(errors).to.have.length(2)
+        app.emit('nmea2000JsonOut', { ...heading })
+        expect(sent).to.have.length(1)
+      })
     })
   })
 

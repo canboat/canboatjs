@@ -15,7 +15,12 @@
  */
 
 import { PGN } from '@canboat/ts-pgns'
-import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
+import {
+  createDebug,
+  listenEvents,
+  subscribeApp,
+  unsubscribeApp
+} from './utilities'
 import { Transform } from 'stream'
 import {
   pgnToActisenseN2KAsciiFormat,
@@ -31,6 +36,15 @@ import util from 'util'
 const N2K_ASCII = 0
 const N2K_ACTISENSE = 1
 
+/**
+ * An Actisense W2K-1 gateway, in N2K ASCII or Actisense (`type`) format.
+ *
+ * In N2K ASCII format, frames to send arrive as app events: Actisense
+ * strings or canboat JSON on `options.outEvent` (default `nmea2000out`),
+ * canboat JSON on `options.jsonOutEvent` (default `nmea2000JsonOut`); both
+ * take a comma-separated list. The encoded output goes to the transport on
+ * `options.txEvent`, else the `outEvent` argument (default `w2k-1-out`).
+ */
 export function W2K01Stream(
   this: any,
   options: any,
@@ -58,9 +72,11 @@ export function W2K01Stream(
 
   if (this.format === N2K_ASCII) {
     if (options.app) {
-      const outEvents = (this.options.outEvent || 'nmea2000out')
-        .split(',')
-        .map((event: string) => event.trim())
+      const outEvents = listenEvents(
+        this.options.outEvent,
+        'nmea2000out',
+        this.outEvent
+      )
       outEvents.forEach((event: string) => {
         subscribeApp(this, options.app, event, (msg: string) => {
           if (typeof msg === 'string') {
@@ -74,9 +90,11 @@ export function W2K01Stream(
         })
       })
 
-      const jsonOutEvents = (options.jsonOutEvent || 'nmea2000JsonOut')
-        .split(',')
-        .map((event: string) => event.trim())
+      const jsonOutEvents = listenEvents(
+        options.jsonOutEvent,
+        'nmea2000JsonOut',
+        this.outEvent
+      )
       jsonOutEvents.forEach((event: string) => {
         subscribeApp(this, options.app, event, (msg: PGN) => {
           this.sendPGN(msg)

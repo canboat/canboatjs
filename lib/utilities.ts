@@ -338,3 +338,29 @@ export function unsubscribeApp(owner: any) {
   }
   owner.appSubscriptions = []
 }
+
+/**
+ * The app events a driver listens on for frames to send: `names`, a
+ * comma-separated list, or `fallback` when it is not set. An event that is
+ * also `txEvent`, the one the driver emits its encoded output on, is left
+ * out with an error, since listening on it would feed the driver its own
+ * output again and again (#550).
+ */
+export function listenEvents(
+  names: string | undefined,
+  fallback: string,
+  txEvent: string
+): string[] {
+  return (names || fallback)
+    .split(',')
+    .map((event) => event.trim())
+    .filter((event) => {
+      if (event === txEvent) {
+        console.error(
+          `canboatjs: not listening on '${event}', it is also the transmit event`
+        )
+        return false
+      }
+      return true
+    })
+}
