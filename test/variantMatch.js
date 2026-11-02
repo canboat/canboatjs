@@ -205,4 +205,19 @@ describe('a custom PGN with a catch-all variant first', () => {
       .toString('hex')
       .should.equal('0307')
   })
+
+  // A Simnet alarm matches on an Event Type of 255, which reads as not
+  // available. Captured in canboat's samples/nac3-operations.raw; canboat
+  // decodes it as Simnet: Alarm.
+  it('matches a variant on a field whose bits are all set', () => {
+    const pgn = new FromPgn({ useCamel: true }).parseString(
+      '2026-06-08T02:27:11.485,2,130850,22,255,12,41,9f,ff,ff,01,ff,39,00,16,00,01,00'
+    )
+    pgn.id.should.equal('simnetAlarm')
+    pgn.fields.should.include({
+      eventType: 'Alarm',
+      command: 'Activate',
+      alarmId: 'Heading missing'
+    })
+  })
 })

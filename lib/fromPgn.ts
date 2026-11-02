@@ -461,6 +461,21 @@ export class Parser extends EventEmitter {
 
       const hasMatch = field.Match !== undefined
 
+      // The raw bits of a Match field: its value reads as not available
+      // when all its bits are set, and a variant can match on that value
+      // (Simnet: Alarm on an Event Type of 255).
+      let raw: number | undefined
+      if (
+        hasMatch &&
+        field.BitLength !== undefined &&
+        field.BitLength <= 32 &&
+        bs.bitsLeft >= field.BitLength
+      ) {
+        const at = bs.index
+        raw = bs.readBits(field.BitLength, false)
+        bs.index = at
+      }
+
       const [valueRes, _refField, byteMapping] = readField(
         pgnData!,
         this.options,
@@ -476,8 +491,8 @@ export class Parser extends EventEmitter {
       }
 
       if (hasMatch) {
-        if (field.BitLength === 8 && field.Match === 255) {
-          value = 255
+        if (value == null && raw !== undefined) {
+          value = raw
         }
         // A variant that ends before this field cannot describe a message
         // that has it (Airmar's 4-field catch-all against a filter command)
