@@ -74,7 +74,7 @@ export function iKonvertStream(this: any, options: any) {
     subscribeApp(
       this,
       options.app,
-      this.options.outEevent || 'nmea2000out',
+      this.options.outEvent || 'nmea2000out',
       (msg: string) => {
         if (typeof msg === 'string') {
           that.sendActisensePGN(msg)
