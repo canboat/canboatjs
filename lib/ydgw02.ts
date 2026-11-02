@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
+import {
+  createDebug,
+  listenEvents,
+  subscribeApp,
+  unsubscribeApp
+} from './utilities'
 import { EventEmitter, Transform } from 'stream'
 import { Parser as FromPgn } from './fromPgn'
 import { YdDevice } from './yddevice'
@@ -31,6 +36,16 @@ import util from 'util'
 
 //const pgnsSent = {}
 
+/**
+ * A Yacht Devices YDWG-02/YDEN-02/YDNU-02 gateway in RAW mode.
+ *
+ * Frames to send arrive as app events: Actisense strings or canboat JSON on
+ * `options.outEvent` (default `nmea2000out`), canboat JSON on
+ * `options.jsonOutEvent` (default `nmea2000JsonOut`); both take a
+ * comma-separated list. The encoded output goes to the transport on
+ * `options.txEvent`, else `options.ydgwOutEvent` (default
+ * `ydwg02-out`).
+ */
 export function Ydgw02Stream(this: any, options: any, type: string) {
   if (this === undefined) {
     return new (Ydgw02Stream as any)(options, type)
@@ -44,7 +59,8 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   this.debugOut = createDebug('canboatjs:n2k-out', options)
   this.sentAvailable = false
   this.options = options
-  this.outEvent = options.ydgwOutEvent || 'ydwg02-out'
+  // The event the encoded output goes to the transport on.
+  this.outEvent = options.txEvent || options.ydgwOutEvent || 'ydwg02-out'
   this.device = undefined
   this.devices = {}
   this.supportsDeviceCreation = true
@@ -60,9 +76,11 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   })
 
   if (options.app) {
-    const outEvents = (this.options.outEvent || 'nmea2000out')
-      .split(',')
-      .map((event: string) => event.trim())
+    const outEvents = listenEvents(
+      this.options.outEvent,
+      'nmea2000out',
+      this.outEvent
+    )
     outEvents.forEach((event: string) => {
       subscribeApp(this, options.app, event, (msg: string) => {
         if (typeof msg === 'string') {
@@ -74,9 +92,11 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
       })
     })
 
-    const jsonOutEvents = (options.jsonOutEvent || 'nmea2000JsonOut')
-      .split(',')
-      .map((event: string) => event.trim())
+    const jsonOutEvents = listenEvents(
+      options.jsonOutEvent,
+      'nmea2000JsonOut',
+      this.outEvent
+    )
     jsonOutEvents.forEach((event: string) => {
       subscribeApp(this, options.app, event, (msg: PGN) => {
         this.sendPGN(msg)
@@ -84,10 +104,16 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
       })
     })
 
-    subscribeApp(this, options.app, 'ydFullRawOut', (msgs: string[]) => {
-      this.sendYdgwFullPGN(msgs)
-      options.app.emit('connectionwrite', { providerId: options.providerId })
-    })
+    listenEvents('ydFullRawOut', 'ydFullRawOut', this.outEvent).forEach(
+      (event: string) => {
+        subscribeApp(this, options.app, event, (msgs: string[]) => {
+          this.sendYdgwFullPGN(msgs)
+          options.app.emit('connectionwrite', {
+            providerId: options.providerId
+          })
+        })
+      }
+    )
 
     //this.sendString('$PDGY,N2NET_OFFLINE')
 

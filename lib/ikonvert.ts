@@ -15,7 +15,12 @@
  */
 
 import { PGN } from '@canboat/ts-pgns'
-import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
+import {
+  createDebug,
+  listenEvents,
+  subscribeApp,
+  unsubscribeApp
+} from './utilities'
 import { Transform } from 'stream'
 import { toPgn, pgnToiKonvertSerialFormat } from './toPgn'
 import { Parser } from './fromPgn'
@@ -25,6 +30,16 @@ import util from 'util'
 
 //const pgnsSent = {}
 
+/**
+ * A Digital Yacht iKonvert (serial) or NavLink2 (`options.tcp`) gateway.
+ *
+ * Frames to send arrive as app events: Actisense strings or canboat JSON on
+ * `options.outEvent` (default `nmea2000out`), canboat JSON on
+ * `options.jsonOutEvent` (default `nmea2000JsonOut`); both take a
+ * comma-separated list. The encoded output goes to the transport on
+ * `options.txEvent` (default `navlink2-out` over TCP, `ikonvertOut` over
+ * serial).
+ */
 export function iKonvertStream(this: any, options: any) {
   if (this == undefined) {
     return new (iKonvertStream as any)(options)
@@ -39,7 +54,9 @@ export function iKonvertStream(this: any, options: any) {
 
   this.isTcp = options.tcp === true
 
-  this.outEvent = this.isTcp ? 'navlink2-out' : 'ikonvertOut'
+  // The event the encoded output goes to the transport on.
+  this.outEvent =
+    options.txEvent || (this.isTcp ? 'navlink2-out' : 'ikonvertOut')
 
   this.plainText = false
   this.reconnect = options.reconnect || true
@@ -71,28 +88,30 @@ export function iKonvertStream(this: any, options: any) {
   const that = this
 
   if (this.options.app) {
-    subscribeApp(
-      this,
-      options.app,
-      this.options.outEevent || 'nmea2000out',
-      (msg: string) => {
-        if (typeof msg === 'string') {
-          that.sendActisensePGN(msg)
-        } else {
-          that.sendPGN(msg)
-        }
-        options.app.emit('connectionwrite', { providerId: options.providerId })
+    listenEvents(this.options.outEvent, 'nmea2000out', this.outEvent).forEach(
+      (event: string) => {
+        subscribeApp(this, options.app, event, (msg: string) => {
+          if (typeof msg === 'string') {
+            that.sendActisensePGN(msg)
+          } else {
+            that.sendPGN(msg)
+          }
+          options.app.emit('connectionwrite', {
+            providerId: options.providerId
+          })
+        })
       }
     )
-    subscribeApp(
-      this,
-      options.app,
-      options.jsonOutEvent || 'nmea2000JsonOut',
-      (msg: PGN) => {
+    listenEvents(
+      options.jsonOutEvent,
+      'nmea2000JsonOut',
+      this.outEvent
+    ).forEach((event: string) => {
+      subscribeApp(this, options.app, event, (msg: PGN) => {
         that.sendPGN(msg)
         options.app.emit('connectionwrite', { providerId: options.providerId })
-      }
-    )
+      })
+    })
 
     this.isSetup = false
     //this.cansend = true
