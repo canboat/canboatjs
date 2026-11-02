@@ -104,10 +104,16 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
       })
     })
 
-    subscribeApp(this, options.app, 'ydFullRawOut', (msgs: string[]) => {
-      this.sendYdgwFullPGN(msgs)
-      options.app.emit('connectionwrite', { providerId: options.providerId })
-    })
+    listenEvents('ydFullRawOut', 'ydFullRawOut', this.outEvent).forEach(
+      (event: string) => {
+        subscribeApp(this, options.app, event, (msgs: string[]) => {
+          this.sendYdgwFullPGN(msgs)
+          options.app.emit('connectionwrite', {
+            providerId: options.providerId
+          })
+        })
+      }
+    )
 
     //this.sendString('$PDGY,N2NET_OFFLINE')
 

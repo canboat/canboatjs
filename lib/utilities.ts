@@ -341,10 +341,11 @@ export function unsubscribeApp(owner: any) {
 
 /**
  * The app events a driver listens on for frames to send: `names`, a
- * comma-separated list, or `fallback` when it is not set. An event that is
- * also `txEvent`, the one the driver emits its encoded output on, is left
- * out with an error, since listening on it would feed the driver its own
- * output again and again (#550).
+ * comma-separated list, or `fallback` when it is not set, each event once
+ * so a frame isn't sent twice. An event that is also `txEvent`, the one the
+ * driver emits its encoded output on, is left out with an error, since
+ * listening on it would feed the driver its own output again and again
+ * (#550).
  */
 export function listenEvents(
   names: string | undefined,
@@ -354,6 +355,7 @@ export function listenEvents(
   return (names || fallback)
     .split(',')
     .map((event) => event.trim())
+    .filter((event, index, events) => events.indexOf(event) === index)
     .filter((event) => {
       if (event === txEvent) {
         console.error(

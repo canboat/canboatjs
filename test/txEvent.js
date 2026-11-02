@@ -147,7 +147,35 @@ describe('Gateway transmit event', function () {
         app.emit('nmea2000JsonOut', { ...heading })
         expect(sent).to.have.length(1)
       })
+
+      it('listens on an event listed twice only once', function () {
+        const app = newApp()
+        const sent = record(app, 'tx:a')
+        driver.create({
+          app,
+          txEvent: 'tx:a',
+          jsonOutEvent: 'json:a, json:a'
+        })
+        app.emit('json:a', { ...heading })
+        expect(sent).to.have.length(1)
+      })
     })
+  })
+
+  it('Ydwg02 does not take ydFullRawOut as its transmit event', function () {
+    const app = newApp()
+    const sent = record(app, 'ydFullRawOut')
+    const error = console.error
+    const errors = []
+    console.error = (msg) => errors.push(msg)
+    try {
+      ydgw02({ app, txEvent: 'ydFullRawOut' })
+    } finally {
+      console.error = error
+    }
+    expect(errors).to.have.length(1)
+    app.emit('nmea2000JsonOut', { ...heading })
+    expect(sent).to.have.length(1)
   })
 
   it('Ydwg02 still takes ydgwOutEvent, below txEvent', function () {
