@@ -44,7 +44,8 @@ export function Ydgw02Stream(this: any, options: any, type: string) {
   this.debugOut = createDebug('canboatjs:n2k-out', options)
   this.sentAvailable = false
   this.options = options
-  this.outEvent = options.ydgwOutEvent || 'ydwg02-out'
+  // The event the encoded output goes to the transport on.
+  this.outEvent = options.txEvent || options.ydgwOutEvent || 'ydwg02-out'
   this.device = undefined
   this.devices = {}
   this.supportsDeviceCreation = true

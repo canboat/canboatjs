@@ -51,7 +51,8 @@ export function W2K01Stream(
 
   this.sentAvailable = false
   this.options = options
-  this.outEvent = outEvent || 'w2k-1-out'
+  // The event the encoded output goes to the transport on.
+  this.outEvent = options.txEvent || outEvent || 'w2k-1-out'
 
   this.format = type === 'ascii' ? N2K_ASCII : N2K_ACTISENSE
 

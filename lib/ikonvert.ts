@@ -39,7 +39,9 @@ export function iKonvertStream(this: any, options: any) {
 
   this.isTcp = options.tcp === true
 
-  this.outEvent = this.isTcp ? 'navlink2-out' : 'ikonvertOut'
+  // The event the encoded output goes to the transport on.
+  this.outEvent =
+    options.txEvent || (this.isTcp ? 'navlink2-out' : 'ikonvertOut')
 
   this.plainText = false
   this.reconnect = options.reconnect || true
