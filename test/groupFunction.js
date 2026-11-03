@@ -110,6 +110,40 @@ describe('126208 parameters addressing a variant, as canboat reads them', () => 
     reencode(line).should.equal(wire(line))
   })
 
+  it('resolves the variant anew when a pgn object is decoded again', () => {
+    // The two messages above, decoded through one pgn object: the first
+    // selects a variant, the second none.
+    const bytes = (line) => Buffer.from(wire(line), 'hex')
+    const parser = new FromPgn({ useCamel: true })
+    const pgn = { pgn: 126208, prio: 3, src: 35, dst: 0 }
+    parser
+      .parsePgnData(
+        pgn,
+        18,
+        bytes(
+          '2026-10-19-00:00:00.000,3,126208,0,35,18,00,00,ef,01,ff,ff,ff,ff,ff,ff,03,01,87,00,03,04,04,23'
+        ),
+        true,
+        undefined
+      )
+      .fields.list[2].parameterId.should.equal('proprietaryId')
+    parser
+      .parsePgnData(
+        pgn,
+        20,
+        bytes(
+          '2024-02-17T05:15:49.768Z,3,126208,204,172,20,00,00,ef,01,ff,ff,ff,ff,ff,ff,04,01,3b,07,03,04,04,5c,05,0f'
+        ),
+        true,
+        undefined
+      )
+      .fields.list[2].should.deep.equal({
+        parameter: 4,
+        parameterId: 'data',
+        value: '5c 05 0f'
+      })
+  })
+
   it('reads the catch-all for a proprietary PGN without Manufacturer and Industry', () => {
     // maretron-alm100-command.raw: a command to 130824 (0x1FF08) that
     // leaves out parameters 1 and 3.

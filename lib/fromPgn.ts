@@ -666,6 +666,9 @@ export class Parser extends EventEmitter {
     if (pgn.src === undefined) {
       throw new Error('invalid pgn, missing src: ' + JSON.stringify(pgn))
     }
+    // A caller may pass one pgn object for several messages: resolve a group
+    // function's target anew for each.
+    targetDefinitions.delete(pgn)
 
     // More than 8 bytes in a raw CAN frame is a damaged line, e.g. two
     // partial lines glued together by a lost datagram. Decoding it as a
