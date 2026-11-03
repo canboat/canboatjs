@@ -1149,6 +1149,86 @@ export class Parser extends EventEmitter {
   }
 }
 
+// The definition a group function's parameters address, resolved once
+// per message from its raw parameter block.
+const targetDefinitions = new WeakMap<
+  PGN,
+  { def: Definition | undefined; catchAll: boolean }
+>()
+
+/**
+ * The variant of `pgnNumber` that a group function's raw parameter block
+ * (count, then index and value pairs) addresses, as canboat's
+ * getMatchingPgnByParameters chooses it: the first whose match fields the
+ * parameters give agree, each value read at that variant's own width. A
+ * PGN without variants is its only definition. Undefined when none agrees.
+ * Unlike canboat, a parameter may address a variant's repeating set.
+ */
+function variantByParameters(
+  pgnNumber: number,
+  data: Uint8Array,
+  start: number
+): Definition | undefined {
+  const pgnList = (getPgn(pgnNumber) ?? []).filter(
+    (def) => def.Fallback !== true
+  )
+  const hasMatch = (def: Definition) =>
+    def.Fields.some((field) => field.Match !== undefined)
+  if (pgnList.length === 0) {
+    return undefined
+  }
+  if (!pgnList.some(hasMatch)) {
+    return pgnList[0]
+  }
+  if (
+    isPGNProprietary(pgnNumber) &&
+    (data[start] < 2 || data[start + 1] !== 0x01 || data[start + 4] !== 0x03)
+  ) {
+    // A request for a proprietary PGN gives its Manufacturer and Industry.
+    return undefined
+  }
+  const end = data.length
+  const count = data[start]
+  return pgnList.find((def) => {
+    let d = start + 1
+    for (let param = 0; param < count && d < end; param++) {
+      // canboat stops at the fixed fields; an index into a repeating set
+      // (Airmar's calibration pairs) addresses that set's field, as
+      // canboatjs has always read it.
+      const field = fieldAt(def, data[d++] - 1)
+      if (!field) {
+        return false
+      }
+      const bits = field.BitLength ?? 0
+      if (field.Match !== undefined) {
+        if (bits > 32 || d + Math.ceil(bits / 8) > end) {
+          return false
+        }
+        const bs = new BitStream(Buffer.from(data.buffer, data.byteOffset, end))
+        bs.index = d * 8
+        if (bs.readBits(bits, false) !== field.Match) {
+          return false
+        }
+      }
+      d += Math.ceil(bits / 8)
+    }
+    return true
+  })
+}
+
+/** A definition's field by index, a repeating set's index wrapped. */
+function fieldAt(def: Definition, index: number): Field | null {
+  if (index >= 0 && index < def.Fields.length) {
+    return def.Fields[index]
+  }
+  const repeating = def.RepeatingFieldSet1Size ?? 0
+  if (repeating && index >= 0) {
+    const start = def.Fields.length - repeating
+    return def.Fields[start + ((index - start) % repeating)]
+  }
+  return null
+}
+
 export function getField(pgn_number: number, index: number, data: any) {
   let pgnList = getPgn(pgn_number)
   if (pgnList) {
@@ -1158,6 +1238,21 @@ export function getField(pgn_number: number, index: number, data: any) {
 
     let pgn = pgnList[0]
     const dataList = data.list ? data.list : data.fields.list
+
+    // As canboat's encoder: parameters that don't narrow the variant
+    // address the leading definition, which for 126720 is its catch-all. A
+    // proprietary PGN is only narrowed by Manufacturer then Industry.
+    const leading = getPgn(pgn_number)![0]
+    const param = (i: number) =>
+      dataList[i]?.parameter ?? dataList[i]?.Parameter
+    if (
+      pgnList.length > 1 &&
+      isPGNProprietary(pgn_number) &&
+      !(param(0) === 1 && param(1) === 3)
+    ) {
+      pgnList = [leading]
+      pgn = leading
+    }
 
     if (pgnList.length > 1) {
       let idx = 0
@@ -1180,8 +1275,8 @@ export function getField(pgn_number: number, index: number, data: any) {
               )
             })
             if (pgnList.length == 0) {
-              throw new Error('unable to read: ' + JSON.stringify(data))
-              return
+              pgn = leading
+              break
             } else {
               pgn = pgnList[0]
             }
@@ -1726,11 +1821,38 @@ function readVariableLengthField(
    */
 
   try {
-    const refField = getField(
-      (pgn.fields as any).pgn || (pgn.fields as any).PGN,
-      bs.view.buffer[bs.byteIndex - 1] - 1,
-      pgn
-    )
+    const target = (pgn.fields as any).pgn || (pgn.fields as any).PGN
+    const index = bs.view.buffer[bs.byteIndex - 1] - 1
+    let resolved = targetDefinitions.get(pgn)
+    if (resolved === undefined) {
+      // The parameter block starts at the count, two bytes before the first
+      // parameter's value, as canboat's analyzer takes it.
+      const variant = variantByParameters(
+        target,
+        bs.view.buffer,
+        bs.byteIndex - 2
+      )
+      const fallback = variant ? undefined : findFallBackPGN(target)
+      resolved = { def: variant ?? fallback, catchAll: !variant }
+      targetDefinitions.set(pgn, resolved)
+    }
+    const refField = resolved.def
+      ? fieldAt(resolved.def, index)
+      : getField(target, index, pgn)
+
+    // A parameter addressing the catch-all's trailing data takes the rest of
+    // the message: nothing gives it another width (canboat#1074).
+    if (
+      refField &&
+      resolved.catchAll &&
+      refField.FieldType === 'BINARY' &&
+      resolved.def &&
+      refField === resolved.def.Fields[resolved.def.Fields.length - 1]
+    ) {
+      const bytes = Math.floor(bs.bitsLeft / 8)
+      const buf = Buffer.from(bs.readArrayBuffer(bytes))
+      return [byteString(buf, ' '), refField]
+    }
 
     if (refField) {
       const [res] = readField(definition, options, true, pgn, refField, bs)

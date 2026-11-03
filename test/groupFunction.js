@@ -63,3 +63,56 @@ describe('126208 group function to a PGN with several variants', () => {
     )
   })
 })
+
+// Which variant a 126208's parameters address, as canboat's analyzer reads
+// it: chosen from the raw parameters, each at the variant's own width; a
+// proprietary PGN only by Manufacturer then Industry; else the catch-all,
+// whose data takes the rest. Lines from canboat's
+// analyzer/tests/pgn-126208-request-126720 (canboat#1074) and samples/.
+describe('126208 parameters addressing a variant, as canboat reads them', () => {
+  const { toPgn } = require('../dist/toPgn')
+  const decode = (line) =>
+    new FromPgn({ useCamel: true }).parseString(line).fields.list
+  const reencode = (line) =>
+    Buffer.from(
+      toPgn(new FromPgn({ useCamel: true }).parseString(line))
+    ).toString('hex')
+  const wire = (line) => line.split(',').slice(6).join('')
+
+  it('reads a parameter by the variant the parameters select', () => {
+    const line =
+      '2026-10-19-00:00:00.000,3,126208,0,35,18,00,00,ef,01,ff,ff,ff,ff,ff,ff,03,01,87,00,03,04,04,23'
+    decode(line)[2].should.deep.equal({
+      parameter: 4,
+      parameterId: 'proprietaryId',
+      value: 'Simulate Mode'
+    })
+    reencode(line).should.equal(wire(line))
+  })
+
+  it('reads the catch-all when no variant agrees, its data the rest', () => {
+    // Raymarine has no 126720 variant with proprietary ID 92.
+    const line =
+      '2024-02-17T05:15:49.768Z,3,126208,204,172,20,00,00,ef,01,ff,ff,ff,ff,ff,ff,04,01,3b,07,03,04,04,5c,05,0f'
+    decode(line)[2].should.deep.equal({
+      parameter: 4,
+      parameterId: 'data',
+      value: '5c 05 0f'
+    })
+    reencode(line).should.equal(wire(line))
+  })
+
+  it('reads the catch-all for a proprietary PGN without Manufacturer and Industry', () => {
+    // maretron-alm100-command.raw: a command to 130824 (0x1FF08) that
+    // leaves out parameters 1 and 3.
+    decode(
+      '2026-08-10T22:37:18.889Z,3,126208,128,164,18,01,08,ff,01,f8,05,04,00,05,64,06,04,00,07,17,08,0d,50'
+    ).should.deep.equal([
+      {
+        parameter: 4,
+        parameterId: 'data',
+        value: '00 05 64 06 04 00 07 17 08 0d 50'
+      }
+    ])
+  })
+})

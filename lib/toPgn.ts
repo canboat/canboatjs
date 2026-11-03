@@ -20,7 +20,8 @@ import {
   getEnumerationValue,
   getFieldTypeEnumerationValue,
   getFieldTypeEnumeration,
-  getBitEnumerationName
+  getBitEnumerationName,
+  findFallBackPGN
 } from '@canboat/ts-pgns'
 import { getField } from './fromPgn'
 import { getPgn, getCustomPgn, isMatchName } from './pgns'
@@ -627,7 +628,18 @@ function writeVariableLengthField(
     }
     let bits
 
-    if (refField.BitLength !== undefined) {
+    // The catch-all's trailing data, which parameters no variant agrees with
+    // address, is as long as the bytes given, as canboat reads it.
+    const catchAll = findFallBackPGN(target)
+    const trailing =
+      catchAll !== undefined &&
+      refField === catchAll.Fields[catchAll.Fields.length - 1] &&
+      refField.FieldType === 'BINARY' &&
+      _.isString(value) &&
+      /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})*$/.test(value.trim())
+    if (trailing) {
+      bits = value.trim().split(/[\s:]+/).length * 8
+    } else if (refField.BitLength !== undefined) {
       bits = (refField.BitLength + 7) & ~7 // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
     }
 
