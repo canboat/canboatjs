@@ -340,7 +340,11 @@ function writeField(
 
   if (bitLength === undefined) {
     if (field.BitLengthVariable && field.FieldType === 'DYNAMIC_FIELD_VALUE') {
-      bitLength = lookupKeyBitLength(record, fields)
+      // A value the record leaves out stays out, whatever its length says.
+      bitLength =
+        (value != null
+          ? dynamicLengthBitLength(record, fields, field)
+          : undefined) ?? lookupKeyBitLength(record, fields)
     } else {
       bitLength = field.BitLength
     }
@@ -381,7 +385,13 @@ function writeField(
     if (field.FieldType === 'DYNAMIC_FIELD_VALUE') {
       // A lookup name gives the raw code; a number, also one written as
       // text, is in SI and takes the key's scaling off.
-      if (_.isString(value)) {
+      // A value without a DYNAMIC_FIELD_KEY is bytes, as the decoder gives
+      // them ("10" is the byte 0x10, not ten).
+      const keyless = !fields.some((f) => f.FieldType === 'DYNAMIC_FIELD_KEY')
+      const bytes = keyless ? hexBytes(value) : undefined
+      if (bytes !== undefined) {
+        value = bytes
+      } else if (_.isString(value)) {
         value = dynamicLookupValue(record, fields, value)
         if (_.isString(value)) {
           value = dynamicStringValue(record, value)
@@ -510,6 +520,14 @@ function writeField(
           const buf = num.toBuffer()
           buf.copy(bs.view.buffer, bs.byteIndex)
           bs.byteIndex += buf.length
+        } else if (bitLength > 32) {
+          // bit-buffer keeps 32 bits of a value it shifts: write a 40- or
+          // 56-bit value as its low 32 bits, then the rest. A negative one
+          // is its two's complement.
+          const raw = value < 0 ? value + 2 ** bitLength : value
+          const high = Math.floor(raw / 2 ** 32)
+          bs.writeUint32(raw - high * 2 ** 32)
+          bs.writeBits(high, bitLength - 32)
         } else {
           bs.writeBits(value, bitLength)
         }
@@ -602,7 +620,16 @@ function checkRange(field: Field, given: number, raw: number) {
     field.RangeMax !== undefined ? rawOf(field.RangeMax) : Infinity
   const minRaw = Math.max(declaredMin, bitsMin)
   const maxRaw = Math.min(declaredMax, bitsMax)
-  if (!Number.isFinite(raw) || raw < minRaw || raw > maxRaw) {
+  // 2^56 - 1 rounds to 2^56 as a Number, so test the bits' bound as the
+  // power of two above it.
+  const bitsLimit =
+    bits === undefined ? Infinity : signed ? 2 ** (bits - 1) : 2 ** bits
+  if (
+    !Number.isFinite(raw) ||
+    raw < minRaw ||
+    raw > maxRaw ||
+    raw >= bitsLimit
+  ) {
     // The range in SI, the unit the value was given in.
     const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
     const toSI = (v: number) => (si ? (v * si.mul) / si.div : v)
@@ -670,6 +697,40 @@ function lookup(field: Field, stringValue: string) {
     )
   }
   return _.isUndefined(res) ? stringValue : res
+}
+
+/**
+ * A DYNAMIC_FIELD_VALUE's width from the record's DYNAMIC_FIELD_LENGTH, less
+ * the bytes that count lies about (DynamicFieldLengthOverhead: Navico's class
+ * byte and data type). As the decoder and canboat do, it wins over the
+ * width the key's entry gives.
+ */
+function dynamicLengthBitLength(data: any, fields: Field[], value: Field) {
+  // The DYNAMIC_FIELD_LENGTH nearest before the value, as the decoder pairs
+  // them, should a definition have several.
+  const before = fields.slice(0, Math.max(fields.indexOf(value), 0)).reverse()
+  const field = before.find((f) => f.FieldType === 'DYNAMIC_FIELD_LENGTH') as
+    | (Field & {
+        DynamicFieldLengthOverhead?: number
+        UnknownValue?: number
+        OutOfRangeValue?: number
+        ReservedValue?: number
+      })
+    | undefined
+  if (field === undefined) {
+    return undefined
+  }
+  const length = data[field.Name] ?? data[field.Id]
+  if (
+    typeof length !== 'number' ||
+    length === field.UnknownValue ||
+    length === field.OutOfRangeValue ||
+    length === field.ReservedValue
+  ) {
+    return undefined
+  }
+  const bytes = length - (field.DynamicFieldLengthOverhead ?? 0)
+  return bytes > 0 ? bytes * 8 : undefined
 }
 
 function lookupKeyBitLength(data: any, fields: Field[]) {

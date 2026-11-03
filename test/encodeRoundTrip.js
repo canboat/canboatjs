@@ -1,5 +1,5 @@
 const chai = require('chai')
-chai.Should()
+const should = chai.Should()
 
 const { FromPgn } = require('../dist/index')
 const { toPgn } = require('../dist/toPgn')
@@ -223,6 +223,31 @@ describe('an empty BITLOOKUP', () => {
   })
 })
 
+// A DYNAMIC_FIELD_VALUE without a DYNAMIC_FIELD_KEY takes its width from the
+// record's DYNAMIC_FIELD_LENGTH, as the decoder and canboat read it (#544).
+describe('a dynamic value sized by its length field', () => {
+  it('comes back byte for byte', () => {
+    // live.all: Navico UDB Database, Object Dump
+    const { pgn, got, want } = roundTrip(
+      '2026-07-06T05:37:38.666Z,3,130822,30,255,166,13,99,ff,06,00,03,01,12,06,98,00,00,fc,8d,0b,09,34,00,00,00,00,00,00,00,00,00,12,06,56,00,0a,00,01,00,a1,36,00,82,32,c0,00,00,00,00,00,0b,09,57,00,00,00,00,00,00,00,00,00,0b,09,58,00,00,00,00,00,00,00,00,00,0b,09,59,00,00,00,00,00,00,00,00,00,0b,09,5a,00,00,00,00,00,00,00,00,00,0b,09,5b,00,00,00,00,00,00,00,00,00,12,06,5c,00,0a,00,01,00,a1,36,00,82,32,c0,00,00,00,00,00,04,02,6f,00,00,0e,02,a0,00,0a,00,01,00,a1,36,00,82,32,c0,00,04,02,a1,00,00,04,02,a2,00,00,0b,09,3d,02,00,00,00,00,00,00,00,00'
+    )
+    pgn.id.should.equal('navicoUdbDatabaseObjectDump')
+    got.should.equal(want)
+  })
+
+  it('writes a one-byte value as that byte', () => {
+    // Constructed from the capture's layout: one record whose value is the
+    // byte 0x10, which the decoder gives as "10".
+    const bytes =
+      '13,99,ff,06,00,05,03,e8,52,0f,01,00,37,e1,04,02,01,00,10'.split(',')
+    const { pgn, got, want } = roundTrip(
+      `2026-07-05T00:04:57.870Z,3,130822,28,255,${bytes.length},${bytes.join(',')}`
+    )
+    pgn.fields.list[0].value.should.equal('10')
+    got.should.equal(want)
+  })
+})
+
 // A message no variant describes decodes with its range's catch-all, which
 // names it by id; toPgn writes it with that definition, its data as given,
 // as canboat writes a JSON message by its id.
@@ -277,5 +302,122 @@ describe('a 64-bit NAME', () => {
     // The NAME's bytes come back; the trailing extension is padded to its
     // width, as canboat's encoder does.
     got.slice(0, 32).should.equal(want.slice(0, 32))
+  })
+})
+
+// bit-buffer keeps 32 bits of a value it shifts, so a field wider than 32
+// bits (40 or 56; no built-in definition has one) is written in two parts.
+describe('a 40-bit number', () => {
+  const field = (order, id, bits, signed) => ({
+    Order: order,
+    Id: id,
+    Name: id,
+    BitLength: bits,
+    BitOffset: 0,
+    BitStart: 0,
+    FieldType: 'NUMBER',
+    Resolution: 1,
+    Signed: signed
+  })
+  before(() => {
+    addCustomPgns(
+      {
+        PGNs: [
+          {
+            PGN: 130990,
+            Id: 'test40Bit',
+            Description: '40-bit numbers',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [
+              field(1, 'unsigned', 40, false),
+              field(2, 'signed', 24, true)
+            ]
+          },
+          {
+            PGN: 130991,
+            Id: 'test40BitSigned',
+            Description: 'a signed 40-bit number',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [field(1, 'value', 40, true), field(2, 'rest', 24, false)]
+          },
+          {
+            PGN: 130992,
+            Id: 'test56Bit',
+            Description: 'an unsigned 56-bit number',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [field(1, 'value', 56, false), field(2, 'rest', 8, false)]
+          },
+          {
+            PGN: 130993,
+            Id: 'test56BitSigned',
+            Description: 'a signed 56-bit number',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [field(1, 'value', 56, true), field(2, 'rest', 8, false)]
+          }
+        ]
+      },
+      'test'
+    )
+  })
+  const decode = (pgn, buf) =>
+    new FromPgn({ useCamel: true }).parseString(
+      `2026-01-01T00:00:00.000Z,2,${pgn},1,255,8,${[...buf].map((b) => b.toString(16).padStart(2, '0')).join(',')}`
+    ).fields
+
+  it('keeps the bits above 32', () => {
+    ;[0x80000000, 2 ** 39 + 5].forEach((value) => {
+      const buf = Buffer.from(
+        toPgn({ pgn: 130990, fields: { unsigned: value, signed: 1 } })
+      )
+      decode(130990, buf).unsigned.should.equal(value)
+    })
+  })
+
+  it('writes a negative one as its two’s complement', () => {
+    const buf = Buffer.from(
+      toPgn({ pgn: 130991, fields: { value: -(2 ** 33) - 3, rest: 1 } })
+    )
+    buf.subarray(0, 5).toString('hex').should.equal('fdfffffffd')
+    decode(130991, buf).value.should.equal(-(2 ** 33) - 3)
+  })
+
+  it('reads all ones as not available, and only that', () => {
+    const fromHex = (hex) => Buffer.from(hex.replace(/ /g, ''), 'hex')
+    // unsigned: all 40 bits set; 2^32 - 1 is a value
+    should.not.exist(decode(130990, fromHex('ffffffffff 010000')).unsigned)
+    decode(130990, fromHex('ffffffff00 010000')).unsigned.should.equal(
+      2 ** 32 - 1
+    )
+    // signed: 2^39 - 1
+    should.not.exist(decode(130991, fromHex('ffffffff7f 010000')).value)
+    // 56 bits, unsigned and signed
+    should.not.exist(decode(130992, fromHex('ffffffffffffff 01')).value)
+    should.not.exist(decode(130993, fromHex('ffffffffffff7f 01')).value)
+    // 2^56 - 2 and 2^55 - 2 round onto the not-available value as Numbers
+    decode(130992, fromHex('feffffffffffff 01')).value.should.equal(2 ** 56)
+    decode(130993, fromHex('feffffffffff7f 01')).value.should.equal(2 ** 55)
+  })
+
+  it('reads the most negative 56-bit number', () => {
+    const buf = Buffer.from(
+      toPgn({ pgn: 130993, fields: { value: -(2 ** 55), rest: 1 } })
+    )
+    buf.subarray(0, 7).toString('hex').should.equal('00000000000080')
+    decode(130993, buf).value.should.equal(-(2 ** 55))
+  })
+
+  it('refuses a value too wide for 56 bits', () => {
+    ;(() =>
+      toPgn({ pgn: 130992, fields: { value: 2 ** 56, rest: 1 } })).should.throw(
+      /outside its range/
+    )
   })
 })
