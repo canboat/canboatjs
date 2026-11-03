@@ -520,6 +520,14 @@ function writeField(
           const buf = num.toBuffer()
           buf.copy(bs.view.buffer, bs.byteIndex)
           bs.byteIndex += buf.length
+        } else if (bitLength > 32) {
+          // bit-buffer keeps 32 bits of a value it shifts: write a 40- or
+          // 56-bit value as its low 32 bits, then the rest. A negative one
+          // is its two's complement.
+          const raw = value < 0 ? value + 2 ** bitLength : value
+          const high = Math.floor(raw / 2 ** 32)
+          bs.writeUint32(raw - high * 2 ** 32)
+          bs.writeBits(high, bitLength - 32)
         } else {
           bs.writeBits(value, bitLength)
         }

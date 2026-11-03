@@ -289,3 +289,70 @@ describe('a message decoded with a catch-all', () => {
       .should.not.equal('e598101704040b020a6e0c1100')
   })
 })
+
+// bit-buffer keeps 32 bits of a value it shifts, so a field wider than 32
+// bits (40 or 56; no built-in definition has one) is written in two parts.
+describe('a 40-bit number', () => {
+  const field = (order, id, bits, signed) => ({
+    Order: order,
+    Id: id,
+    Name: id,
+    BitLength: bits,
+    BitOffset: 0,
+    BitStart: 0,
+    FieldType: 'NUMBER',
+    Resolution: 1,
+    Signed: signed
+  })
+  before(() => {
+    addCustomPgns(
+      {
+        PGNs: [
+          {
+            PGN: 130990,
+            Id: 'test40Bit',
+            Description: '40-bit numbers',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [
+              field(1, 'unsigned', 40, false),
+              field(2, 'signed', 24, true)
+            ]
+          },
+          {
+            PGN: 130991,
+            Id: 'test40BitSigned',
+            Description: 'a signed 40-bit number',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [field(1, 'value', 40, true), field(2, 'rest', 24, false)]
+          }
+        ]
+      },
+      'test'
+    )
+  })
+  const decode = (pgn, buf) =>
+    new FromPgn({ useCamel: true }).parseString(
+      `2026-01-01T00:00:00.000Z,2,${pgn},1,255,8,${[...buf].map((b) => b.toString(16).padStart(2, '0')).join(',')}`
+    ).fields
+
+  it('keeps the bits above 32', () => {
+    ;[0x80000000, 2 ** 39 + 5].forEach((value) => {
+      const buf = Buffer.from(
+        toPgn({ pgn: 130990, fields: { unsigned: value, signed: 1 } })
+      )
+      decode(130990, buf).unsigned.should.equal(value)
+    })
+  })
+
+  it('writes a negative one as its two’s complement', () => {
+    const buf = Buffer.from(
+      toPgn({ pgn: 130991, fields: { value: -(2 ** 33) - 3, rest: 1 } })
+    )
+    buf.subarray(0, 5).toString('hex').should.equal('fdfffffffd')
+    decode(130991, buf).value.should.equal(-(2 ** 33) - 3)
+  })
+})

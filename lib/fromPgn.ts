@@ -1688,7 +1688,7 @@ function readValue(
               : new Uint64LE(y, x)
         }
       } else if (bitLength <= 64) {
-        value = bs.readBits(bitLength, signed)
+        value = readWideBits(bs, bitLength, signed)
         if (
           field.FieldType !== 'LOOKUP' &&
           bitLength > 1 &&
@@ -1764,6 +1764,21 @@ function readValue(
 
     return [value, undefined]
   }
+}
+
+/**
+ * bs.readBits, also for a field wider than 32 bits (40 or 56): bit-buffer
+ * keeps 32 bits of a value it shifts, so the low 32 bits and the rest are
+ * read apart, and a signed value is sign-extended from its top bit.
+ */
+function readWideBits(bs: BitStream, bits: number, signed: boolean): number {
+  if (bits <= 32) {
+    return bs.readBits(bits, signed)
+  }
+  const low = bs.readBits(32, false) >>> 0
+  const high = bs.readBits(bits - 32, false)
+  const raw = high * 2 ** 32 + low
+  return signed && raw >= 2 ** (bits - 1) ? raw - 2 ** bits : raw
 }
 
 function isMax(numBits: number, value: number, signed: boolean) {
