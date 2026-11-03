@@ -1,5 +1,5 @@
 const chai = require('chai')
-chai.Should()
+const should = chai.Should()
 
 const { FromPgn } = require('../dist/index')
 const { toPgn } = require('../dist/toPgn')
@@ -328,6 +328,24 @@ describe('a 40-bit number', () => {
             Complete: true,
             Length: 8,
             Fields: [field(1, 'value', 40, true), field(2, 'rest', 24, false)]
+          },
+          {
+            PGN: 130992,
+            Id: 'test56Bit',
+            Description: 'an unsigned 56-bit number',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [field(1, 'value', 56, false), field(2, 'rest', 8, false)]
+          },
+          {
+            PGN: 130993,
+            Id: 'test56BitSigned',
+            Description: 'a signed 56-bit number',
+            Type: 'Single',
+            Complete: true,
+            Length: 8,
+            Fields: [field(1, 'value', 56, true), field(2, 'rest', 8, false)]
           }
         ]
       },
@@ -354,5 +372,34 @@ describe('a 40-bit number', () => {
     )
     buf.subarray(0, 5).toString('hex').should.equal('fdfffffffd')
     decode(130991, buf).value.should.equal(-(2 ** 33) - 3)
+  })
+
+  it('reads all ones as not available, and only that', () => {
+    const fromHex = (hex) => Buffer.from(hex.replace(/ /g, ''), 'hex')
+    // unsigned: all 40 bits set; 2^32 - 1 is a value
+    should.not.exist(decode(130990, fromHex('ffffffffff 010000')).unsigned)
+    decode(130990, fromHex('ffffffff00 010000')).unsigned.should.equal(
+      2 ** 32 - 1
+    )
+    // signed: 2^39 - 1
+    should.not.exist(decode(130991, fromHex('ffffffff7f 010000')).value)
+    // 56 bits, unsigned and signed
+    should.not.exist(decode(130992, fromHex('ffffffffffffff 01')).value)
+    should.not.exist(decode(130993, fromHex('ffffffffffff7f 01')).value)
+  })
+
+  it('reads the most negative 56-bit number', () => {
+    const buf = Buffer.from(
+      toPgn({ pgn: 130993, fields: { value: -(2 ** 55), rest: 1 } })
+    )
+    buf.subarray(0, 7).toString('hex').should.equal('00000000000080')
+    decode(130993, buf).value.should.equal(-(2 ** 55))
+  })
+
+  it('refuses a value too wide for 56 bits', () => {
+    ;(() =>
+      toPgn({ pgn: 130992, fields: { value: 2 ** 56, rest: 1 } })).should.throw(
+      /outside its range/
+    )
   })
 })

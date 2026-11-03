@@ -1777,11 +1777,19 @@ function readWideBits(bs: BitStream, bits: number, signed: boolean): number {
   }
   const low = bs.readBits(32, false) >>> 0
   const high = bs.readBits(bits - 32, false)
-  const raw = high * 2 ** 32 + low
-  return signed && raw >= 2 ** (bits - 1) ? raw - 2 ** bits : raw
+  // Sign-extend the high part, not the sum: a 56-bit sum may round up past
+  // the sign bit.
+  const top =
+    signed && high >= 2 ** (bits - 33) ? high - 2 ** (bits - 32) : high
+  return top * 2 ** 32 + low
 }
 
 function isMax(numBits: number, value: number, signed: boolean) {
+  // & and >> keep 32 bits of a Number, so compare a wider one: 2^40 - 1
+  // would look like -1, and so would 2^32 - 1 in a 40-bit field.
+  if (numBits > 32) {
+    return value === (signed ? 2 ** (numBits - 1) - 1 : 2 ** numBits - 1)
+  }
   if (signed) {
     numBits--
   }

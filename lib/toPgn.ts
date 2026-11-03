@@ -620,7 +620,16 @@ function checkRange(field: Field, given: number, raw: number) {
     field.RangeMax !== undefined ? rawOf(field.RangeMax) : Infinity
   const minRaw = Math.max(declaredMin, bitsMin)
   const maxRaw = Math.min(declaredMax, bitsMax)
-  if (!Number.isFinite(raw) || raw < minRaw || raw > maxRaw) {
+  // 2^56 - 1 rounds to 2^56 as a Number, so test the bits' bound as the
+  // power of two above it.
+  const bitsLimit =
+    bits === undefined ? Infinity : signed ? 2 ** (bits - 1) : 2 ** bits
+  if (
+    !Number.isFinite(raw) ||
+    raw < minRaw ||
+    raw > maxRaw ||
+    raw >= bitsLimit
+  ) {
     // The range in SI, the unit the value was given in.
     const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
     const toSI = (v: number) => (si ? (v * si.mul) / si.div : v)
