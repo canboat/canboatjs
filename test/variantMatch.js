@@ -220,4 +220,14 @@ describe('a custom PGN with a catch-all variant first', () => {
       alarmId: 'Heading missing'
     })
   })
+
+  // Variants place their match fields differently; each is read at its own
+  // offset and width, as canboat does. canboat's analyzer decodes this frame
+  // as Garmin: Day Mode (no capture of one is available).
+  it("reads each variant's match fields at its own offsets", () => {
+    const pgn = new FromPgn({ useCamel: true }).parseString(
+      '2026-01-01T00:43:40.000Z,3,126720,1,255,11,e5,98,de,05,05,05,15,0c,00,de,44'
+    )
+    pgn.id.should.equal('garminDayMode')
+  })
 })
