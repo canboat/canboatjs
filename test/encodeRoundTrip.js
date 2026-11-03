@@ -235,3 +235,45 @@ describe('a dynamic value sized by its length field', () => {
     got.should.equal(want)
   })
 })
+
+// A message no variant describes decodes with its range's catch-all, which
+// names it by id; toPgn writes it with that definition, its data as given,
+// as canboat writes a JSON message by its id.
+describe('a message decoded with a catch-all', () => {
+  it('comes back byte for byte', () => {
+    ;[
+      // garmin-ap-reactor-126720.raw (fast-packet, addressed range)
+      '2026-07-07T18:51:24.255Z,7,126720,0,255,13,e5,98,10,17,04,04,0b,02,0a,6e,0c,11,00',
+      // ac42-commissioning.raw (single-frame range, listed under 65280)
+      '2026-06-08T01:55:43.727,7,65305,13,255,8,41,9f,00,1e,02,00,00,00'
+    ].forEach((line) => {
+      const { pgn, got, want } = roundTrip(line)
+      pgn.id.should.match(/^0x/)
+      got.should.equal(want)
+    })
+  })
+
+  it('writes one byte of data as that byte, and no data as nothing', () => {
+    // Constructed: no capture of such short catch-all messages is at hand.
+    ;[
+      '2026-01-01T00:00:00.000Z,7,65305,13,255,3,41,9f,10',
+      '2026-01-01T00:00:00.000Z,7,65305,13,255,2,41,9f'
+    ].forEach((line) => {
+      const { got, want } = roundTrip(line)
+      got.should.equal(want)
+    })
+  })
+
+  it('is written with a variant when it names none', () => {
+    // Without an id, toPgn picks a variant by the fields, as before; the
+    // catch-all is only ever written when the message names it.
+    const { pgn } = roundTrip(
+      '2026-07-07T18:51:24.255Z,7,126720,0,255,13,e5,98,10,17,04,04,0b,02,0a,6e,0c,11,00'
+    )
+    const { id, ...unnamed } = pgn
+    id.should.match(/^0x/)
+    Buffer.from(toPgn(unnamed))
+      .toString('hex')
+      .should.not.equal('e598101704040b020a6e0c1100')
+  })
+})

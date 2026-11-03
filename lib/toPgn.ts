@@ -20,7 +20,8 @@ import {
   getEnumerationValue,
   getFieldTypeEnumerationValue,
   getFieldTypeEnumeration,
-  getBitEnumerationName
+  getBitEnumerationName,
+  findFallBackPGN
 } from '@canboat/ts-pgns'
 import { getField } from './fromPgn'
 import { getPgn, getCustomPgn, isMatchName } from './pgns'
@@ -86,6 +87,16 @@ export function toPgn(data: any): Buffer | undefined {
     return undefined
   }
 
+  // A message that names its variant, as a decoded one does, is written
+  // with that variant, as canboat does with a JSON message's id: even the
+  // range's catch-all, which a message no variant describes decodes with.
+  const fallback = findFallBackPGN(data.pgn)
+  const named =
+    typeof data.id === 'string'
+      ? (pgnList.find((pgn) => pgn.Id === data.id) ??
+        (fallback?.Id === data.id ? fallback : undefined))
+      : undefined
+
   //we would never write fallback pgns
   pgnList = pgnList.filter(
     (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
@@ -107,6 +118,7 @@ export function toPgn(data: any): Buffer | undefined {
   // them.
   const custom = new Set<unknown>(customPgns?.definitions)
   const selected =
+    named ??
     selectDefinition(
       pgnList.filter((pgn) => custom.has(pgn)),
       data
@@ -179,7 +191,18 @@ export function toPgn(data: any): Buffer | undefined {
         totalRepeatingFields = RepeatingFields1 + RepeatingFields2
       }
     }
-    writeField(bs, pgn_number, field, data, value, fields)
+    // A catch-all's data runs to the end of the message: write the bytes
+    // given, as bytes, not its full width, as canboat does. One byte ("10")
+    // is a byte too, and none is nothing.
+    const bytes =
+      pgnData.Fallback === true && field.FieldType === 'BINARY'
+        ? hexBytes(value)
+        : undefined
+    if (bytes !== undefined) {
+      writeField(bs, pgn_number, field, data, bytes, fields, bytes.length * 8)
+    } else {
+      writeField(bs, pgn_number, field, data, value, fields)
+    }
   }
 
   // Process RepeatingFieldSet1 from data.list
@@ -242,6 +265,7 @@ export function toPgn(data: any): Buffer | undefined {
   if (
     pgnData.Length !== undefined &&
     pgnData.Length !== 0xff &&
+    pgnData.Fallback !== true &&
     fields[fields.length - 1].FieldType !== RES_STRINGLAU &&
     fields[fields.length - 1].FieldType !== RES_STRINGLZ &&
     !totalRepeatingFields
@@ -886,6 +910,17 @@ function bitIsSet(field: Field, index: number, value: any) {
  * hex pairs, "02 08". A narrower one it gives as a number, which callers
  * also pass as a decimal string ("33188"), so a lone "10" is not hex.
  */
+/** Hex bytes as the decoder gives a BINARY field ("10 20", "10", ""). */
+function hexBytes(value: unknown): Buffer | undefined {
+  if (
+    !_.isString(value) ||
+    !/^([0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})*)?$/.test(value.trim())
+  ) {
+    return undefined
+  }
+  return Buffer.from(value.replace(/[\s:]/g, ''), 'hex')
+}
+
 const isHexBytes = (value: string) =>
   /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})+$/.test(value.trim())
 

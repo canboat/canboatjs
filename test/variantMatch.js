@@ -205,4 +205,29 @@ describe('a custom PGN with a catch-all variant first', () => {
       .toString('hex')
       .should.equal('0307')
   })
+
+  // A Simnet alarm matches on an Event Type of 255, which reads as not
+  // available. Captured in canboat's samples/nac3-operations.raw; canboat
+  // decodes it as Simnet: Alarm.
+  it('matches a variant on a field whose bits are all set', () => {
+    const pgn = new FromPgn({ useCamel: true }).parseString(
+      '2026-06-08T02:27:11.485,2,130850,22,255,12,41,9f,ff,ff,01,ff,39,00,16,00,01,00'
+    )
+    pgn.id.should.equal('simnetAlarm')
+    pgn.fields.should.include({
+      eventType: 'Alarm',
+      command: 'Activate',
+      alarmId: 'Heading missing'
+    })
+  })
+
+  // Variants place their match fields differently; each is read at its own
+  // offset and width, as canboat does. canboat's analyzer decodes this frame
+  // as Garmin: Day Mode (no capture of one is available).
+  it("reads each variant's match fields at its own offsets", () => {
+    const pgn = new FromPgn({ useCamel: true }).parseString(
+      '2026-01-01T00:43:40.000Z,3,126720,1,255,11,e5,98,de,05,05,05,15,0c,00,de,44'
+    )
+    pgn.id.should.equal('garminDayMode')
+  })
 })

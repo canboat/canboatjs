@@ -461,6 +461,21 @@ export class Parser extends EventEmitter {
 
       const hasMatch = field.Match !== undefined
 
+      // The raw bits of a Match field: its value reads as not available
+      // when all its bits are set, and a variant can match on that value
+      // (Simnet: Alarm on an Event Type of 255).
+      let raw: number | undefined
+      if (
+        hasMatch &&
+        field.BitLength !== undefined &&
+        field.BitLength <= 32 &&
+        bs.bitsLeft >= field.BitLength
+      ) {
+        const at = bs.index
+        raw = bs.readBits(field.BitLength, false)
+        bs.index = at
+      }
+
       const [valueRes, _refField, byteMapping] = readField(
         pgnData!,
         this.options,
@@ -476,8 +491,8 @@ export class Parser extends EventEmitter {
       }
 
       if (hasMatch) {
-        if (field.BitLength === 8 && field.Match === 255) {
-          value = 255
+        if (value == null && raw !== undefined) {
+          value = raw
         }
         // A variant that ends before this field cannot describe a message
         // that has it (Airmar's 4-field catch-all against a filter command)
@@ -649,6 +664,13 @@ export class Parser extends EventEmitter {
 
     if (!bs) {
       return [false, undefined, undefined]
+    }
+
+    if (pgnList.length > 1) {
+      const variant = matchingVariant(pgnList, bs)
+      if (variant !== undefined) {
+        return this.readFields(pgn, [variant], variant, bs)
+      }
     }
 
     return this.readFields(pgn, pgnList, pgnData, bs)
@@ -1214,6 +1236,56 @@ export function getField(pgn_number: number, index: number, data: any) {
  * match fields, before a catch-all, which any data fits. canboat lists such
  * a catch-all last, a custom PGN may not.
  */
+/**
+ * The variant canboat chooses for a message (getMatchingPgn): the first
+ * whose match fields, each read at its own offset and width, all hold their
+ * Match value. A variant without match fields, which any message fits, comes
+ * after those that have them; canboat's definitions list it last anyway, and
+ * a custom PGN may not (#543). Undefined when none fits, for the catch-all to
+ * decode the message.
+ */
+function matchingVariant(
+  pgnList: Definition[],
+  bs: BitStream
+): Definition | undefined {
+  const start = bs.index
+  const end = start + bs.bitsLeft
+  const hasMatch = (def: Definition) =>
+    def.Fields.some((field) => field.Match !== undefined)
+  const candidates = pgnList.filter((def) => def.Fallback !== true)
+  try {
+    const matched = candidates.filter(hasMatch).find((def) => {
+      let offset = 0
+      for (const field of def.Fields) {
+        const at = field.BitOffset ?? offset
+        if (field.Match !== undefined) {
+          if (
+            field.BitLength === undefined ||
+            field.BitLength > 32 ||
+            start + at + field.BitLength > end
+          ) {
+            return false
+          }
+          bs.index = start + at
+          if (bs.readBits(field.BitLength, false) !== field.Match) {
+            return false
+          }
+        }
+        if (field.BitLength === undefined) {
+          // Past a variable-length field the offsets are not known; canboat
+          // has no match fields there either.
+          break
+        }
+        offset = at + field.BitLength
+      }
+      return true
+    })
+    return matched ?? candidates.find((def) => !hasMatch(def))
+  } finally {
+    bs.index = start
+  }
+}
+
 function preferredVariant(pgnList: Definition[]): Definition {
   return (
     pgnList.find((pgn) =>
