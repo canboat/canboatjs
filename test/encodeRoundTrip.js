@@ -264,3 +264,18 @@ describe('a message decoded with a catch-all', () => {
       .should.not.equal('e598101704040b020a6e0c1100')
   })
 })
+
+// A 64-bit NAME is more than a number holds exactly: it is given as its
+// digits, as canboat's JSON has them, and written back as they are.
+describe('a 64-bit NAME', () => {
+  it('decodes as its exact digits and encodes back', () => {
+    // maretron-alm100-alert.raw; canboat gives 865255281116828392.
+    const { pgn, got, want } = roundTrip(
+      '2026-08-10T21:49:32.206Z,2,130819,128,255,29,89,98,01,ff,ff,92,10,e8,d2,ff,06,18,01,02,0c,80,18,11,01,00,09,01,54,72,69,70,70,65,64'
+    )
+    pgn.fields.dataSourceNetworkIdName.should.equal('865255281116828392')
+    // The NAME's bytes come back; the trailing extension is padded to its
+    // width, as canboat's encoder does.
+    got.slice(0, 32).should.equal(want.slice(0, 32))
+  })
+})
