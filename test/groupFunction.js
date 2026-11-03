@@ -102,6 +102,14 @@ describe('126208 parameters addressing a variant, as canboat reads them', () => 
     reencode(line).should.equal(wire(line))
   })
 
+  it('writes a one-byte catch-all parameter as that byte', () => {
+    // Constructed from the Raymarine line above, with one byte of data.
+    const line =
+      '2024-02-17T05:15:49.768Z,3,126208,204,172,18,00,00,ef,01,ff,ff,ff,ff,ff,ff,03,01,3b,07,03,04,04,5c'
+    decode(line)[2].value.should.equal('5c')
+    reencode(line).should.equal(wire(line))
+  })
+
   it('reads the catch-all for a proprietary PGN without Manufacturer and Industry', () => {
     // maretron-alm100-command.raw: a command to 130824 (0x1FF08) that
     // leaves out parameters 1 and 3.

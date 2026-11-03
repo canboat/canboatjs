@@ -629,17 +629,27 @@ function writeVariableLengthField(
     let bits
 
     // The catch-all's trailing data, which parameters no variant agrees with
-    // address, is as long as the bytes given, as canboat reads it.
+    // address, is the bytes given, as bytes, as canboat reads it: one byte
+    // ("5c") is a byte too.
     const catchAll = findFallBackPGN(target)
-    const trailing =
+    const bytes =
       catchAll !== undefined &&
       refField === catchAll.Fields[catchAll.Fields.length - 1] &&
-      refField.FieldType === 'BINARY' &&
-      _.isString(value) &&
-      /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})*$/.test(value.trim())
-    if (trailing) {
-      bits = value.trim().split(/[\s:]+/).length * 8
-    } else if (refField.BitLength !== undefined) {
+      refField.FieldType === 'BINARY'
+        ? hexBytes(value)
+        : undefined
+    if (bytes !== undefined) {
+      return writeField(
+        bs,
+        pgn_number,
+        refField,
+        pgn,
+        bytes,
+        fields,
+        bytes.length * 8
+      )
+    }
+    if (refField.BitLength !== undefined) {
       bits = (refField.BitLength + 7) & ~7 // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
     }
 
@@ -874,6 +884,17 @@ function bitIsSet(field: Field, index: number, value: any) {
  * hex pairs, "02 08". A narrower one it gives as a number, which callers
  * also pass as a decimal string ("33188"), so a lone "10" is not hex.
  */
+/** Hex bytes as the decoder gives a BINARY field ("10 20", "10", ""). */
+function hexBytes(value: unknown): Buffer | undefined {
+  if (
+    !_.isString(value) ||
+    !/^([0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})*)?$/.test(value.trim())
+  ) {
+    return undefined
+  }
+  return Buffer.from(value.replace(/[\s:]/g, ''), 'hex')
+}
+
 const isHexBytes = (value: string) =>
   /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})+$/.test(value.trim())
 
