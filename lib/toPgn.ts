@@ -678,6 +678,27 @@ function writeVariableLengthField(
     }
     let bits
 
+    // The catch-all's trailing data, which parameters no variant agrees with
+    // address, is the bytes given, as bytes, as canboat reads it: one byte
+    // ("5c") is a byte too.
+    const catchAll = findFallBackPGN(target)
+    const bytes =
+      catchAll !== undefined &&
+      refField === catchAll.Fields[catchAll.Fields.length - 1] &&
+      refField.FieldType === 'BINARY'
+        ? hexBytes(value)
+        : undefined
+    if (bytes !== undefined) {
+      return writeField(
+        bs,
+        pgn_number,
+        refField,
+        pgn,
+        bytes,
+        fields,
+        bytes.length * 8
+      )
+    }
     if (refField.BitLength !== undefined) {
       bits = (refField.BitLength + 7) & ~7 // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
     }
