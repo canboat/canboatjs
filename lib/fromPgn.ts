@@ -1688,17 +1688,15 @@ function readValue(
               : new Uint64LE(y, x)
         }
       } else if (bitLength <= 64) {
-        value = readWideBits(bs, bitLength, signed)
-        if (
-          field.FieldType !== 'LOOKUP' &&
-          bitLength > 1 &&
-          isMax(bitLength, value, signed)
-        ) {
+        const wide = readWideBits(bs, bitLength, signed)
+        value = wide.value
+        if (field.FieldType !== 'LOOKUP' && bitLength > 1 && wide.isMax) {
           const fullRange =
             //field.FieldType !== 'LOOKUP' &&
             field.RangeMax !== undefined &&
             field.Resolution &&
-            field.RangeMax / field.Resolution >= (1 << bitLength) - 1
+            field.RangeMax / field.Resolution >=
+              (bitLength > 32 ? 2 ** bitLength : 1 << bitLength) - 1
           if (!fullRange) {
             value = null
           }
@@ -1770,23 +1768,35 @@ function readValue(
  * bs.readBits, also for a field wider than 32 bits (40 or 56): bit-buffer
  * keeps 32 bits of a value it shifts, so the low 32 bits and the rest are
  * read apart, and a signed value is sign-extended from its top bit.
+ * Also says whether the bits are the field's not-available value.
  */
-function readWideBits(bs: BitStream, bits: number, signed: boolean): number {
+function readWideBits(
+  bs: BitStream,
+  bits: number,
+  signed: boolean
+): { value: number; isMax: boolean } {
   if (bits <= 32) {
-    return bs.readBits(bits, signed)
+    const value = bs.readBits(bits, signed)
+    return { value, isMax: isMax(bits, value, signed) }
   }
   const low = bs.readBits(32, false) >>> 0
   const high = bs.readBits(bits - 32, false)
-  // Sign-extend the high part, not the sum: a 56-bit sum may round up past
-  // the sign bit.
+  // Tell the not-available value by its bits: as a Number, a 56-bit value
+  // near it rounds onto it. Sign-extend the high part, not the sum, which
+  // may round up past the sign bit.
+  const highMax = 2 ** (bits - (signed ? 33 : 32)) - 1
   const top =
     signed && high >= 2 ** (bits - 33) ? high - 2 ** (bits - 32) : high
-  return top * 2 ** 32 + low
+  return {
+    value: top * 2 ** 32 + low,
+    isMax: low === 0xffffffff && high === highMax
+  }
 }
 
 function isMax(numBits: number, value: number, signed: boolean) {
   // & and >> keep 32 bits of a Number, so compare a wider one: 2^40 - 1
-  // would look like -1, and so would 2^32 - 1 in a 40-bit field.
+  // would look like -1, and so would 2^32 - 1 in a 40-bit field. A 56-bit
+  // one is read by readWideBits, which tells it by its bits.
   if (numBits > 32) {
     return value === (signed ? 2 ** (numBits - 1) - 1 : 2 ** numBits - 1)
   }

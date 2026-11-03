@@ -386,6 +386,9 @@ describe('a 40-bit number', () => {
     // 56 bits, unsigned and signed
     should.not.exist(decode(130992, fromHex('ffffffffffffff 01')).value)
     should.not.exist(decode(130993, fromHex('ffffffffffff7f 01')).value)
+    // 2^56 - 2 and 2^55 - 2 round onto the not-available value as Numbers
+    decode(130992, fromHex('feffffffffffff 01')).value.should.equal(2 ** 56)
+    decode(130993, fromHex('feffffffffff7f 01')).value.should.equal(2 ** 55)
   })
 
   it('reads the most negative 56-bit number', () => {
