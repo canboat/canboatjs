@@ -20,7 +20,8 @@ import {
   getEnumerationValue,
   getFieldTypeEnumerationValue,
   getFieldTypeEnumeration,
-  getBitEnumerationName
+  getBitEnumerationName,
+  findFallBackPGN
 } from '@canboat/ts-pgns'
 import { getField } from './fromPgn'
 import { getPgn, getCustomPgn, isMatchName } from './pgns'
@@ -86,6 +87,16 @@ export function toPgn(data: any): Buffer | undefined {
     return undefined
   }
 
+  // A message that names its variant, as a decoded one does, is written
+  // with that variant, as canboat does with a JSON message's id: even the
+  // range's catch-all, which a message no variant describes decodes with.
+  const fallback = findFallBackPGN(data.pgn)
+  const named =
+    typeof data.id === 'string'
+      ? (pgnList.find((pgn) => pgn.Id === data.id) ??
+        (fallback?.Id === data.id ? fallback : undefined))
+      : undefined
+
   //we would never write fallback pgns
   pgnList = pgnList.filter(
     (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
@@ -107,6 +118,7 @@ export function toPgn(data: any): Buffer | undefined {
   // them.
   const custom = new Set<unknown>(customPgns?.definitions)
   const selected =
+    named ??
     selectDefinition(
       pgnList.filter((pgn) => custom.has(pgn)),
       data
@@ -179,7 +191,16 @@ export function toPgn(data: any): Buffer | undefined {
         totalRepeatingFields = RepeatingFields1 + RepeatingFields2
       }
     }
-    writeField(bs, pgn_number, field, data, value, fields)
+    // A catch-all's data runs to the end of the message: write the bytes
+    // given, not its full width, as canboat does.
+    const width =
+      pgnData.Fallback === true &&
+      field.FieldType === 'BINARY' &&
+      _.isString(value) &&
+      /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})*$/.test(value.trim())
+        ? value.trim().split(/[\s:]+/).length * 8
+        : undefined
+    writeField(bs, pgn_number, field, data, value, fields, width)
   }
 
   // Process RepeatingFieldSet1 from data.list
@@ -242,6 +263,7 @@ export function toPgn(data: any): Buffer | undefined {
   if (
     pgnData.Length !== undefined &&
     pgnData.Length !== 0xff &&
+    pgnData.Fallback !== true &&
     fields[fields.length - 1].FieldType !== RES_STRINGLAU &&
     fields[fields.length - 1].FieldType !== RES_STRINGLZ &&
     !totalRepeatingFields
