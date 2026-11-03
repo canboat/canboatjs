@@ -222,3 +222,16 @@ describe('an empty BITLOOKUP', () => {
     got.should.equal(want + 'ff')
   })
 })
+
+// A DYNAMIC_FIELD_VALUE without a DYNAMIC_FIELD_KEY takes its width from the
+// record's DYNAMIC_FIELD_LENGTH, as the decoder and canboat read it (#544).
+describe('a dynamic value sized by its length field', () => {
+  it('comes back byte for byte', () => {
+    // live.all: Navico UDB Database, Object Dump
+    const { pgn, got, want } = roundTrip(
+      '2026-07-06T05:37:38.666Z,3,130822,30,255,166,13,99,ff,06,00,03,01,12,06,98,00,00,fc,8d,0b,09,34,00,00,00,00,00,00,00,00,00,12,06,56,00,0a,00,01,00,a1,36,00,82,32,c0,00,00,00,00,00,0b,09,57,00,00,00,00,00,00,00,00,00,0b,09,58,00,00,00,00,00,00,00,00,00,0b,09,59,00,00,00,00,00,00,00,00,00,0b,09,5a,00,00,00,00,00,00,00,00,00,0b,09,5b,00,00,00,00,00,00,00,00,00,12,06,5c,00,0a,00,01,00,a1,36,00,82,32,c0,00,00,00,00,00,04,02,6f,00,00,0e,02,a0,00,0a,00,01,00,a1,36,00,82,32,c0,00,04,02,a1,00,00,04,02,a2,00,00,0b,09,3d,02,00,00,00,00,00,00,00,00'
+    )
+    pgn.id.should.equal('navicoUdbDatabaseObjectDump')
+    got.should.equal(want)
+  })
+})

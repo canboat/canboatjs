@@ -316,7 +316,10 @@ function writeField(
 
   if (bitLength === undefined) {
     if (field.BitLengthVariable && field.FieldType === 'DYNAMIC_FIELD_VALUE') {
-      bitLength = lookupKeyBitLength(record, fields)
+      // A value the record leaves out stays out, whatever its length says.
+      bitLength =
+        (value != null ? dynamicLengthBitLength(record, fields) : undefined) ??
+        lookupKeyBitLength(record, fields)
     } else {
       bitLength = field.BitLength
     }
@@ -646,6 +649,27 @@ function lookup(field: Field, stringValue: string) {
     )
   }
   return _.isUndefined(res) ? stringValue : res
+}
+
+/**
+ * A DYNAMIC_FIELD_VALUE's width from the record's DYNAMIC_FIELD_LENGTH, less
+ * the bytes that count lies about (DynamicFieldLengthOverhead: Navico's class
+ * byte and data type). As the decoder and canboat do, it wins over the
+ * width the key's entry gives.
+ */
+function dynamicLengthBitLength(data: any, fields: Field[]) {
+  const field = fields.find((f) => f.FieldType === 'DYNAMIC_FIELD_LENGTH') as
+    | (Field & { DynamicFieldLengthOverhead?: number; UnknownValue?: number })
+    | undefined
+  if (field === undefined) {
+    return undefined
+  }
+  const length = data[field.Name] ?? data[field.Id]
+  if (typeof length !== 'number' || length === field.UnknownValue) {
+    return undefined
+  }
+  const bytes = length - (field.DynamicFieldLengthOverhead ?? 0)
+  return bytes > 0 ? bytes * 8 : undefined
 }
 
 function lookupKeyBitLength(data: any, fields: Field[]) {
