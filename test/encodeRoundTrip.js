@@ -234,6 +234,18 @@ describe('a dynamic value sized by its length field', () => {
     pgn.id.should.equal('navicoUdbDatabaseObjectDump')
     got.should.equal(want)
   })
+
+  it('writes a one-byte value as that byte', () => {
+    // Constructed from the capture's layout: one record whose value is the
+    // byte 0x10, which the decoder gives as "10".
+    const bytes =
+      '13,99,ff,06,00,05,03,e8,52,0f,01,00,37,e1,04,02,01,00,10'.split(',')
+    const { pgn, got, want } = roundTrip(
+      `2026-07-05T00:04:57.870Z,3,130822,28,255,${bytes.length},${bytes.join(',')}`
+    )
+    pgn.fields.list[0].value.should.equal('10')
+    got.should.equal(want)
+  })
 })
 
 // A message no variant describes decodes with its range's catch-all, which
