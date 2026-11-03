@@ -192,15 +192,17 @@ export function toPgn(data: any): Buffer | undefined {
       }
     }
     // A catch-all's data runs to the end of the message: write the bytes
-    // given, not its full width, as canboat does.
-    const width =
-      pgnData.Fallback === true &&
-      field.FieldType === 'BINARY' &&
-      _.isString(value) &&
-      /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})*$/.test(value.trim())
-        ? value.trim().split(/[\s:]+/).length * 8
+    // given, as bytes, not its full width, as canboat does. One byte ("10")
+    // is a byte too, and none is nothing.
+    const bytes =
+      pgnData.Fallback === true && field.FieldType === 'BINARY'
+        ? hexBytes(value)
         : undefined
-    writeField(bs, pgn_number, field, data, value, fields, width)
+    if (bytes !== undefined) {
+      writeField(bs, pgn_number, field, data, bytes, fields, bytes.length * 8)
+    } else {
+      writeField(bs, pgn_number, field, data, value, fields)
+    }
   }
 
   // Process RepeatingFieldSet1 from data.list
@@ -884,6 +886,17 @@ function bitIsSet(field: Field, index: number, value: any) {
  * hex pairs, "02 08". A narrower one it gives as a number, which callers
  * also pass as a decimal string ("33188"), so a lone "10" is not hex.
  */
+/** Hex bytes as the decoder gives a BINARY field ("10 20", "10", ""). */
+function hexBytes(value: unknown): Buffer | undefined {
+  if (
+    !_.isString(value) ||
+    !/^([0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})*)?$/.test(value.trim())
+  ) {
+    return undefined
+  }
+  return Buffer.from(value.replace(/[\s:]/g, ''), 'hex')
+}
+
 const isHexBytes = (value: string) =>
   /^[0-9a-fA-F]{2}([\s:]+[0-9a-fA-F]{2})+$/.test(value.trim())
 

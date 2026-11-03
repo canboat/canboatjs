@@ -240,6 +240,17 @@ describe('a message decoded with a catch-all', () => {
     })
   })
 
+  it('writes one byte of data as that byte, and no data as nothing', () => {
+    // Constructed: no capture of such short catch-all messages is at hand.
+    ;[
+      '2026-01-01T00:00:00.000Z,7,65305,13,255,3,41,9f,10',
+      '2026-01-01T00:00:00.000Z,7,65305,13,255,2,41,9f'
+    ].forEach((line) => {
+      const { got, want } = roundTrip(line)
+      got.should.equal(want)
+    })
+  })
+
   it('is written with a variant when it names none', () => {
     // Without an id, toPgn picks a variant by the fields, as before; the
     // catch-all is only ever written when the message names it.
