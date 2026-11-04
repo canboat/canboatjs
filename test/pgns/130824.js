@@ -49,11 +49,11 @@ module.exports = [
       '2024-01-01T12:00:00.000Z,7,130824,16,255,10,7d,99,7d,20,50,00,7c,20,64,00'
   },
   {
-    // A primary-key field whose lookup gives its name to more than one code
-    // is written as the code, as canboat does (canboat#1136, #557): B&G
-    // keys 28, 29 and 30 are all "Outside Temperature", so by name records
-    // of different keys would look the same. A key whose name is its own
-    // keeps it. canboat's analyzer/tests/pgn-unit-coverage.in, line 15.
+    // B&G keys 28, 29 and 30 shared the name "Outside Temperature" before
+    // canboat 9.2.0, so canboatjs wrote such a key as its code (#557); 9.2.0
+    // names them apart, from the B&G firmware, so key 28 is its own name.
+    // test/sharedLookupNames.js covers a shared name. canboat's
+    // analyzer/tests/pgn-unit-coverage.in, line 15.
     expected: {
       timestamp: '2026-10-03T00:00:00.000Z',
       prio: 3,
@@ -66,7 +66,7 @@ module.exports = [
         reserved: null,
         industryCode: 'Marine Industry',
         list: [
-          { key: 28, length: 2, value: 288.15 },
+          { key: 'Outside Temperature (F channel)', length: 2, value: 288.15 },
           { key: 'Tacking Performance', length: 2, value: 0.987 }
         ]
       }

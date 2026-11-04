@@ -1918,7 +1918,12 @@ function readValue(
       typeof value !== 'undefined' &&
       typeof value !== 'number'
     ) {
-      value = Number(value)
+      // A NAME is 64 bits, more than a number holds exactly: give its
+      // digits, as canboat's JSON has them. toPgn takes them back as is.
+      value =
+        field.FieldType === 'ISO_NAME' && bitLength === 64
+          ? value.toString()
+          : Number(value)
     }
 
     return [value, undefined]
@@ -2442,7 +2447,8 @@ function readDynamicFieldValue(pgn: PGN, options: any, bs: BitStream): any {
     if (hi === 0xffffffff && lo >= 0xfffffffe) {
       return null
     }
-    return hi * 2 ** 32 + lo
+    // As a field's NAME: its exact digits.
+    return ((BigInt(hi) << 32n) | BigInt(lo)).toString()
   }
   return readDynamicBinary(bs, bits)
 }
