@@ -1545,9 +1545,14 @@ function convertField(
       // so compare the raw value against the raw equivalent of RangeMax.
       const offset = field.Offset ? Number(field.Offset) : 0
       const si = siConversion(field.Unit, (field as any).PhysicalQuantity)
+      // RangeMax need not be a whole number of steps in floating point
+      // either (327.64 / 0.01 is 32763.999...), so it is rounded too: the
+      // value at RangeMax is a reading, as canboat reads it.
       let max
       if (typeof field.RangeMax !== 'undefined' && field.Resolution) {
-        max = (field.RangeMax - offset) / Number(field.Resolution)
+        max = Math.round(
+          (Number(field.RangeMax) - offset) / Number(field.Resolution)
+        )
       }
       // Below RangeMin is no reading either (a latitude of -111, #393).
       // RangeMin need not be a whole number of steps (-pi at 0.0001), so
