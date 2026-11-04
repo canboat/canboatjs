@@ -47,5 +47,31 @@ module.exports = [
     },
     input:
       '2024-01-01T12:00:00.000Z,7,130824,16,255,10,7d,99,7d,20,50,00,7c,20,64,00'
+  },
+  {
+    // A primary-key field whose lookup gives its name to more than one code
+    // is written as the code, as canboat does (canboat#1136, #557): B&G
+    // keys 28, 29 and 30 are all "Outside Temperature", so by name records
+    // of different keys would look the same. A key whose name is its own
+    // keeps it. canboat's analyzer/tests/pgn-unit-coverage.in, line 15.
+    expected: {
+      timestamp: '2026-10-03T00:00:00.000Z',
+      prio: 3,
+      src: 16,
+      dst: 255,
+      pgn: 130824,
+      description: 'B&G: key-value data',
+      fields: {
+        manufacturerCode: 'B & G',
+        reserved: null,
+        industryCode: 'Marine Industry',
+        list: [
+          { key: 28, length: 2, value: 288.15 },
+          { key: 'Tacking Performance', length: 2, value: 0.987 }
+        ]
+      }
+    },
+    input:
+      '2026-10-03T00:00:00.000Z,3,130824,16,255,10,7d,99,1c,20,8f,70,32,20,db,03'
   }
 ]

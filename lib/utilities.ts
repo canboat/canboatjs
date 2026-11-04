@@ -75,12 +75,13 @@ export function getPlainPGNs(buffer: Buffer, pgn?: number, src?: number) {
 // - 61184, 61440: PDU1 single-frame proprietary
 // - 65280–65535: PDU1 proprietary
 // - 126720–126975: PDU2 proprietary fast-packet
+/** canboat's IS_PGN_PROPRIETARY: the four ranges manufacturers define. */
 export function isPGNProprietary(pgn: number): boolean {
   return (
-    pgn === 61184 ||
-    pgn === 61440 ||
-    (pgn >= 65280 && pgn <= 65535) ||
-    (pgn >= 126720 && pgn <= 126975)
+    (pgn >= 0xef00 && pgn <= 0xefff) || // addressed single-frame
+    (pgn >= 0xff00 && pgn <= 0xffff) || // non-addressed single-frame
+    (pgn >= 0x1ef00 && pgn <= 0x1efff) || // addressed fast-packet
+    (pgn >= 0x1ff00 && pgn <= 0x1ffff) // non-addressed fast-packet
   )
 }
 

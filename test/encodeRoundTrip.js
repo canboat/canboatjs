@@ -117,14 +117,15 @@ describe('a 0 in a 24- or 48-bit field', () => {
 })
 
 describe('a BINARY field given as hex bytes', () => {
-  it('is written as given, padded with zeros as canboat does', () => {
+  it('ending a multi-frame message, is written as long as given, as canboat does', () => {
     // raymarine-ev1.raw: the message ends after two bytes of unknown2, a
-    // 10-byte field. canboat's encoder writes the same.
+    // 10-byte field, which the decoder reads as those two bytes; canboat
+    // writes them back as they are (canboat#1133).
     const { pgn, got } = roundTrip(
       '2026-01-01T00:00:00.000Z,7,126720,1,255,13,3b,9f,f0,81,84,36,e7,9f,42,00,0e,02,08'
     )
     pgn.fields.unknown2.should.equal('02 08')
-    got.should.equal('3b9ff0818436e79f42000e02080000000000000000')
+    got.should.equal('3b9ff0818436e79f42000e0208')
   })
 
   it('keeps every byte given', () => {
@@ -135,7 +136,7 @@ describe('a BINARY field given as hex bytes', () => {
     pgn.fields.maretronExtension.should.equal(
       '01 00 09 01 54 72 69 70 70 65 64'
     )
-    got.slice(-32).should.equal('0100090154726970706564' + '00'.repeat(5))
+    got.slice(-22).should.equal('0100090154726970706564')
   })
 
   it('writes the bits of a field that is not byte-aligned', () => {
@@ -201,6 +202,27 @@ describe('a BINARY field given as hex bytes', () => {
           unknown2: '00 '.repeat(11)
         }
       })).should.throw('11 bytes do not fit in 80 bits')
+  })
+})
+
+describe('a trailing BINARY and a catch-all (canboat#1133)', () => {
+  it('ending a multi-frame message, is not padded to its width', () => {
+    // navico-source-selection.raw: 52 bytes of a 223-byte field.
+    const { want, got } = roundTrip(
+      '2026-01-01T00:00:00.000Z,7,130822,1,255,52,13,99,ff,02,00,09,02,00,01,00,00,00,66,6d,24,00,04,43,66,e7,4c,82,50,c0,02,01,00,a1,36,00,82,32,c0,02,d2,44,d3,15,00,91,47,c0,03,1f,19,36,e8,00,c8,a0,c0,02'
+    )
+    got.should.equal(want)
+  })
+
+  it('writes a message read with the catch-all of a PGN that has no definition of its own', () => {
+    // raymarine-ev1.raw
+    const { pgn, want, got } = roundTrip(
+      '2024-02-17T05:15:49.768Z,7,65384,0,255,8,3b,9f,00,00,00,00,00,00'
+    )
+    pgn.id.should.equal(
+      '0xff000xffffManufacturerProprietarySingleFrameNonAddressed'
+    )
+    got.should.equal(want)
   })
 })
 

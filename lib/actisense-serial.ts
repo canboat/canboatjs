@@ -123,12 +123,50 @@ const SET_OPERATING_MODE_MSG = new Uint8Array([
   OPERATING_MODE_RX_ALL & 0xff,
   OPERATING_MODE_RX_ALL >> 8
 ])
+/* Operating Mode with no data asks for the mode in force. */
+const GET_OPERATING_MODE_MSG = new Uint8Array([BEM_OPERATING_MODE])
 const GET_PRODUCT_INFO_MSG = new Uint8Array([BEM_PRODUCT_INFO])
 
-/* An NGT-1 (firmware 2.690) drops BEM commands written in the 50-200 ms
-   after Set Operating Mode, and N2K messages in the 400-450 ms after it. So
-   Product Info is asked for first, and output waits this long. */
+/* Setting the mode is not free. An NGT-1 (software 1.100 / 2.690) restarts
+   about 150 ms after it answers Set Operating Mode, even to the mode it is
+   already in: its own clock starts again from zero, and with P-Codes on it
+   says so with a Startup Status (canboat#1122). Meanwhile it drops what is
+   written to it, BEM commands for 50-200 ms and N2K messages for
+   400-450 ms. So the mode is asked for, and set only when it differs, at
+   most once per connection; frames for the bus are held, not dropped,
+   until the gateway has settled, as canboat does (canboat#1034, #1134). */
 const MODE_SETTLE_MS = 500
+/* How long after opening frames wait for the gateway to report its mode:
+   an NGT-1 answers in about 15 ms. */
+const MODE_ANSWER_MS = 2000
+/* Get Operating Mode is asked again after this long without an answer, up
+   to MODE_TRIES times: a gateway still starting may drop the request, and
+   the transmit list is read only once the mode is known. */
+const MODE_RETRY_MS = 1000
+const MODE_TRIES = 3
+/* A gateway that has answered no BEM command yet may still be starting:
+   it is asked for the mode every 5 s, for a minute. */
+const NOT_READY_RETRY_MS = 5000
+const NOT_READY_TRIES = 12
+/* A Startup Status this soon after our Set Operating Mode is the restart it
+   causes, not a surprise. */
+const RESTART_AFTER_SET_MS = 2000
+/* Frames held at most, while the gateway is not ready; more are dropped. */
+const MAX_HELD = 500
+
+/* BEM 0x13, Get / Set Port P-Code
+   (https://github.com/Actisense/SDK/blob/main/docs/DataFormats/Binary/bem-detail/port-pcode-config.md).
+   With P-Codes on, the gateway sends Actisense: System status (BEM 0xF2),
+   with the bus load and error counts, about once a second. Get takes no
+   data; Set takes the number of ports and one byte per port (0 off, 1 on,
+   0xFF no change), and both are answered with the number of ports and one
+   byte per port, any non-zero being on. The SDK's Set has no count, but an
+   NGT-1 with software 2.690 refuses that with -1096 (invalid parameter
+   length) and takes it with the count. The gateway saves the setting in
+   EEPROM, so it is written only when it differs from what is asked. */
+const BEM_PORT_PCODE = 0x13
+const PCODE_ANSWER_TIMEOUT_MS = 3000
+const PCODE_ATTEMPTS = 2
 
 export function ActisenseStream(this: any, options: any) {
   if (this === undefined) {
@@ -162,7 +200,74 @@ export function ActisenseStream(this: any, options: any) {
     this.options.disableSetTransmitPGNs = false
   }
 
+  // What to do with the gateway's P-Codes: every port on unless asked
+  // otherwise, so that it sends its System status.
+  try {
+    this.pcodeRequest = parsePCodeRequest(this.options.pcode)
+  } catch (err: any) {
+    console.warn(`actisense: pcode: ${err.message}; leaving the P-Codes alone`)
+    this.pcodeRequest = { keep: true }
+  }
+  // The PGNs warned about as missing from the gateway's transmit list, and
+  // those sent before it was read.
+  this.warnedNotOnTxList = new Set()
+  this.sentBeforeTxList = new Set()
+
   this.start()
+}
+
+/**
+ * What to do with the NGT-1's P-Codes, from the `pcode` option: `on` (the
+ * default) or `off` for every port, `keep` to leave them alone, `get` to
+ * only read them, or `<port>=on|off[,...]` for the ports named.
+ */
+export function parsePCodeRequest(text: unknown): any {
+  if (text === undefined || text === null || text === '') {
+    return { all: true }
+  }
+  if (typeof text === 'boolean') {
+    return { all: text }
+  }
+  const value = String(text).trim()
+  switch (value.toLowerCase()) {
+    case 'on':
+      return { all: true }
+    case 'off':
+      return { all: false }
+    case 'keep':
+      return { keep: true }
+    case 'get':
+      return { get: true }
+  }
+  const ports: [number, boolean][] = []
+  for (const part of value.split(',')) {
+    const [port, setting, ...rest] = part.split('=').map((s) => s.trim())
+    if (setting === undefined || rest.length) {
+      throw new Error(`'${part}': give on, off, keep, get or <port>=on|off`)
+    }
+    if (!/^\d+$/.test(port)) {
+      throw new Error(`'${port}': not a port number`)
+    }
+    const on = { on: true, '1': true, off: false, '0': false }[
+      setting.toLowerCase()
+    ]
+    if (on === undefined) {
+      throw new Error(`'${setting}': give on or off`)
+    }
+    if (ports.some(([p]) => p === Number(port))) {
+      throw new Error(`port ${port} is named twice`)
+    }
+    ports.push([Number(port), on])
+  }
+  return { ports }
+}
+
+/* What port `port` should be, or undefined to leave it as it is. */
+function pcodeWanted(request: any, port: number): boolean | undefined {
+  if (request.all !== undefined) {
+    return request.all
+  }
+  return request.ports?.find(([p]: [number, boolean]) => p === port)?.[1]
 }
 
 inherits(ActisenseStream, Transform)
@@ -246,10 +351,18 @@ ActisenseStream.prototype.start = function (this: any) {
   this.state = MSG_START
   this.productInfo = undefined
   this.productInfoParts = {}
-  // A set-up timer of the previous port must not enable output on this one.
-  clearTimeout(this.setUpTimer)
-  clearTimeout(this.txListTimer)
+  // A timer of the previous port must not act on this one.
+  clearTimers(this)
   this.txList = undefined
+  // A new connection: the mode may be set once again, frames held for the
+  // old one are dropped, and the gateway is not known to answer yet.
+  this.modeSetAt = undefined
+  this.modeAsked = undefined
+  this.hold = { state: 'settled' }
+  this.held = []
+  this.bemSeen = false
+  this.txKnown = undefined
+  this.pcode = { state: 'idle' }
 
   if (typeof this.reconnectDelay === 'undefined') {
     this.reconnectDelay = 1000
@@ -332,22 +445,13 @@ ActisenseStream.prototype.start = function (this: any) {
 }
 
 ActisenseStream.prototype.sendString = function (this: any, msg: string) {
-  if (!this.outAvailable) return
   this.debugOut(`sending ${msg}`)
   let buf = parseInput(msg)
   buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
-  this.debugOut(buf)
-  this.serial.write(buf)
-  if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-    this.options.app.emit('canboatjs:rawsend', { data: msg })
-  }
-  this.options.app.emit('connectionwrite', {
-    providerId: this.options.providerId
-  })
+  sendFrame(this, buf, msg, Number(msg.split(',')[2]))
 }
 
 ActisenseStream.prototype.sendPGN = function (this: any, pgn: PGN) {
-  if (!this.outAvailable) return
   const data = toPgn(pgn)
   const actisense = encodeActisense({
     pgn: pgn.pgn,
@@ -361,14 +465,71 @@ ActisenseStream.prototype.sendPGN = function (this: any, pgn: PGN) {
   this.debugOut(`sending ${actisense}`)
   let buf = parseInput(actisense)
   buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
-  this.debugOut(buf)
-  this.serial.write(buf)
-  if (this.options.app.listenerCount('canboatjs:rawsend') > 0) {
-    this.options.app.emit('canboatjs:rawsend', { data: actisense })
+  sendFrame(this, buf, actisense, pgn.pgn)
+}
+
+/**
+ * Write a frame for the bus, or hold it while the gateway is not ready:
+ * opening, restarting, or settling after Set Operating Mode. Held frames
+ * go out in order once it is.
+ */
+function sendFrame(that: any, buf: Buffer, actisense: string, pgn: number) {
+  if (!that.outAvailable) {
+    if (that.held.length < MAX_HELD) {
+      that.held.push({ buf, actisense, pgn })
+    } else {
+      that.debug('holding %d frames already, dropping one', MAX_HELD)
+    }
+    return
   }
-  this.options.app.emit('connectionwrite', {
-    providerId: this.options.providerId
+  writeFrame(that, buf, actisense, pgn)
+}
+
+/* Write a frame for the bus. Its PGN is checked against the transmit list
+   when it is written, so that one the transmit-list sync has just enabled
+   is not warned about. */
+function writeFrame(that: any, buf: Buffer, actisense: string, pgn: number) {
+  if (!that.serial) {
+    return
+  }
+  warnIfNotOnTxList(that, pgn)
+  that.debugOut(buf)
+  that.serial.write(buf)
+  if (that.options.app.listenerCount('canboatjs:rawsend') > 0) {
+    that.options.app.emit('canboatjs:rawsend', { data: actisense })
+  }
+  that.options.app.emit('connectionwrite', {
+    providerId: that.options.providerId
   })
+}
+
+/**
+ * Say so, once per PGN, when the gateway's transmit list lacks a PGN sent:
+ * an NGT-1 drops it without a word (canboat#1072). Only once the list has
+ * been read; a Format 1 read can miss PGNs, so then it may be dropped.
+ */
+function warnIfNotOnTxList(that: any, pgn: number) {
+  const known = that.txKnown
+  if (!Number.isFinite(pgn) || that.warnedNotOnTxList.has(pgn)) {
+    return
+  }
+  if (!known) {
+    // Checked once the list has been read: a frame held while the gateway
+    // set up is usually written before then.
+    that.sentBeforeTxList.add(pgn)
+    return
+  }
+  if (known.pgns.includes(storedPgn(pgn))) {
+    return
+  }
+  that.warnedNotOnTxList.add(pgn)
+  const fix =
+    'add it to the transmitPGNs option and set ENABLESETTRANSMITPGNS to put it on the list'
+  console.warn(
+    known.complete
+      ? `actisense: PGN ${pgn} is not on the NGT-1's transmit list, which drops it; ${fix}`
+      : `actisense: PGN ${pgn} is not on the NGT-1's transmit list as read (Format 1, which can miss some), so it may be dropped; ${fix}`
+  )
 }
 
 ActisenseStream.prototype.scheduleReconnect = function () {
@@ -460,46 +621,312 @@ function storeByte(that: any, c: number) {
   }
 }
 
-/**
- * Set the gateway up: on open, and again when it reports that it has
- * restarted. Output is held until the gateway has settled after Set
- * Operating Mode, or, with the transmit-list sync on, until that is done.
- */
-function setUpGateway(that: any) {
-  that.outAvailable = false
-  that.productInfo = undefined
-  that.productInfoParts = {}
-  that.gotStartupResponse = false
+function clearTimers(that: any) {
   clearTimeout(that.setUpTimer)
-  sendSetUpCommands(that)
+  clearTimeout(that.modeTimer)
   clearTimeout(that.txListTimer)
-  if (that.options.disableSetTransmitPGNs) {
-    that.txList = undefined
-    that.setUpTimer = setTimeout(() => enableOutput(that), MODE_SETTLE_MS)
-  } else {
-    that.txList = { step: 'awaitStartup' }
-    that.setUpTimer = setTimeout(() => {
-      if (that.gotStartupResponse === false) {
-        that.debug('retry Product Info and Set Operating Mode...')
-        sendSetUpCommands(that)
-      }
-    }, 5000)
-  }
+  clearTimeout(that.pcodeTimer)
+}
+
+function sendNgt(that: any, msg: Uint8Array) {
+  const buf = composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
+  that.debugOut(buf)
+  that.serial.write(buf)
 }
 
 /**
- * Ask for the gateway's Product Info, then set NGT Transfer Rx All Mode.
- * Product Info goes first: the gateway ignores commands for a while after
- * Set Operating Mode. There is no keepalive: the SDK has none, and the
- * gateway keeps the mode in non-volatile memory.
+ * Set the gateway up when the port opens: ask for its Product Info and its
+ * operating mode. The mode is set only when the answer shows another one
+ * (onOperatingMode). Frames for the bus are held until the gateway reports
+ * its mode, at most MODE_ANSWER_MS, and for MODE_SETTLE_MS after a Set.
+ * There is no keepalive: the SDK has none, and the gateway keeps the mode
+ * in non-volatile memory.
  */
-function sendSetUpCommands(that: any) {
-  for (const msg of [GET_PRODUCT_INFO_MSG, SET_OPERATING_MODE_MSG]) {
-    const buf = composeMessage(NGT_MSG_SEND, Buffer.from(msg), msg.length)
-    that.debugOut(buf)
-    that.serial.write(buf)
+function setUpGateway(that: any) {
+  readGatewaySettings(that)
+  const now = Date.now()
+  holdUntilMode(that, now, now + MODE_ANSWER_MS)
+}
+
+/**
+ * Ask for the gateway's Product Info and operating mode, and start reading
+ * its transmit list and P-Codes again: on open, and after it restarted.
+ * Product Info goes first, as the gateway ignores commands for a while
+ * after Set Operating Mode.
+ */
+function readGatewaySettings(that: any) {
+  that.productInfo = undefined
+  that.productInfoParts = {}
+  that.gotStartupResponse = false
+  // The list is read again, so it is not known until then.
+  that.txKnown = undefined
+  clearTimeout(that.txListTimer)
+  that.txList = { step: 'awaitStartup' }
+  clearTimeout(that.pcodeTimer)
+  that.pcode = { state: 'idle' }
+  sendNgt(that, GET_PRODUCT_INFO_MSG)
+  sendNgt(that, GET_OPERATING_MODE_MSG)
+  that.debug('sent Get Product Info and Get Operating Mode')
+  askModeAgainLater(that, 1)
+}
+
+/* Ask for the mode again when no answer came. A gateway that answers BEM
+   commands is asked MODE_TRIES times in all, MODE_RETRY_MS apart, then
+   warned about. One that has answered nothing yet may still be starting:
+   it is asked every NOT_READY_RETRY_MS, for NOT_READY_TRIES times. */
+function askModeAgainLater(that: any, tries: number) {
+  that.modeAsked = tries
+  clearTimeout(that.modeTimer)
+  const ready = that.bemSeen
+  that.modeTimer = setTimeout(
+    () => {
+      if (that.modeAsked === undefined) {
+        return
+      }
+      if (!that.bemSeen) {
+        if (tries < NOT_READY_TRIES) {
+          that.debug(
+            'no answer from the gateway yet, asking for the mode again'
+          )
+          sendNgt(that, GET_OPERATING_MODE_MSG)
+          askModeAgainLater(that, tries + 1)
+        } else {
+          that.debug('the gateway answers no BEM command')
+          that.modeAsked = undefined
+        }
+        return
+      }
+      // The first answer came meanwhile: count the tries from here.
+      const sent = ready ? tries : 1
+      if (sent < MODE_TRIES) {
+        that.debug('no answer to Get Operating Mode, asking again')
+        sendNgt(that, GET_OPERATING_MODE_MSG)
+        askModeAgainLater(that, sent + 1)
+      } else {
+        console.warn(
+          'actisense: the gateway does not report its operating mode; not reading its transmit list'
+        )
+        that.modeAsked = undefined
+      }
+    },
+    ready ? MODE_RETRY_MS : NOT_READY_RETRY_MS
+  )
+}
+
+/* When the current hold ends at the earliest: 0 when nothing is held. */
+function heldUntil(that: any) {
+  const hold = that.hold
+  return hold.state === 'until'
+    ? hold.until
+    : hold.state === 'awaitMode'
+      ? hold.notBefore
+      : 0
+}
+
+/* Hold frames for the bus until the gateway reports its mode, but not
+   before `notBefore`, and at the latest until `until`. */
+function holdUntilMode(that: any, notBefore: number, until: number) {
+  that.hold = { state: 'awaitMode', notBefore, until }
+  holdOutput(that, until)
+}
+
+/* Hold frames for the bus until `until`. */
+function holdFor(that: any, until: number) {
+  that.hold = { state: 'until', until }
+  holdOutput(that, until)
+}
+
+function holdOutput(that: any, until: number) {
+  that.outAvailable = false
+  clearTimeout(that.setUpTimer)
+  that.setUpTimer = setTimeout(
+    () => releaseHold(that),
+    Math.max(0, until - Date.now())
+  )
+}
+
+/* The gateway has settled: frames for the bus may go out. */
+function releaseHold(that: any) {
+  clearTimeout(that.setUpTimer)
+  that.hold = { state: 'settled' }
+  updateOutput(that)
+}
+
+/**
+ * Let frames for the bus out once the gateway has settled, and, when the
+ * transmit list is being set (ENABLESETTRANSMITPGNS), once that is done:
+ * send what was held, in order, and say that output is available.
+ */
+function updateOutput(that: any) {
+  const settingTxList =
+    !that.options.disableSetTransmitPGNs &&
+    that.txList &&
+    that.txList.step !== 'done'
+  if (that.outAvailable || that.hold.state !== 'settled' || settingTxList) {
+    startPCode(that)
+    return
   }
-  that.debug('sent Get Product Info and Set Operating Mode')
+  that.debug('outputEnabled')
+  that.outAvailable = true
+  const held = that.held
+  that.held = []
+  if (held.length) {
+    that.debug(
+      'sending %d frames held since opening or Set Operating Mode',
+      held.length
+    )
+  }
+  held.forEach(({ buf, actisense, pgn }: any) =>
+    writeFrame(that, buf, actisense, pgn)
+  )
+  if (that.options.app) {
+    that.options.app.emit('nmea2000OutAvailable')
+  }
+  startPCode(that)
+}
+
+/**
+ * Read the gateway's P-Codes once it is set up: settled after Set
+ * Operating Mode, and its transmit list read, so the command is not lost
+ * (canboat#1109). Then set the ports that differ from what is asked.
+ */
+function startPCode(that: any) {
+  const ready =
+    that.bemSeen &&
+    that.hold.state === 'settled' &&
+    that.txList?.step === 'done'
+  if (!ready || that.pcode.state !== 'idle') {
+    return
+  }
+  if (that.pcodeRequest.keep) {
+    that.pcode = { state: 'done' }
+    return
+  }
+  getPCodes(that, 1)
+}
+
+function getPCodes(that: any, attempt: number) {
+  that.pcode = { state: 'getting' }
+  sendNgt(that, new Uint8Array([BEM_PORT_PCODE]))
+  awaitPCodeAnswer(that, attempt, () => getPCodes(that, attempt + 1), 'Get')
+}
+
+function setPCodes(that: any, perPort: number[], attempt: number) {
+  that.pcode = { state: 'setting', written: perPort }
+  sendNgt(that, new Uint8Array([BEM_PORT_PCODE, perPort.length, ...perPort]))
+  awaitPCodeAnswer(
+    that,
+    attempt,
+    () => setPCodes(that, perPort, attempt + 1),
+    'Set'
+  )
+}
+
+/* Wait for the answer; ask once more, then give up. Without an explicit
+   request older firmware may just not have the command, so that is not
+   warned about. */
+function awaitPCodeAnswer(
+  that: any,
+  attempt: number,
+  retry: () => void,
+  what: string
+) {
+  clearTimeout(that.pcodeTimer)
+  that.pcodeTimer = setTimeout(() => {
+    if (attempt < PCODE_ATTEMPTS) {
+      retry()
+      return
+    }
+    that.pcode = { state: 'done' }
+    const msg = `no answer to ${what} Port P-Code (BEM 0x13); this firmware may not have it`
+    if (that.pcodeRequest.all === true) {
+      that.debug(msg)
+    } else {
+      console.warn(`actisense: ${msg}`)
+    }
+  }, PCODE_ANSWER_TIMEOUT_MS)
+}
+
+/* `port 0 off, port 1 on`; 0xFF in a Set is no change. */
+function describePCodes(codes: number[]) {
+  return codes
+    .map((c, i) => {
+      const v =
+        c === 0
+          ? 'off'
+          : c === 1
+            ? 'on'
+            : c === 0xff
+              ? 'no change / 0xff'
+              : `on (0x${c.toString(16)})`
+      return `port ${i} ${v}`
+    })
+    .join(', ')
+}
+
+/* The gateway's answer to Get or Set Port P-Code. */
+function onPCodeAnswer(that: any, bem: any) {
+  const setting = that.pcode.state === 'setting'
+  if (!setting && that.pcode.state !== 'getting') {
+    return
+  }
+  clearTimeout(that.pcodeTimer)
+  const what = setting ? 'Set' : 'Get'
+  const done = () => (that.pcode = { state: 'done' })
+  if (bem.error !== 0) {
+    console.warn(
+      `actisense: the gateway refused ${what} Port P-Code: error ${describeError(bem.error)}`
+    )
+    return done()
+  }
+  // The number of ports, then exactly that many bytes.
+  const d: Buffer = bem.data
+  if (d.length < 1 || d.length !== d[0] + 1) {
+    console.warn(
+      `actisense: the answer to ${what} Port P-Code is malformed: ${d.toString('hex')}`
+    )
+    return done()
+  }
+  const codes = [...d.subarray(1)]
+  that.debug('P-Codes per port: %s', describePCodes(codes))
+  const request = that.pcodeRequest
+  if (setting) {
+    const missed = codes
+      .map((c, i) => [i, pcodeWanted(request, i), c !== 0])
+      .filter(([, wanted, on]) => wanted !== undefined && wanted !== on)
+      .map(([i]) => i)
+    if (missed.length) {
+      console.warn(
+        `actisense: the gateway did not take the P-Code of port(s) ${missed.join(', ')}`
+      )
+    }
+    return done()
+  }
+  if (request.get) {
+    return done()
+  }
+  const missing = (request.ports ?? []).find(
+    ([port]: [number, boolean]) => port >= codes.length
+  )
+  if (missing) {
+    console.warn(
+      `actisense: no P-Code set: port ${missing[0]} does not exist, the gateway has ${codes.length} port(s)`
+    )
+    return done()
+  }
+  const perPort = codes.map((c, i) => {
+    const wanted = pcodeWanted(request, i)
+    return wanted !== undefined && wanted !== (c !== 0)
+      ? wanted
+        ? 1
+        : 0
+      : 0xff
+  })
+  if (perPort.every((b) => b === 0xff)) {
+    return done()
+  }
+  that.debug('setting P-Codes per port: %s', describePCodes(perPort))
+  setPCodes(that, perPort, 1)
 }
 
 function operatingModeName(mode: number) {
@@ -507,14 +934,45 @@ function operatingModeName(mode: number) {
 }
 
 /**
- * Check the gateway's answer to Set Operating Mode: it carries the mode in
- * force, which is warned about when it is not the one set.
+ * The gateway's answer to Get or Set Operating Mode, which carries the mode
+ * in force. A gateway in another mode is set to NGT Transfer Rx All Mode,
+ * once per connection, as that restarts it; the mode is logged, and warned
+ * about when it is not the one set.
  */
 function onOperatingMode(that: any, bem: any) {
   if (bem.data.length < 2) {
     return
   }
   const mode = bem.data.readUInt16LE(0)
+  const now = Date.now()
+  that.modeAsked = undefined
+  clearTimeout(that.modeTimer)
+  // A file being read is only reported on.
+  if (
+    mode !== OPERATING_MODE_RX_ALL &&
+    that.modeSetAt === undefined &&
+    that.serial
+  ) {
+    that.debug(
+      'the gateway is in %s; setting %s',
+      operatingModeName(mode),
+      operatingModeName(OPERATING_MODE_RX_ALL)
+    )
+    that.modeSetAt = now
+    sendNgt(that, SET_OPERATING_MODE_MSG)
+    // Frames already held keep their place, ahead of new ones.
+    holdFor(that, Math.max(now + MODE_SETTLE_MS, heldUntil(that)))
+    return
+  }
+  // Nothing is set now, so the frames held for the mode wait only for the
+  // hold after a restart, if any.
+  if (that.hold.state === 'awaitMode') {
+    if (now >= that.hold.notBefore) {
+      releaseHold(that)
+    } else {
+      holdFor(that, that.hold.notBefore)
+    }
+  }
   if (bem.error !== 0) {
     console.warn(
       `actisense: the gateway refused ${operatingModeName(OPERATING_MODE_RX_ALL)} (error ${describeError(bem.error)}); it stays in ${operatingModeName(mode)}`
@@ -647,14 +1105,36 @@ function onGatewayStatus(that: any, bem: any) {
     if (bem.error) {
       detail += `, error ${describeError(bem.error)}`
     }
-    if (that.serial) {
-      console.warn(
-        `actisense: the gateway restarted${detail}; setting it up again`
-      )
-      setUpGateway(that)
-    } else {
+    if (!that.serial) {
       console.warn(`actisense: the gateway restarted${detail}`)
+      return
     }
+    const now = Date.now()
+    if (
+      that.modeSetAt !== undefined &&
+      now < that.modeSetAt + RESTART_AFTER_SET_MS
+    ) {
+      that.debug(
+        'the gateway restarted after Set Operating Mode, as it does%s',
+        detail
+      )
+    } else {
+      console.warn(
+        `actisense: the gateway restarted${detail}; reading its settings again`
+      )
+    }
+    // Read, never set: setting the mode would restart it again.
+    readGatewaySettings(that)
+    // The gateway says so before it is done starting: after a Set its first
+    // N2K message came some 300 ms later. Hold the frames for the bus as
+    // after a Set, or longer if already so, and until the mode is known
+    // again, as after opening.
+    const notBefore = Math.max(now + MODE_SETTLE_MS, heldUntil(that))
+    const until =
+      that.hold.state === 'awaitMode'
+        ? Math.max(that.hold.until, notBefore)
+        : Math.max(notBefore, now + MODE_ANSWER_MS)
+    holdUntilMode(that, notBefore, until)
   } else if (bem.bem === BEM_ERROR_REPORT) {
     console.warn(
       `actisense: the gateway reports error ${describeError(bem.error)}`
@@ -686,18 +1166,12 @@ function parseBemResponse(buffer: Buffer, len: number) {
   }
 }
 
-function enableOutput(that: any) {
-  that.debug('outputEnabled')
-  that.outAvailable = true
-  if (that.options.app) {
-    that.options.app.emit('nmea2000OutAvailable')
-  }
-}
-
-/* The Transmit PGN Enable list sync, on only when ENABLESETTRANSMITPGNS is
-   set. A PGN missing from the gateway's list is silently not transmitted,
-   so the list is read, and the missing PGNs are enabled, saved to EEPROM
-   and activated. Output waits until that is done.
+/* The Transmit PGN Enable list. A PGN missing from the gateway's list is
+   silently not transmitted, so the list is always read once the gateway
+   has reported its mode, and a PGN sent that it lacks is warned about
+   (canboat#1072). With ENABLESETTRANSMITPGNS set, the missing PGNs of
+   transmitPGNs are also enabled, saved to EEPROM and activated, and output
+   waits until that is done.
 
    Firmware 2.500 and later is read with Get Supported PGN List and Get Tx
    PGN Enable List F2, which lists indexes into the supported list. Older or
@@ -890,9 +1364,20 @@ function f2Pgns(that: any, tx: any): number[] | undefined {
   return pgns.concat(tx.proprietary)
 }
 
-/* The gateway's list is in: enable what is wanted and missing. */
-function onTxList(that: any, have: number[]) {
+/* The gateway's list is in: keep it, to warn about PGNs sent that it
+   lacks, and enable what is wanted and missing when asked to. Format 2
+   lists every PGN; Format 1 can miss some. */
+function onTxList(that: any, have: number[], complete: boolean) {
   that.debug('tx pgns: %j', have)
+  that.txKnown = { pgns: [...have], complete }
+  // The PGNs sent before the list was known.
+  const sent = [...that.sentBeforeTxList]
+  that.sentBeforeTxList.clear()
+  sent.forEach((pgn: number) => warnIfNotOnTxList(that, pgn))
+  if (that.options.disableSetTransmitPGNs) {
+    finishTxList(that)
+    return
+  }
   const missing = _.uniq(that.transmitPGNs.map(storedPgn)).filter(
     (pgn: any) => !have.includes(pgn)
   ) as number[]
@@ -928,7 +1413,7 @@ function awaitTxListAnswer(that: any) {
   )
 }
 
-/* The sync is over, done or not: let output through. */
+/* The read, or the sync, is over, done or not: let output through. */
 function finishTxList(that: any, failure?: string) {
   clearTimeout(that.txListTimer)
   that.txList = { step: 'done' }
@@ -936,9 +1421,7 @@ function finishTxList(that: any, failure?: string) {
     console.warn(`actisense: ${failure}`)
     that.setProviderStatus(failure)
   }
-  if (!that.outAvailable) {
-    enableOutput(that)
-  }
+  updateOutput(that)
 }
 
 function onTxListAnswer(that: any, bem: any) {
@@ -961,7 +1444,7 @@ function onTxListAnswer(that: any, bem: any) {
         tx.have.push(d.readUInt32LE(o))
       }
     } else if (bem.sequence === F1_LAST) {
-      onTxList(that, tx.have)
+      onTxList(that, tx.have, false)
     }
   } else if (
     tx.step === 'readingF2' &&
@@ -984,7 +1467,7 @@ function onTxListAnswer(that: any, bem: any) {
     }
     const have = f2Pgns(that, tx)
     if (have) {
-      onTxList(that, have)
+      onTxList(that, have, true)
     }
   } else if (tx.step === 'enabling' && bem.bem === BEM_TX_PGN_ENABLE) {
     // The outcome is the error code; the sequence is 1 whatever happens.
@@ -992,6 +1475,7 @@ function onTxListAnswer(that: any, bem: any) {
     if (bem.error === 0) {
       that.debug('enabled tx pgn %d', pgn)
       tx.added.push(pgn)
+      that.txKnown?.pgns.push(pgn)
     } else if (bem.error === ALREADY_ENABLED) {
       that.debug('tx pgn %d was already enabled', pgn)
     } else {
@@ -1095,9 +1579,14 @@ function processNGTMessage(that: any, buffer: Buffer, len: number) {
   }
 
   const bem = parseBemResponse(buffer, len)
-  if (command === BEM_OPERATING_MODE) {
+  if (bem) {
+    that.bemSeen = true
+  }
+  if (command === BEM_PORT_PCODE && bem) {
+    onPCodeAnswer(that, bem)
+  } else if (command === BEM_OPERATING_MODE) {
     that.gotStartupResponse = true
-    that.debug('got Set Operating Mode answer')
+    that.debug('got Operating Mode answer')
     if (bem) {
       onOperatingMode(that, bem)
     }
@@ -1276,8 +1765,7 @@ ActisenseStream.prototype.end = function () {
   // Closing the port fires 'close', which would reconnect: an intentional
   // end must not start again, nor leave its handlers on the app.
   this.reconnect = false
-  clearTimeout(this.setUpTimer)
-  clearTimeout(this.txListTimer)
+  clearTimers(this)
   if (this.reconnectTimer) {
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = undefined

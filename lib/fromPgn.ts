@@ -21,6 +21,7 @@ import {
   FieldType,
   createPGN,
   Type,
+  getEnumeration,
   getEnumerationName,
   getBitEnumerationName,
   getFieldTypeEnumerationName,
@@ -688,6 +689,9 @@ export class Parser extends EventEmitter {
     if (pgn.src === undefined) {
       throw new Error('invalid pgn, missing src: ' + JSON.stringify(pgn))
     }
+    // A caller may pass one pgn object for several messages: resolve a group
+    // function's target anew for each.
+    targetDefinitions.delete(pgn)
 
     // More than 8 bytes in a raw CAN frame is a damaged line, e.g. two
     // partial lines glued together by a lost datagram. Decoding it as a
@@ -1171,64 +1175,174 @@ export class Parser extends EventEmitter {
   }
 }
 
-export function getField(pgn_number: number, index: number, data: any) {
-  let pgnList = getPgn(pgn_number)
-  if (pgnList) {
-    pgnList = pgnList.filter(
-      (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
-    )
+// The definition a group function's parameters address, resolved once
+// per message from its raw parameter block.
+const targetDefinitions = new WeakMap<
+  PGN,
+  { def: Definition | undefined; catchAll: boolean }
+>()
 
-    let pgn = pgnList[0]
-    const dataList = data.list ? data.list : data.fields.list
-
-    if (pgnList.length > 1) {
-      let idx = 0
-      while (idx < pgn.Fields.length) {
-        const field = pgn.Fields[idx]
-        const hasMatch = !_.isUndefined(field.Match)
-        if (hasMatch && dataList.length > 0) {
-          const param = dataList.find((f: any) => {
-            const param = f.parameter !== undefined ? f.parameter : f.Parameter
-            return param === idx + 1
-          })
-
-          if (param) {
-            const value = param.value !== undefined ? param.value : param.Value
-
-            pgnList = pgnList.filter((f) => {
-              return (
-                f.Fields[idx].Match == value ||
-                (typeof value === 'string' && isMatchName(f.Fields[idx], value))
-              )
-            })
-            if (pgnList.length == 0) {
-              throw new Error('unable to read: ' + JSON.stringify(data))
-              return
-            } else {
-              pgn = pgnList[0]
-            }
-          }
-        }
-        idx++
-      }
-    }
-
-    if (index >= 0 && index < pgn.Fields.length) {
-      return pgn.Fields[index]
-    }
-
-    const RepeatingFields = pgn.RepeatingFieldSet1Size
-      ? pgn.RepeatingFieldSet1Size
-      : 0
-    if (RepeatingFields) {
-      const startOfRepeatingFields = pgn.Fields.length - RepeatingFields
-      index =
-        startOfRepeatingFields +
-        ((index - startOfRepeatingFields) % RepeatingFields)
-      return pgn.Fields[index]
-    }
+/**
+ * The variant of `pgnNumber` that a group function's raw parameter block
+ * (count, then index and value pairs) addresses, as canboat's
+ * getMatchingPgnByParameters chooses it: the first whose match fields the
+ * parameters give agree, each value read at that variant's own width. A
+ * PGN without variants is its only definition. Undefined when none agrees.
+ * Unlike canboat, a parameter may address a variant's repeating set.
+ */
+function variantByParameters(
+  pgnNumber: number,
+  data: Uint8Array,
+  start: number
+): Definition | undefined {
+  const pgnList = (getPgn(pgnNumber) ?? []).filter(
+    (def) => def.Fallback !== true
+  )
+  const hasMatch = (def: Definition) =>
+    def.Fields.some((field) => field.Match !== undefined)
+  if (pgnList.length === 0) {
+    return undefined
   }
-  return null
+  if (!pgnList.some(hasMatch)) {
+    return pgnList[0]
+  }
+  if (
+    isPGNProprietary(pgnNumber) &&
+    (data[start] < 2 || data[start + 1] !== 0x01 || data[start + 4] !== 0x03)
+  ) {
+    // A request for a proprietary PGN gives its Manufacturer and Industry.
+    return undefined
+  }
+  const end = data.length
+  const count = data[start]
+  return pgnList.find((def) => {
+    let d = start + 1
+    for (let param = 0; param < count && d < end; param++) {
+      // canboat stops at the fixed fields; an index into a repeating set
+      // (Airmar's calibration pairs) addresses that set's field, as
+      // canboatjs has always read it.
+      const field = fieldAt(def, data[d++] - 1)
+      if (!field) {
+        return false
+      }
+      const bits = field.BitLength ?? 0
+      if (field.Match !== undefined) {
+        if (bits > 32 || d + Math.ceil(bits / 8) > end) {
+          return false
+        }
+        const bs = new BitStream(Buffer.from(data.buffer, data.byteOffset, end))
+        bs.index = d * 8
+        if (bs.readBits(bits, false) !== field.Match) {
+          return false
+        }
+      }
+      d += Math.ceil(bits / 8)
+    }
+    return true
+  })
+}
+
+/** A definition's field by index, a repeating set's index wrapped. */
+/**
+ * The field a group function's parameter `order` (1-based) addresses in
+ * `def`, as canboat's parameter_field: a fixed field by its order, or past
+ * them, a field of the repeating set, when the definition has one set and
+ * it ends the definition (canboat#1132). With two sets the number alone
+ * does not say which set it is in.
+ */
+export function parameterField(def: Definition, order: number): Field | null {
+  const fixed = def.Fields.length
+  if (order < 1) {
+    return null
+  }
+  if (order <= fixed) {
+    return def.Fields[order - 1] ?? null
+  }
+  const start = (def as any).RepeatingFieldSet1StartField as number | undefined
+  const count = def.RepeatingFieldSet1Size ?? 0
+  if (
+    start === undefined ||
+    count === 0 ||
+    (def.RepeatingFieldSet2Size ?? 0) > 0 ||
+    start + count - 1 !== fixed
+  ) {
+    return null
+  }
+  return def.Fields[((order - start) % count) + start - 1] ?? null
+}
+
+/* The field the 0-based parameter `index` addresses in `def`. */
+function fieldAt(def: Definition, index: number): Field | null {
+  return parameterField(def, index + 1)
+}
+
+/**
+ * The definition of `target` that a group function's parameters address,
+ * as canboat resolves it: the variant the parameter pairs select, else the
+ * range's catch-all, else the leading definition (canboat#1131). Not the
+ * leading definition first: for a proprietary target that is somebody's
+ * variant, so a message read with the catch-all would not write back.
+ */
+export function targetDefinition(
+  target: number,
+  data: any
+): Definition | undefined {
+  const list = data?.list ?? data?.fields?.list ?? []
+  return (
+    matchTargetVariant(target, list) ??
+    findFallBackPGN(target) ??
+    getPgn(target)?.[0]
+  )
+}
+
+function matchTargetVariant(
+  target: number,
+  list: any[]
+): Definition | undefined {
+  const variants = (getPgn(target) ?? []).filter(
+    (def: any) => def.Fallback !== true
+  )
+  const first = variants[0]
+  if (first === undefined) {
+    return undefined
+  }
+  if (!first.Fields.some((field) => field.Match !== undefined)) {
+    return first
+  }
+  const pairs: [number, any][] = list.map((entry: any) => [
+    entry.parameter ?? entry.Parameter,
+    entry.value ?? entry.Value
+  ])
+  // A proprietary target is only narrowed by Manufacturer (field 1) then
+  // Industry Code (field 3); without them nothing is guessed.
+  if (
+    isPGNProprietary(target) &&
+    !(pairs.length >= 2 && pairs[0][0] === 1 && pairs[1][0] === 3)
+  ) {
+    return undefined
+  }
+  return variants.find((def) =>
+    pairs.every(([order, value]) => {
+      const field = order ? parameterField(def, order) : null
+      if (!field) {
+        return false
+      }
+      return (
+        field.Match === undefined ||
+        field.Match == value ||
+        (typeof value === 'string' && isMatchName(field, value))
+      )
+    })
+  )
+}
+
+/**
+ * The field the 0-based parameter `index` of a group function for
+ * `pgn_number` addresses, in the definition its parameters select.
+ */
+export function getField(pgn_number: number, index: number, data: any) {
+  const def = targetDefinition(pgn_number, data)
+  return def ? parameterField(def, index + 1) : null
 }
 
 /**
@@ -1317,7 +1431,54 @@ function lookup(field: Field, value: number) {
     name = getFieldTypeEnumerationName(field.LookupFieldTypeEnumeration, value)
   }
 
+  // A primary-key field whose lookup gives this name to more than one code
+  // is written as its code, as canboat does (canboat#1136): by its name
+  // alone, records of different keys would look the same (#557).
+  if (
+    name &&
+    field.PartOfPrimaryKey &&
+    field.Match === undefined &&
+    sharedLookupNames(field).has(name)
+  ) {
+    return value
+  }
+
   return name ? name : value
+}
+
+/* The names a lookup gives to more than one code, per entry array: an
+   enumeration changed at runtime with updateLookup keeps its object but
+   gets a new entry array, so it is worked out again. */
+const sharedNamesByEntries = new WeakMap<object, Set<string>>()
+
+function sharedLookupNames(field: Field): Set<string> {
+  const enumeration: any = field.LookupEnumeration
+    ? getEnumeration(field.LookupEnumeration)
+    : field.LookupFieldTypeEnumeration
+      ? getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
+      : undefined
+  if (!enumeration) {
+    return new Set()
+  }
+  const entries: any[] =
+    enumeration.EnumValues ?? enumeration.EnumFieldTypeValues ?? []
+  let shared = sharedNamesByEntries.get(entries)
+  if (!shared) {
+    const codes = new Map<string, Set<number>>()
+    for (const entry of entries) {
+      const name = entry.Name ?? entry.name
+      const code = entry.Value ?? entry.value
+      if (!codes.has(name)) {
+        codes.set(name, new Set())
+      }
+      codes.get(name)!.add(code)
+    }
+    shared = new Set(
+      [...codes].filter(([, values]) => values.size > 1).map(([name]) => name)
+    )
+    sharedNamesByEntries.set(entries, shared)
+  }
+  return shared
 }
 
 /**
@@ -1836,11 +1997,38 @@ function readVariableLengthField(
    */
 
   try {
-    const refField = getField(
-      (pgn.fields as any).pgn || (pgn.fields as any).PGN,
-      bs.view.buffer[bs.byteIndex - 1] - 1,
-      pgn
-    )
+    const target = (pgn.fields as any).pgn || (pgn.fields as any).PGN
+    const index = bs.view.buffer[bs.byteIndex - 1] - 1
+    let resolved = targetDefinitions.get(pgn)
+    if (resolved === undefined) {
+      // The parameter block starts at the count, two bytes before the first
+      // parameter's value, as canboat's analyzer takes it.
+      const variant = variantByParameters(
+        target,
+        bs.view.buffer,
+        bs.byteIndex - 2
+      )
+      const fallback = variant ? undefined : findFallBackPGN(target)
+      resolved = { def: variant ?? fallback, catchAll: !variant }
+      targetDefinitions.set(pgn, resolved)
+    }
+    const refField = resolved.def
+      ? fieldAt(resolved.def, index)
+      : getField(target, index, pgn)
+
+    // A parameter addressing the catch-all's trailing data takes the rest of
+    // the message: nothing gives it another width (canboat#1074).
+    if (
+      refField &&
+      resolved.catchAll &&
+      refField.FieldType === 'BINARY' &&
+      resolved.def &&
+      refField === resolved.def.Fields[resolved.def.Fields.length - 1]
+    ) {
+      const bytes = Math.floor(bs.bitsLeft / 8)
+      const buf = Buffer.from(bs.readArrayBuffer(bytes))
+      return [byteString(buf, ' '), refField]
+    }
 
     if (refField) {
       const [res] = readField(definition, options, true, pgn, refField, bs)

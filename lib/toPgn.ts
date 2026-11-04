@@ -15,6 +15,7 @@
  */
 
 import {
+  Definition,
   Field,
   PGN,
   getEnumerationValue,
@@ -23,7 +24,7 @@ import {
   getBitEnumerationName,
   findFallBackPGN
 } from '@canboat/ts-pgns'
-import { getField } from './fromPgn'
+import { parameterField, targetDefinition } from './fromPgn'
 import { getPgn, getCustomPgn, isMatchName } from './pgns'
 import _ from 'lodash'
 import { scaleOf, siConversion } from './units'
@@ -72,30 +73,26 @@ const a126208_newKey = 'Number of Parameters'
 
 export function toPgn(data: any): Buffer | undefined {
   const customPgns = getCustomPgn(data.pgn)
-  let pgnList = getPgn(data.pgn)
-  if (!pgnList && !customPgns) {
-    debug('no pgn found: ' + data.pgn)
-    return
-  }
-
-  if (customPgns) {
-    pgnList = [...customPgns.definitions, ...(pgnList || [])]
-  }
-
-  if (!pgnList || pgnList.length === 0) {
-    debug('no pgn found: ' + data.pgn)
-    return undefined
-  }
+  let pgnList = [
+    ...(customPgns?.definitions ?? []),
+    ...(getPgn(data.pgn) ?? [])
+  ]
 
   // A message that names its variant, as a decoded one does, is written
   // with that variant, as canboat does with a JSON message's id: even the
-  // range's catch-all, which a message no variant describes decodes with.
+  // range's catch-all, which a message no variant describes decodes with,
+  // also for a PGN that has no definition of its own.
   const fallback = findFallBackPGN(data.pgn)
   const named =
     typeof data.id === 'string'
       ? (pgnList.find((pgn) => pgn.Id === data.id) ??
         (fallback?.Id === data.id ? fallback : undefined))
       : undefined
+
+  if (pgnList.length === 0 && !named) {
+    debug('no pgn found: ' + data.pgn)
+    return undefined
+  }
 
   //we would never write fallback pgns
   pgnList = pgnList.filter(
@@ -191,15 +188,26 @@ export function toPgn(data: any): Buffer | undefined {
         totalRepeatingFields = RepeatingFields1 + RepeatingFields2
       }
     }
-    // A catch-all's data runs to the end of the message: write the bytes
-    // given, as bytes, not its full width, as canboat does. One byte ("10")
-    // is a byte too, and none is nothing.
+    // A catch-all's data runs to the end of the message, and so does a
+    // BINARY that ends a multi-frame message outside any repeating set: the
+    // decoder reads the bytes that are there, so they are written as given,
+    // not padded to the field's width, and left out when not given, as
+    // canboat does (canboat#1133). One byte ("10") is a byte too, and none
+    // is nothing.
+    const tail = openTail(pgnData, field)
     const bytes =
-      pgnData.Fallback === true && field.FieldType === 'BINARY'
+      (pgnData.Fallback === true || tail) && field.FieldType === 'BINARY'
         ? hexBytes(value)
         : undefined
     if (bytes !== undefined) {
+      if (tail && bytes.length * 8 > field.BitLength!) {
+        throw new Error(
+          `field '${field.Name}': ${bytes.length} bytes do not fit in ${field.BitLength} bits`
+        )
+      }
       writeField(bs, pgn_number, field, data, bytes, fields, bytes.length * 8)
+    } else if (tail && (value === undefined || value === null)) {
+      // Not given: nothing to write.
     } else {
       writeField(bs, pgn_number, field, data, value, fields)
     }
@@ -268,6 +276,7 @@ export function toPgn(data: any): Buffer | undefined {
     pgnData.Fallback !== true &&
     fields[fields.length - 1].FieldType !== RES_STRINGLAU &&
     fields[fields.length - 1].FieldType !== RES_STRINGLZ &&
+    !openTail(pgnData, fields[fields.length - 1]) &&
     !totalRepeatingFields
   ) {
     //const len = lengthsOff[pgnData.PGN] || pgnData.Length
@@ -462,7 +471,15 @@ function writeField(
         */
 
       if (field.FieldType === 'VARIABLE') {
-        writeVariableLengthField(bs, pgn_number, data, field, value, fields)
+        writeVariableLengthField(
+          bs,
+          pgn_number,
+          data,
+          field,
+          value,
+          fields,
+          record
+        )
       } else if (_.isBuffer(value)) {
         value.copy(bs.view.buffer, bs.byteIndex)
         bs.byteIndex += value.length
@@ -651,20 +668,22 @@ function writeVariableLengthField(
   pgn: any,
   field: Field,
   value: any,
-  fields: Field[]
+  fields: Field[],
+  record: any
 ) {
-  const refField = getField(
-    pgn.pgn | pgn.PGN,
-    bs.view.buffer[bs.byteIndex - 1] - 1,
-    pgn
-  )
+  // The definition the parameters address, as canboat and the decoder
+  // resolve it: the variant they select, else the range's catch-all.
+  const target = pgn.pgn ?? pgn.PGN
+  const def = targetDefinition(target, pgn)
+  const refField = def
+    ? parameterField(def, bs.view.buffer[bs.byteIndex - 1])
+    : null
 
   if (refField) {
     // As canboat's encoder: a key/value field's value is bytes, not a
     // number. It used to go out silently wrong (#458), typically because
     // the target PGN has several variants and the pairs did not pick the
     // intended one.
-    const target = pgn.pgn ?? pgn.PGN
     if (
       refField.FieldType === 'DYNAMIC_FIELD_VALUE' &&
       !Buffer.isBuffer(value)
@@ -678,8 +697,54 @@ function writeVariableLengthField(
     }
     let bits
 
+    // A BINARY, RESERVED or SPARE value given as hex text, as the decoder
+    // gives it ("00 05 64"), is those bytes (canboat#1131).
+    const bytes = ['BINARY', 'RESERVED', 'SPARE'].includes(
+      refField.FieldType ?? ''
+    )
+      ? hexBytes(value)
+      : undefined
+
+    // A BINARY that ends the target's definition, such as the catch-all's
+    // Data, which parameters no variant agrees with address, takes the rest
+    // of the message: as the last parameter it is written as long as given,
+    // as canboat reads it; before another, it cannot be read back.
+    const endsTarget =
+      refField.FieldType === 'BINARY' &&
+      def!.Fields[def!.Fields.length - 1] === refField
+    const list = pgn.list
+    const last = !Array.isArray(list) || record === list[list.length - 1]
+    if (endsTarget && last && bytes !== undefined) {
+      return writeField(
+        bs,
+        pgn_number,
+        refField,
+        pgn,
+        bytes,
+        fields,
+        bytes.length * 8
+      )
+    }
+    if (endsTarget && !last && def === findFallBackPGN(target)) {
+      throw new Error(
+        `Parameter ${(refField as any).Order} of PGN ${target} is the catch-all's data, ` +
+          'which takes the rest of the message, so it must be the last parameter'
+      )
+    }
     if (refField.BitLength !== undefined) {
       bits = (refField.BitLength + 7) & ~7 // Round # of bits in field refField up to complete bytes: 1->8, 7->8, 8->8 etc.
+    }
+
+    if (bytes !== undefined && bits !== undefined) {
+      // Padded with zeros to the field's width, as canboat does.
+      const padded = Buffer.alloc(bits / 8)
+      if (bytes.length > padded.length) {
+        throw new Error(
+          `Parameter ${(refField as any).Order} of PGN ${target}: ${bytes.length} bytes do not fit its ${padded.length}`
+        )
+      }
+      bytes.copy(padded)
+      return writeField(bs, pgn_number, refField, pgn, padded, fields, bits)
     }
 
     return writeField(bs, pgn_number, refField, pgn, value, fields, bits)
@@ -947,6 +1012,21 @@ function bitIsSet(field: Field, index: number, value: any) {
  * hex pairs, "02 08". A narrower one it gives as a number, which callers
  * also pass as a decimal string ("33188"), so a lone "10" is not hex.
  */
+/**
+ * Whether `field` is a BINARY that ends a multi-frame message, outside any
+ * repeating set: the decoder reads only the bytes that are there. A single
+ * frame keeps its 8 bytes.
+ */
+function openTail(def: Definition, field: Field) {
+  return (
+    def.Type !== 'Single' &&
+    field.FieldType === 'BINARY' &&
+    field.BitLength !== undefined &&
+    def.Fields[def.Fields.length - 1] === field &&
+    !def.RepeatingFieldSet1Size
+  )
+}
+
 /** Hex bytes as the decoder gives a BINARY field ("10 20", "10", ""). */
 function hexBytes(value: unknown): Buffer | undefined {
   if (
