@@ -544,6 +544,9 @@ function makeSendInstance(): SendTestHarness {
   instance.outAvailable = true
   instance.serial = { write: (buf: Buffer) => writes.push(buf) }
   instance.debugOut = () => {}
+  instance.debug = () => {}
+  instance.held = []
+  instance.warnedNotOnTxList = new Set()
 
   return { instance, app, writes, rawSends }
 }
@@ -600,13 +603,14 @@ describe('ActisenseStream.sendPGN', () => {
     })
   })
 
-  test('does not write when outAvailable is false', () => {
+  test('holds the frame while the gateway is not ready', () => {
     const { instance, writes, rawSends } = makeSendInstance()
     instance.outAvailable = false
     instance.sendPGN(samplePGN)
 
     expect(writes).toHaveLength(0)
     expect(rawSends).toHaveLength(0)
+    expect(instance.held).toHaveLength(1)
   })
 
   test('emits connectionwrite when sending', () => {

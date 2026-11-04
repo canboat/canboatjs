@@ -120,7 +120,12 @@ describe('the transmit PGN list sync (#504)', () => {
       setProviderStatus: () => undefined,
       setProviderError: () => undefined
     })
-    stream = new (ActisenseStream as any)({ device: '/dev/ttyUSB0', app })
+    // P-Codes are left alone here: they have tests of their own.
+    stream = new (ActisenseStream as any)({
+      device: '/dev/ttyUSB0',
+      app,
+      pcode: 'keep'
+    })
     port = opened[0]
   })
   afterEach(() => {

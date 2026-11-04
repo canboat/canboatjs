@@ -65,7 +65,7 @@ jest.mock('serialport', () => {
   return { SerialPort }
 })
 
-import { ActisenseStream } from './actisense-serial'
+import { ActisenseStream, composeMessage } from './actisense-serial'
 
 const settle = async () => {
   for (let i = 0; i < 5; i++) {
@@ -176,97 +176,183 @@ describe('ActisenseStream reconnect', () => {
   })
 })
 
-describe('ActisenseStream open (#502)', () => {
+describe('ActisenseStream open (#502, canboat#1134)', () => {
   let stream: any
+  let app: any
   beforeEach(() => {
     jest.useFakeTimers({ doNotFake: ['setImmediate'] })
     locked.clear()
     opened = []
-    const app = Object.assign(new EventEmitter(), {
+    app = Object.assign(new EventEmitter(), {
       setProviderStatus: () => undefined,
       setProviderError: () => undefined
     })
-    stream = new (ActisenseStream as any)({ device: '/dev/ttyUSB0', app })
+    stream = new (ActisenseStream as any)({
+      device: '/dev/ttyUSB0',
+      app,
+      pcode: 'keep'
+    })
   })
   afterEach(() => {
     stream.reconnect = false
+    stream.end()
     jest.useRealTimers()
   })
 
-  test('asks for Product Info, then sets NGT Transfer Rx All Mode, with no keepalive', () => {
-    const port = opened[0]
-    port.emit('open')
-    // DLE STX A1 <len> <BEM command> <checksum> DLE ETX
-    expect(port.written.map((b: Buffer) => b.toString('hex'))).toEqual([
-      '1002a101411d1003', // Get Product Info
-      '1002a103110200491003' // Set Operating Mode, mode 2
+  // DLE STX A1 <len> <BEM command> <checksum> DLE ETX
+  const GET_PRODUCT_INFO = '1002a101411d1003'
+  const GET_MODE = '1002a101114d1003'
+  const SET_MODE = '1002a103110200491003'
+  const written = (port: any) =>
+    port.written.map((b: Buffer) => b.toString('hex'))
+
+  /* A BEM answer of an NGT-1 (model 0x0e, serial 110763). */
+  const bem = (id: number, data: string, error = 0) => {
+    const header = Buffer.alloc(12)
+    header[0] = id
+    header.writeUInt16LE(0x0e, 2)
+    header.writeUInt32LE(110763, 4)
+    header.writeInt32LE(error, 8)
+    const payload = Buffer.concat([
+      header,
+      Buffer.from(data.replace(/ /g, ''), 'hex')
     ])
-    jest.advanceTimersByTime(60000)
-    expect(port.written).toHaveLength(2)
-  })
+    return composeMessage(0xa0, payload, payload.length)
+  }
+  const modeAnswer = (mode: number) =>
+    bem(0x11, mode.toString(16).padStart(2, '0') + '00')
 
-  test('the mode answer, arriving while output waits, asks for no transmit list', () => {
+  test('asks for Product Info and the operating mode, and sets nothing, with no keepalive', () => {
     const port = opened[0]
     port.emit('open')
-    // The fw 2.690 NGT-1's answer: NGT Transfer Rx All Mode.
-    port.emit(
-      'data',
-      Buffer.from('1002a00e11010e00abb00100000000000200d41003', 'hex')
-    )
-    expect(stream.gotStartupResponse).toBe(true)
+    expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE])
     jest.advanceTimersByTime(60000)
-    expect(port.written).toHaveLength(2)
-    expect(stream.outAvailable).toBe(true)
+    expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE])
   })
 
-  test('output waits for the gateway to settle after Set Operating Mode', () => {
-    opened[0].emit('open')
+  test('a gateway in NGT Transfer Rx All Mode is not set, and output goes out at once', () => {
+    const port = opened[0]
+    port.emit('open')
     expect(stream.outAvailable).toBe(false)
-    jest.advanceTimersByTime(499)
+    port.emit('data', modeAnswer(2))
+    expect(stream.gotStartupResponse).toBe(true)
+    expect(stream.outAvailable).toBe(true)
+    expect(written(port)).not.toContain(SET_MODE)
+  })
+
+  test('a gateway in another mode is set once, and output waits for it to settle', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const port = opened[0]
+      port.emit('open')
+      port.emit('data', modeAnswer(1))
+      expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE, SET_MODE])
+      expect(stream.outAvailable).toBe(false)
+      jest.advanceTimersByTime(499)
+      expect(stream.outAvailable).toBe(false)
+      jest.advanceTimersByTime(1)
+      expect(stream.outAvailable).toBe(true)
+      // The answer to the Set, still in the other mode: not set again.
+      port.emit('data', modeAnswer(1))
+      expect(written(port).filter((w: string) => w === SET_MODE)).toHaveLength(
+        1
+      )
+      expect(warn).toHaveBeenCalledWith(
+        'actisense: the gateway is in NGT Transfer Normal Mode, not NGT Transfer Rx All Mode'
+      )
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  test('without an answer, output waits 2 s for the mode', () => {
+    opened[0].emit('open')
+    jest.advanceTimersByTime(1999)
     expect(stream.outAvailable).toBe(false)
     jest.advanceTimersByTime(1)
     expect(stream.outAvailable).toBe(true)
   })
 
-  describe('a gateway that restarts (#503)', () => {
-    // Startup Status of an NGT-1 (model 0x0e, serial 110763), firmware
-    // 2.690 (0x0a82), reset status 1: framed, with its checksum.
-    const startupStatus = (data: string) => {
-      const payload = Buffer.from(
-        ('f0 00 0e 00 ab b0 01 00 00 00 00 00 ' + data).replace(/ /g, ''),
-        'hex'
+  test('frames given while output waits are sent in order once it is ready', () => {
+    const port = opened[0]
+    let available = 0
+    app.on('nmea2000OutAvailable', () => available++)
+    port.emit('open')
+    stream.sendString('2026-01-01T00:00:00.000Z,2,59904,0,255,3,14,f0,01')
+    stream.sendString('2026-01-01T00:00:00.000Z,2,59904,0,255,3,00,ee,00')
+    expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE])
+    port.emit('data', modeAnswer(2))
+    const frames = written(port).slice(2)
+    expect(frames).toHaveLength(2)
+    expect(frames[0]).toContain('14f001')
+    expect(frames[1]).toContain('00ee00')
+    expect(available).toBe(1)
+  })
+
+  test('the mode is asked for again, three times, then warned about', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const port = opened[0]
+      port.emit('open')
+      // The gateway answers BEM commands, but not Get Operating Mode.
+      port.emit('data', bem(0x41, '34 08 27 6e 02 01'))
+      jest.advanceTimersByTime(1000)
+      jest.advanceTimersByTime(1000)
+      jest.advanceTimersByTime(1000)
+      expect(written(port).filter((w: string) => w === GET_MODE)).toHaveLength(
+        3
       )
-      let sum = 0xa0 + payload.length
-      payload.forEach((b) => (sum += b))
-      return Buffer.concat([
-        Buffer.from([0x10, 0x02, 0xa0, payload.length]),
-        payload,
-        Buffer.from([(256 - (sum % 256)) % 256, 0x10, 0x03])
-      ])
+      expect(warn).toHaveBeenCalledWith(
+        'actisense: the gateway does not report its operating mode; not reading its transmit list'
+      )
+    } finally {
+      warn.mockRestore()
     }
+  })
+
+  describe('a gateway that restarts (#503, canboat#1134)', () => {
+    // Startup Status, firmware 2.690 (0x0a82), then the reset status.
+    const startupStatus = (data: string) => bem(0xf0, data)
     let warn: jest.SpyInstance
     beforeEach(() => {
       warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
     })
     afterEach(() => warn.mockRestore())
 
-    test('is set up again, and output waits for it to settle', () => {
+    test('is read again, not set, and output waits for it', () => {
       const port = opened[0]
       port.emit('open')
-      jest.advanceTimersByTime(500)
+      port.emit('data', modeAnswer(2))
       expect(stream.outAvailable).toBe(true)
       port.written = []
 
       port.emit('data', startupStatus('82 0a 01 00 00 00'))
       expect(warn).toHaveBeenCalledWith(
-        'actisense: the gateway restarted (firmware 2.690, reset status 0x1); setting it up again'
+        'actisense: the gateway restarted (firmware 2.690, reset status 0x1); reading its settings again'
       )
-      expect(port.written.map((b: Buffer) => b.toString('hex'))).toEqual([
-        '1002a101411d1003',
-        '1002a103110200491003'
-      ])
+      expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE])
       expect(stream.outAvailable).toBe(false)
-      jest.advanceTimersByTime(500)
+      // The mode is in at once, but the gateway is still starting.
+      port.emit('data', modeAnswer(2))
+      jest.advanceTimersByTime(499)
+      expect(stream.outAvailable).toBe(false)
+      jest.advanceTimersByTime(1)
+      expect(stream.outAvailable).toBe(true)
+      expect(written(port)).not.toContain(SET_MODE)
+    })
+
+    test('after our Set Operating Mode is expected, and does not set it again', () => {
+      const port = opened[0]
+      port.emit('open')
+      port.emit('data', modeAnswer(1))
+      jest.advanceTimersByTime(150)
+      port.emit('data', startupStatus('82 0a 0b 00 00 00'))
+      expect(warn).not.toHaveBeenCalled()
+      port.emit('data', modeAnswer(2))
+      jest.advanceTimersByTime(60000)
+      expect(written(port).filter((w: string) => w === SET_MODE)).toHaveLength(
+        1
+      )
       expect(stream.outAvailable).toBe(true)
     })
 
@@ -274,7 +360,7 @@ describe('ActisenseStream open (#502)', () => {
       opened[0].emit('open')
       opened[0].emit('data', startupStatus('82 0a 04'))
       expect(warn).toHaveBeenCalledWith(
-        'actisense: the gateway restarted (firmware 2.690, reset status 0x4); setting it up again'
+        'actisense: the gateway restarted (firmware 2.690, reset status 0x4); reading its settings again'
       )
     })
   })
