@@ -1431,9 +1431,10 @@ function lookup(field: Field, value: number) {
   return name ? name : value
 }
 
-/* The names a lookup gives to more than one code, per enumeration object,
-   so that one changed at runtime (updateLookup) is worked out again. */
-const sharedNamesByEnumeration = new WeakMap<object, Set<string>>()
+/* The names a lookup gives to more than one code, per entry array: an
+   enumeration changed at runtime with updateLookup keeps its object but
+   gets a new entry array, so it is worked out again. */
+const sharedNamesByEntries = new WeakMap<object, Set<string>>()
 
 function sharedLookupNames(field: Field): Set<string> {
   const enumeration: any = field.LookupEnumeration
@@ -1444,10 +1445,10 @@ function sharedLookupNames(field: Field): Set<string> {
   if (!enumeration) {
     return new Set()
   }
-  let shared = sharedNamesByEnumeration.get(enumeration)
+  const entries: any[] =
+    enumeration.EnumValues ?? enumeration.EnumFieldTypeValues ?? []
+  let shared = sharedNamesByEntries.get(entries)
   if (!shared) {
-    const entries: any[] =
-      enumeration.EnumValues ?? enumeration.EnumFieldTypeValues ?? []
     const codes = new Map<string, Set<number>>()
     for (const entry of entries) {
       const name = entry.Name ?? entry.name
@@ -1460,7 +1461,7 @@ function sharedLookupNames(field: Field): Set<string> {
     shared = new Set(
       [...codes].filter(([, values]) => values.size > 1).map(([name]) => name)
     )
-    sharedNamesByEnumeration.set(enumeration, shared)
+    sharedNamesByEntries.set(entries, shared)
   }
   return shared
 }
