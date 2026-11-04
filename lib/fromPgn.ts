@@ -21,6 +21,7 @@ import {
   FieldType,
   createPGN,
   Type,
+  getEnumeration,
   getEnumerationName,
   getBitEnumerationName,
   getFieldTypeEnumerationName,
@@ -1430,7 +1431,54 @@ function lookup(field: Field, value: number) {
     name = getFieldTypeEnumerationName(field.LookupFieldTypeEnumeration, value)
   }
 
+  // A primary-key field whose lookup gives this name to more than one code
+  // is written as its code, as canboat does (canboat#1136): by its name
+  // alone, records of different keys would look the same (#557).
+  if (
+    name &&
+    field.PartOfPrimaryKey &&
+    field.Match === undefined &&
+    sharedLookupNames(field).has(name)
+  ) {
+    return value
+  }
+
   return name ? name : value
+}
+
+/* The names a lookup gives to more than one code, per entry array: an
+   enumeration changed at runtime with updateLookup keeps its object but
+   gets a new entry array, so it is worked out again. */
+const sharedNamesByEntries = new WeakMap<object, Set<string>>()
+
+function sharedLookupNames(field: Field): Set<string> {
+  const enumeration: any = field.LookupEnumeration
+    ? getEnumeration(field.LookupEnumeration)
+    : field.LookupFieldTypeEnumeration
+      ? getFieldTypeEnumeration(field.LookupFieldTypeEnumeration)
+      : undefined
+  if (!enumeration) {
+    return new Set()
+  }
+  const entries: any[] =
+    enumeration.EnumValues ?? enumeration.EnumFieldTypeValues ?? []
+  let shared = sharedNamesByEntries.get(entries)
+  if (!shared) {
+    const codes = new Map<string, Set<number>>()
+    for (const entry of entries) {
+      const name = entry.Name ?? entry.name
+      const code = entry.Value ?? entry.value
+      if (!codes.has(name)) {
+        codes.set(name, new Set())
+      }
+      codes.get(name)!.add(code)
+    }
+    shared = new Set(
+      [...codes].filter(([, values]) => values.size > 1).map(([name]) => name)
+    )
+    sharedNamesByEntries.set(entries, shared)
+  }
+  return shared
 }
 
 /**
