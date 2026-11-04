@@ -185,6 +185,21 @@ describe('the transmit PGN list sync (#504)', () => {
     expect(stream.outAvailable).toBe(true)
   })
 
+  test('a PGN sent while the sync enables it is not warned about', () => {
+    openAndRead([130847, 127508])
+    stream.sendPGN({ pgn: 127508, dst: 255, fields: { instance: 1 } })
+    receive(...SUPPORTED, ...F2)
+    receive(enabled(127508, 0))
+    receive(header(0x01, 1))
+    receive(header(0x4b, 1))
+    expect(stream.outAvailable).toBe(true)
+    // The held frame went out once 127508 was on the list.
+    expect(sent().some((w: string) => w.startsWith('1002' + '94'))).toBe(true)
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining('is not on the')
+    )
+  })
+
   test('a refused Commit To EEPROM is not activated, and output let through', () => {
     openAndRead([127508])
     receive(...SUPPORTED, ...F2)

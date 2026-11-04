@@ -474,22 +474,25 @@ ActisenseStream.prototype.sendPGN = function (this: any, pgn: PGN) {
  * go out in order once it is.
  */
 function sendFrame(that: any, buf: Buffer, actisense: string, pgn: number) {
-  warnIfNotOnTxList(that, pgn)
   if (!that.outAvailable) {
     if (that.held.length < MAX_HELD) {
-      that.held.push({ buf, actisense })
+      that.held.push({ buf, actisense, pgn })
     } else {
       that.debug('holding %d frames already, dropping one', MAX_HELD)
     }
     return
   }
-  writeFrame(that, buf, actisense)
+  writeFrame(that, buf, actisense, pgn)
 }
 
-function writeFrame(that: any, buf: Buffer, actisense: string) {
+/* Write a frame for the bus. Its PGN is checked against the transmit list
+   when it is written, so that one the transmit-list sync has just enabled
+   is not warned about. */
+function writeFrame(that: any, buf: Buffer, actisense: string, pgn: number) {
   if (!that.serial) {
     return
   }
+  warnIfNotOnTxList(that, pgn)
   that.debugOut(buf)
   that.serial.write(buf)
   if (that.options.app.listenerCount('canboatjs:rawsend') > 0) {
@@ -512,7 +515,7 @@ function warnIfNotOnTxList(that: any, pgn: number) {
   }
   if (!known) {
     // Checked once the list has been read: a frame held while the gateway
-    // set up is usually sent before then.
+    // set up is usually written before then.
     that.sentBeforeTxList.add(pgn)
     return
   }
@@ -773,7 +776,9 @@ function updateOutput(that: any) {
       held.length
     )
   }
-  held.forEach(({ buf, actisense }: any) => writeFrame(that, buf, actisense))
+  held.forEach(({ buf, actisense, pgn }: any) =>
+    writeFrame(that, buf, actisense, pgn)
+  )
   if (that.options.app) {
     that.options.app.emit('nmea2000OutAvailable')
   }
