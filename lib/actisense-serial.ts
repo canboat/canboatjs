@@ -144,6 +144,10 @@ const MODE_ANSWER_MS = 2000
    the transmit list is read only once the mode is known. */
 const MODE_RETRY_MS = 1000
 const MODE_TRIES = 3
+/* A gateway that has answered no BEM command yet may still be starting:
+   it is asked for the mode every 5 s, for a minute. */
+const NOT_READY_RETRY_MS = 5000
+const NOT_READY_TRIES = 12
 /* A Startup Status this soon after our Set Operating Mode is the restart it
    causes, not a surprise. */
 const RESTART_AFTER_SET_MS = 2000
@@ -655,26 +659,47 @@ function readGatewaySettings(that: any) {
   askModeAgainLater(that, 1)
 }
 
-/* Ask for the mode again when no answer came, a few times, but only of a
-   gateway that answers BEM commands. */
+/* Ask for the mode again when no answer came. A gateway that answers BEM
+   commands is asked MODE_TRIES times in all, MODE_RETRY_MS apart, then
+   warned about. One that has answered nothing yet may still be starting:
+   it is asked every NOT_READY_RETRY_MS, for NOT_READY_TRIES times. */
 function askModeAgainLater(that: any, tries: number) {
   that.modeAsked = tries
   clearTimeout(that.modeTimer)
-  that.modeTimer = setTimeout(() => {
-    if (that.modeAsked === undefined || !that.bemSeen) {
-      return
-    }
-    if (tries < MODE_TRIES) {
-      that.debug('no answer to Get Operating Mode, asking again')
-      sendNgt(that, GET_OPERATING_MODE_MSG)
-      askModeAgainLater(that, tries + 1)
-    } else {
-      console.warn(
-        'actisense: the gateway does not report its operating mode; not reading its transmit list'
-      )
-      that.modeAsked = undefined
-    }
-  }, MODE_RETRY_MS)
+  const ready = that.bemSeen
+  that.modeTimer = setTimeout(
+    () => {
+      if (that.modeAsked === undefined) {
+        return
+      }
+      if (!that.bemSeen) {
+        if (tries < NOT_READY_TRIES) {
+          that.debug(
+            'no answer from the gateway yet, asking for the mode again'
+          )
+          sendNgt(that, GET_OPERATING_MODE_MSG)
+          askModeAgainLater(that, tries + 1)
+        } else {
+          that.debug('the gateway answers no BEM command')
+          that.modeAsked = undefined
+        }
+        return
+      }
+      // The first answer came meanwhile: count the tries from here.
+      const sent = ready ? tries : 1
+      if (sent < MODE_TRIES) {
+        that.debug('no answer to Get Operating Mode, asking again')
+        sendNgt(that, GET_OPERATING_MODE_MSG)
+        askModeAgainLater(that, sent + 1)
+      } else {
+        console.warn(
+          'actisense: the gateway does not report its operating mode; not reading its transmit list'
+        )
+        that.modeAsked = undefined
+      }
+    },
+    ready ? MODE_RETRY_MS : NOT_READY_RETRY_MS
+  )
 }
 
 /* When the current hold ends at the earliest: 0 when nothing is held. */

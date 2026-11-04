@@ -226,8 +226,24 @@ describe('ActisenseStream open (#502, canboat#1134)', () => {
     const port = opened[0]
     port.emit('open')
     expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE])
+    port.emit('data', modeAnswer(2))
     jest.advanceTimersByTime(60000)
+    // The transmit list is read meanwhile; the mode is neither asked for
+    // again nor set.
+    expect(
+      written(port).filter((w: string) => w === GET_MODE || w === SET_MODE)
+    ).toEqual([GET_MODE])
+  })
+
+  test('a gateway that answers nothing yet is asked for the mode every 5 s, for a minute', () => {
+    const port = opened[0]
+    port.emit('open')
+    jest.advanceTimersByTime(4999)
     expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE])
+    jest.advanceTimersByTime(1)
+    expect(written(port)).toEqual([GET_PRODUCT_INFO, GET_MODE, GET_MODE])
+    jest.advanceTimersByTime(120000)
+    expect(written(port).filter((w: string) => w === GET_MODE)).toHaveLength(12)
   })
 
   test('a gateway in NGT Transfer Rx All Mode is not set, and output goes out at once', () => {
@@ -296,7 +312,8 @@ describe('ActisenseStream open (#502, canboat#1134)', () => {
       port.emit('open')
       // The gateway answers BEM commands, but not Get Operating Mode.
       port.emit('data', bem(0x41, '34 08 27 6e 02 01'))
-      jest.advanceTimersByTime(1000)
+      // The first retry is on the timer set at open, the others 1 s apart.
+      jest.advanceTimersByTime(5000)
       jest.advanceTimersByTime(1000)
       jest.advanceTimersByTime(1000)
       expect(written(port).filter((w: string) => w === GET_MODE)).toHaveLength(
