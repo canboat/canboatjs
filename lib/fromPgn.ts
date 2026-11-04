@@ -1242,91 +1242,106 @@ function variantByParameters(
 }
 
 /** A definition's field by index, a repeating set's index wrapped. */
-function fieldAt(def: Definition, index: number): Field | null {
-  if (index >= 0 && index < def.Fields.length) {
-    return def.Fields[index]
+/**
+ * The field a group function's parameter `order` (1-based) addresses in
+ * `def`, as canboat's parameter_field: a fixed field by its order, or past
+ * them, a field of the repeating set, when the definition has one set and
+ * it ends the definition (canboat#1132). With two sets the number alone
+ * does not say which set it is in.
+ */
+export function parameterField(def: Definition, order: number): Field | null {
+  const fixed = def.Fields.length
+  if (order < 1) {
+    return null
   }
-  const repeating = def.RepeatingFieldSet1Size ?? 0
-  if (repeating && index >= 0) {
-    const start = def.Fields.length - repeating
-    return def.Fields[start + ((index - start) % repeating)]
+  if (order <= fixed) {
+    return def.Fields[order - 1] ?? null
   }
-  return null
+  const start = (def as any).RepeatingFieldSet1StartField as number | undefined
+  const count = def.RepeatingFieldSet1Size ?? 0
+  if (
+    start === undefined ||
+    count === 0 ||
+    (def.RepeatingFieldSet2Size ?? 0) > 0 ||
+    start + count - 1 !== fixed
+  ) {
+    return null
+  }
+  return def.Fields[((order - start) % count) + start - 1] ?? null
 }
 
-export function getField(pgn_number: number, index: number, data: any) {
-  let pgnList = getPgn(pgn_number)
-  if (pgnList) {
-    pgnList = pgnList.filter(
-      (pgn: any) => pgn.Fallback === undefined || pgn.Fallback === false
-    )
+/* The field the 0-based parameter `index` addresses in `def`. */
+function fieldAt(def: Definition, index: number): Field | null {
+  return parameterField(def, index + 1)
+}
 
-    let pgn = pgnList[0]
-    const dataList = data.list ? data.list : data.fields.list
+/**
+ * The definition of `target` that a group function's parameters address,
+ * as canboat resolves it: the variant the parameter pairs select, else the
+ * range's catch-all, else the leading definition (canboat#1131). Not the
+ * leading definition first: for a proprietary target that is somebody's
+ * variant, so a message read with the catch-all would not write back.
+ */
+export function targetDefinition(
+  target: number,
+  data: any
+): Definition | undefined {
+  const list = data?.list ?? data?.fields?.list ?? []
+  return (
+    matchTargetVariant(target, list) ??
+    findFallBackPGN(target) ??
+    getPgn(target)?.[0]
+  )
+}
 
-    // As canboat's encoder: parameters that don't narrow the variant
-    // address the leading definition, which for 126720 is its catch-all. A
-    // proprietary PGN is only narrowed by Manufacturer then Industry.
-    const leading = getPgn(pgn_number)![0]
-    const param = (i: number) =>
-      dataList[i]?.parameter ?? dataList[i]?.Parameter
-    if (
-      pgnList.length > 1 &&
-      isPGNProprietary(pgn_number) &&
-      !(param(0) === 1 && param(1) === 3)
-    ) {
-      pgnList = [leading]
-      pgn = leading
-    }
-
-    if (pgnList.length > 1) {
-      let idx = 0
-      while (idx < pgn.Fields.length) {
-        const field = pgn.Fields[idx]
-        const hasMatch = !_.isUndefined(field.Match)
-        if (hasMatch && dataList.length > 0) {
-          const param = dataList.find((f: any) => {
-            const param = f.parameter !== undefined ? f.parameter : f.Parameter
-            return param === idx + 1
-          })
-
-          if (param) {
-            const value = param.value !== undefined ? param.value : param.Value
-
-            pgnList = pgnList.filter((f) => {
-              return (
-                f.Fields[idx].Match == value ||
-                (typeof value === 'string' && isMatchName(f.Fields[idx], value))
-              )
-            })
-            if (pgnList.length == 0) {
-              pgn = leading
-              break
-            } else {
-              pgn = pgnList[0]
-            }
-          }
-        }
-        idx++
-      }
-    }
-
-    if (index >= 0 && index < pgn.Fields.length) {
-      return pgn.Fields[index]
-    }
-
-    const RepeatingFields = pgn.RepeatingFieldSet1Size
-      ? pgn.RepeatingFieldSet1Size
-      : 0
-    if (RepeatingFields) {
-      const startOfRepeatingFields = pgn.Fields.length - RepeatingFields
-      index =
-        startOfRepeatingFields +
-        ((index - startOfRepeatingFields) % RepeatingFields)
-      return pgn.Fields[index]
-    }
+function matchTargetVariant(
+  target: number,
+  list: any[]
+): Definition | undefined {
+  const variants = (getPgn(target) ?? []).filter(
+    (def: any) => def.Fallback !== true
+  )
+  const first = variants[0]
+  if (first === undefined) {
+    return undefined
   }
-  return null
+  if (!first.Fields.some((field) => field.Match !== undefined)) {
+    return first
+  }
+  const pairs: [number, any][] = list.map((entry: any) => [
+    entry.parameter ?? entry.Parameter,
+    entry.value ?? entry.Value
+  ])
+  // A proprietary target is only narrowed by Manufacturer (field 1) then
+  // Industry Code (field 3); without them nothing is guessed.
+  if (
+    isPGNProprietary(target) &&
+    !(pairs.length >= 2 && pairs[0][0] === 1 && pairs[1][0] === 3)
+  ) {
+    return undefined
+  }
+  return variants.find((def) =>
+    pairs.every(([order, value]) => {
+      const field = order ? parameterField(def, order) : null
+      if (!field) {
+        return false
+      }
+      return (
+        field.Match === undefined ||
+        field.Match == value ||
+        (typeof value === 'string' && isMatchName(field, value))
+      )
+    })
+  )
+}
+
+/**
+ * The field the 0-based parameter `index` of a group function for
+ * `pgn_number` addresses, in the definition its parameters select.
+ */
+export function getField(pgn_number: number, index: number, data: any) {
+  const def = targetDefinition(pgn_number, data)
+  return def ? parameterField(def, index + 1) : null
 }
 
 /**
