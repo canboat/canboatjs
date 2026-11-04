@@ -116,6 +116,19 @@ describe('a 0 in a 24- or 48-bit field', () => {
   })
 })
 
+describe('a value at its RangeMax', () => {
+  it('is read, and written back', () => {
+    // merrimac-2022.raw: a heave of 327.64 m is the raw 0x7ffc, the field's
+    // RangeMax, which 327.64 / 0.01 = 32763.999... put just out of range.
+    // canboat reads it.
+    const { pgn, want, got } = roundTrip(
+      '2022-09-10T12:08:17.628Z,3,127252,20,255,8,00,fc,7f,ff,ff,ff,7f,fd'
+    )
+    pgn.fields.heave.should.equal(327.64)
+    got.should.equal(want)
+  })
+})
+
 describe('a BINARY field given as hex bytes', () => {
   it('ending a multi-frame message, is written as long as given, as canboat does', () => {
     // raymarine-ev1.raw: the message ends after two bytes of unknown2, a
