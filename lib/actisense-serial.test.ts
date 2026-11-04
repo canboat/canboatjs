@@ -547,6 +547,7 @@ function makeSendInstance(): SendTestHarness {
   instance.debug = () => {}
   instance.held = []
   instance.warnedNotOnTxList = new Set()
+  instance.sentBeforeTxList = new Set()
 
   return { instance, app, writes, rawSends }
 }

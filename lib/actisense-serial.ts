@@ -208,8 +208,10 @@ export function ActisenseStream(this: any, options: any) {
     console.warn(`actisense: pcode: ${err.message}; leaving the P-Codes alone`)
     this.pcodeRequest = { keep: true }
   }
-  // The PGNs warned about as missing from the gateway's transmit list.
+  // The PGNs warned about as missing from the gateway's transmit list, and
+  // those sent before it was read.
   this.warnedNotOnTxList = new Set()
+  this.sentBeforeTxList = new Set()
 
   this.start()
 }
@@ -505,7 +507,13 @@ function writeFrame(that: any, buf: Buffer, actisense: string) {
  */
 function warnIfNotOnTxList(that: any, pgn: number) {
   const known = that.txKnown
-  if (!known || !Number.isFinite(pgn) || that.warnedNotOnTxList.has(pgn)) {
+  if (!Number.isFinite(pgn) || that.warnedNotOnTxList.has(pgn)) {
+    return
+  }
+  if (!known) {
+    // Checked once the list has been read: a frame held while the gateway
+    // set up is usually sent before then.
+    that.sentBeforeTxList.add(pgn)
     return
   }
   if (known.pgns.includes(storedPgn(pgn))) {
@@ -1357,6 +1365,10 @@ function f2Pgns(that: any, tx: any): number[] | undefined {
 function onTxList(that: any, have: number[], complete: boolean) {
   that.debug('tx pgns: %j', have)
   that.txKnown = { pgns: [...have], complete }
+  // The PGNs sent before the list was known.
+  const sent = [...that.sentBeforeTxList]
+  that.sentBeforeTxList.clear()
+  sent.forEach((pgn: number) => warnIfNotOnTxList(that, pgn))
   if (that.options.disableSetTransmitPGNs) {
     finishTxList(that)
     return

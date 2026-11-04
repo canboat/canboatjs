@@ -152,10 +152,18 @@ describe('the NGT-1 set up as canboat does', () => {
       expect(warn).not.toHaveBeenCalled()
     })
 
-    test('nothing is warned about before the list is read', () => {
+    test('a PGN sent before the list is read is warned about once it is', () => {
       open({ pcode: 'keep' })
+      sent()
       stream.sendPGN({ pgn: 127250, dst: 255, fields: { heading: 1 } })
+      stream.sendPGN({ pgn: 59904, dst: 255, fields: { pgn: 60928 } })
       expect(warn).not.toHaveBeenCalled()
+      jest.advanceTimersByTime(2000)
+      receive(...f1([59904]))
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(warn.mock.calls[0][0]).toMatch(
+        /^actisense: PGN 127250 is not on the NGT-1's transmit list as read/
+      )
     })
   })
 
