@@ -147,6 +147,11 @@ export const parseActisense = (input: string) => {
   if (!allInts([prio, pgn, src, dst, len], 10)) {
     return buildErr('Actisense', 'Invalid header.', input)
   }
+  // No PGN has a message without data: a line that ends at its length is
+  // a broken one, which canboat skips too (#570).
+  if (Number(len) === 0) {
+    return buildErr('Actisense', 'No data.', input)
+  }
   // A line cut short has fewer data bytes than it says: an error, rather than
   // a message decoded from the bytes that are left.
   if (data.length < Number(len) || !allInts(data.slice(0, Number(len)), 16)) {

@@ -368,3 +368,25 @@ describe('a message shorter than its PGN, ending before a BITLOOKUP field', () =
     expect(errors[0].message).toMatch(/^Invalid data\./)
   })
 })
+
+describe('a line whose length is 0 (#570)', () => {
+  // No PGN has a message without data: a logger wrote a broken line, which
+  // canboat skips. It gives no message, and the lines after it decode.
+  it('gives no message, but an error', () => {
+    const parser = new FromPgn({ useCamel: true })
+    const errors: unknown[] = []
+    parser.on('error', (_pgn: unknown, error: unknown) => errors.push(error))
+    expect(
+      parser.parseString('2020-08-22T13:52:43.993Z,7,65301,255,0,0')
+    ).toBeUndefined()
+    expect(
+      parser.parseString('2016-04-09T16:41:09.092Z,3,126208,32,255,0')
+    ).toBeUndefined()
+    expect(errors).toHaveLength(2)
+    expect(
+      parser.parseString(
+        '2016-04-09T16:41:31.214Z,3,126208,32,255,19,00,01,ff,01,ff,ff,ff,ff,ff,ff,03,01,13,01,03,04,04,80,bd'
+      )?.fields
+    ).toMatchObject({ functionCode: 'Request', pgn: 130817 })
+  })
+})
