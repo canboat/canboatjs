@@ -777,9 +777,18 @@ function indirectLookupValue(
   data: any,
   name: string
 ) {
-  // A code given as text is the code.
+  // A code given as text is the code, if it fits the field: one that does
+  // not would be written as some other code.
   if (name.trim() !== '' && !Number.isNaN(Number(name))) {
-    return Number(name)
+    const code = Number(name)
+    const max =
+      field.BitLength !== undefined ? 2 ** field.BitLength - 1 : Infinity
+    if (!Number.isInteger(code) || code < 0 || code > max) {
+      throw new Error(
+        `field '${field.Name}': ${name} is not a code of its ${field.BitLength} bits`
+      )
+    }
+    return code
   }
   const keyField = fields.find(
     (f) => f.Order === field.LookupIndirectEnumerationFieldOrder

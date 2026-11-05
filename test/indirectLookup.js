@@ -90,4 +90,12 @@ describe('INDIRECT_LOOKUP fields', () => {
     pgn.fields.deviceFunction = '175'
     hex(pgn).should.equal('ef04e0b300af78c0')
   })
+
+  it('refuses a code given as text that does not fit the field', () => {
+    const pgn = decode(claim)
+    for (const text of ['256', '-1', '17.5']) {
+      pgn.fields.deviceFunction = text
+      ;(() => toPgn(pgn)).should.throw(/is not a code of its 8 bits/)
+    }
+  })
 })
