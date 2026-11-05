@@ -108,6 +108,9 @@ export function toPgn(data: any): Buffer | undefined {
   if (data.fields) {
     data = data.fields
   }
+  // canboat's --nv form gives a value as {value, name}: read it as the
+  // value it holds (#574). A copy, so the caller's message is left as it is.
+  data = fromNvForm(data)
 
   // Pick the definition before writing anything: each definition names its
   // fields its own way (129808's distress and general calls), so a value
@@ -818,6 +821,72 @@ function indirectLookupValue(
     )
   }
   return code
+}
+
+/**
+ * A message's fields with canboat's --nv form (`canboat convert --nv`,
+ * `analyzer -nv`) read as canboatjs gives them, in the message and in its
+ * repeating sets (#574):
+ * - `{"value": 2, "name": "Apparent"}`, a lookup, an indirect lookup, a
+ *   PGN, a dynamic key or a number, often with `"key": true`: its value,
+ *   the code or number canboatjs writes;
+ * - a date, `{"value": 20612, "name": "2026.06.08"}`: its name, the form
+ *   canboatjs gives a date in;
+ * - a bit lookup, a list of `{"value": mask, "name": ...}`: the list of
+ *   its bits by name, or by mask where the lookup has no name, as in
+ *   canboat's plain form.
+ * Anything else is left as it is.
+ */
+function fromNvForm(fields: any): any {
+  if (fields === null || typeof fields !== 'object' || Array.isArray(fields)) {
+    return fields
+  }
+  const out: any = {}
+  for (const [key, value] of Object.entries(fields)) {
+    if ((key === 'list' || key === 'list2') && Array.isArray(value)) {
+      out[key] = value.map((record) => fromNvForm(record))
+    } else {
+      out[key] = fromNvValue(value)
+    }
+  }
+  return out
+}
+
+const NV_DATE = /^\d{4}\.\d{2}\.\d{2}$/
+
+/** One field's value in canboat's --nv form, as canboatjs gives it. */
+function fromNvValue(value: any): any {
+  if (Array.isArray(value)) {
+    // A bit lookup's set bits, each with its mask.
+    if (
+      value.length > 0 &&
+      value.every(
+        (bit) =>
+          bit !== null &&
+          typeof bit === 'object' &&
+          typeof bit.value === 'number'
+      )
+    ) {
+      // As in canboat's plain form, which toPgn writes: each bit by its
+      // name, or by its mask when the lookup does not name it. A list,
+      // not the masks OR-ed together, which would lose the bits of a
+      // field wider than 32 (130820 Fusion System Capabilities).
+      return value.map((bit) => bit.name ?? bit.value)
+    }
+    return value
+  }
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    _.isBuffer(value) ||
+    !('value' in value)
+  ) {
+    return value
+  }
+  if (typeof value.name === 'string' && NV_DATE.test(value.name)) {
+    return value.name
+  }
+  return value.value
 }
 
 function lookup(field: Field, stringValue: string) {
