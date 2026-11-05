@@ -478,9 +478,9 @@ function writeField(
       typeof value === 'string' &&
       typeof given === 'number'
     ) {
-      // A 64-bit count worked out in decimal (decimalCount) is checked as
-      // a number, as close as the range is; its digits are what is written.
-      checkRange(field, given, Number(value))
+      // A 64-bit count worked out in decimal (decimalCount) is checked
+      // against bounds worked out the same way; its digits are written.
+      checkDecimalRange(field, given, value)
     }
 
     if (field.FieldType && fieldTypeWriters[field.FieldType]) {
@@ -688,6 +688,48 @@ function checkRange(field: Field, given: number, raw: number) {
     )
     throw new Error(
       `field '${field.Name}': value ${given} is outside its range ${min} to ${max}`
+    )
+  }
+}
+
+/**
+ * checkRange for a 64-bit count given as its digits (decimalCount): the
+ * range's bounds are worked out in decimal too, as the count is, and with
+ * the bits, compared as bigints. A field with an Offset is checked as a
+ * number, as before.
+ */
+function checkDecimalRange(field: Field, given: number, digits: string) {
+  const resolution = Number(field.Resolution ?? 1)
+  const bound = (v: unknown) => {
+    if (v === undefined) {
+      return undefined
+    }
+    const d = decimalCount(Number(v), resolution)
+    return d === undefined ? undefined : BigInt(d)
+  }
+  const min = bound(field.RangeMin)
+  const max = bound(field.RangeMax)
+  if (
+    field.Offset ||
+    (field.RangeMin !== undefined && min === undefined) ||
+    (field.RangeMax !== undefined && max === undefined)
+  ) {
+    checkRange(field, given, Number(digits))
+    return
+  }
+  const count = BigInt(digits)
+  const bits = BigInt(field.BitLength ?? 64)
+  const signed = !!field.Signed
+  const bitsMin = signed ? -(1n << (bits - 1n)) : 0n
+  const bitsMax = signed ? (1n << (bits - 1n)) - 1n : (1n << bits) - 1n
+  if (
+    count < bitsMin ||
+    count > bitsMax ||
+    (min !== undefined && count < min) ||
+    (max !== undefined && count > max)
+  ) {
+    throw new Error(
+      `field '${field.Name}': value ${given} is outside its range ${field.RangeMin} to ${field.RangeMax}`
     )
   }
 }

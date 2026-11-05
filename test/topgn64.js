@@ -55,6 +55,68 @@ describe('toPgn and the range of a 64-bit count', function () {
   })
 })
 
+describe('toPgn and the decimal bounds of a 64-bit count', function () {
+  const PropertyValues = require('@signalk/server-api').PropertyValues
+  const { FromPgn: Parser } = require('../dist/index')
+  // A custom field whose RangeMin is not a whole number of steps as a
+  // number divides it: 1.00000000000014 / 1e-16 is ...1402 that way, and
+  // 10000000000001400 in decimal, as the value's count is.
+  const definitions = {
+    PGNs: [
+      {
+        PGN: 127995,
+        Id: 'testDecimalBounds',
+        Description: 'Test: decimal bounds',
+        Type: 'Single',
+        Complete: true,
+        Length: 8,
+        Fields: [
+          {
+            Order: 1,
+            Id: 'value',
+            Name: 'Value',
+            BitLength: 64,
+            BitOffset: 0,
+            BitStart: 0,
+            FieldType: 'NUMBER',
+            Resolution: 1e-16,
+            Signed: true,
+            RangeMin: 1.00000000000014,
+            RangeMax: 2
+          }
+        ]
+      }
+    ]
+  }
+  before(function () {
+    const propertyValues = new PropertyValues()
+    propertyValues.emitPropertyValue({
+      timestamp: Date.now(),
+      setter: 'decimalBounds',
+      name: 'canboat-custom-pgns',
+      value: definitions
+    })
+    new Parser({
+      onPropertyValues: (name, cb) => propertyValues.onPropertyValues(name, cb)
+    })
+  })
+
+  it('takes a value at RangeMin', function () {
+    ;(() =>
+      toPgn({
+        pgn: 127995,
+        fields: { value: 1.00000000000014 }
+      })).should.not.throw()
+  })
+
+  it('refuses one below it', function () {
+    ;(() =>
+      toPgn({ pgn: 127995, fields: { value: 1.00000000000013 } })).should.throw(
+      /outside its range/
+    )
+  })
+})
+
 describe('toPgn and a STRING_LZ', function () {
   it('writes one not given as its length byte alone', function () {
     // 130847 Navico ASCII Identifier, empty: 13 99 00, as canboat writes it.
