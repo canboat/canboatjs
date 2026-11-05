@@ -1657,11 +1657,9 @@ function convertField(
         runPostProcessor &&
         (_.isUndefined(options.resolveEnums) || options.resolveEnums)
       ) {
-        if (field.Id === 'timeStamp' && value < 60) {
-          value = value.toString()
-        } else {
-          value = lookup(field, value)
-        }
+        // An unnamed value is its number, as canboat gives it: an AIS
+        // time stamp of 0-59 is the UTC second (#565).
+        value = lookup(field, value)
       }
 
       /*

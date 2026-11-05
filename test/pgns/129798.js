@@ -14,7 +14,7 @@ module.exports = [
         latitude: 39.6475617,
         positionAccuracy: 'High',
         raim: 'in use',
-        timeStamp: '10',
+        timeStamp: 10,
         cog: 2.227,
         sog: 694.4,
         communicationState: 33188,
