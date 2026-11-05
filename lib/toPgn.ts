@@ -152,7 +152,10 @@ export function toPgn(data: any): Buffer | undefined {
         if (field.Match === undefined) {
           return true
         }
-        const value = data[field.Name] ?? data[field.Id]
+        // Read as selectDefinition and the writer read it: an explicit
+        // null is given, and contradicts the variant's value.
+        const value =
+          data[field.Name] !== undefined ? data[field.Name] : data[field.Id]
         return (
           value === undefined ||
           (_.isString(value) ? isMatchName(field, value) : field.Match == value)
@@ -404,7 +407,8 @@ function givesMatchValues(pgnList: Definition[], data: any): boolean {
     pgn.Fields.some(
       (field) =>
         field.Match !== undefined &&
-        (data[field.Name] ?? data[field.Id]) !== undefined
+        (data[field.Name] !== undefined ? data[field.Name] : data[field.Id]) !==
+          undefined
     )
   )
 }

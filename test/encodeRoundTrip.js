@@ -371,6 +371,21 @@ describe('a message decoded with a catch-all', () => {
     Buffer.from(data).toString('hex').slice(0, 4).should.equal('3b9f')
   })
 
+  it('takes an explicit null match value as given, not as left out', () => {
+    // industryCode null contradicts every 126720 Raymarine variant (4), as
+    // selectDefinition reads it: no variant is chosen and filled in with 4.
+    const data = toPgn({
+      pgn: 126720,
+      fields: {
+        manufacturerCode: 'Raymarine',
+        industryCode: null,
+        proprietaryId: 'Seatalk 1 Encoded',
+        command: 'Seatalk1'
+      }
+    })
+    Buffer.from(data).toString('hex').slice(0, 4).should.not.equal('3b9f')
+  })
+
   it('is written with the catch-all when every variant is contradicted', () => {
     // canboat's JSON of a 130817 from manufacturer 256, which no 130817
     // variant is for: susteranna2020.raw.
