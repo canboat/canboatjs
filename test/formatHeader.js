@@ -49,4 +49,21 @@ describe('a # format= header', function () {
       .map((pgn) => pgn.description)
       .should.deep.equal(['B&G: key-value data'])
   })
+
+  it('does not make a frame handed to parsePgnData a whole message', function () {
+    // The header speaks for the lines parseString reads, not for data
+    // parsePgnData is told is a frame.
+    const parser = new FromPgn({ useCamel: true })
+    parser.parseString('# format=FAST')
+    const frame = Buffer.from('a399' + '5c800000', 'hex')
+    ;(
+      parser.parsePgnData(
+        { pgn: 130820, prio: 7, src: 51, dst: 255 },
+        frame.length,
+        frame,
+        false,
+        undefined
+      ) === undefined
+    ).should.equal(true)
+  })
 })

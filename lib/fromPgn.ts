@@ -135,8 +135,11 @@ export class Parser extends EventEmitter {
   devices: { [key: number]: { [key: number]: any } }
   private reassembler: Reassembler
   mixedFormat: boolean
-  // A `# format=` header said the lines are whole messages (#569).
+  // A `# format=` header said the lines are whole messages (#569). It
+  // speaks for the lines parseString reads, which readingLine marks, not for
+  // what parsePgnData is handed and told is a frame or not.
   headerCoalesced = false
+  readingLine = false
   // PGNs dropped before reassembly and decoding (excludePgns).
   private excludedPgns: Set<number>
 
@@ -259,7 +262,7 @@ export class Parser extends EventEmitter {
     if (
       coalesced ||
       len > 0x8 ||
-      (!rawFrame && this.headerCoalesced) ||
+      (!rawFrame && this.headerCoalesced && this.readingLine) ||
       (!rawFrame && this.format == FORMAT_COALESCED && !this.mixedFormat)
     ) {
       this.format = FORMAT_COALESCED
@@ -1126,7 +1129,6 @@ export class Parser extends EventEmitter {
       const header = /^#\s*format=(\S+)/.exec(pgn_data)
       if (header) {
         this.headerCoalesced = !FRAME_FORMATS.has(header[1].toUpperCase())
-        this.format = this.headerCoalesced ? FORMAT_COALESCED : FORMAT_PLAIN
       }
       return
     }
@@ -1146,15 +1148,21 @@ export class Parser extends EventEmitter {
       delete pgn.format
       delete pgn.type
       delete pgn.prefix
-      const res = this._parse(
-        pgn,
-        bs,
-        len || data.length,
-        coalesced,
-        cb,
-        pgn_data,
-        rawFrame
-      )
+      this.readingLine = true
+      let res
+      try {
+        res = this._parse(
+          pgn,
+          bs,
+          len || data.length,
+          coalesced,
+          cb,
+          pgn_data,
+          rawFrame
+        )
+      } finally {
+        this.readingLine = false
+      }
       if (res) {
         debug('parsed pgn %j', pgn)
       }
