@@ -548,7 +548,7 @@ export class Parser extends EventEmitter {
             const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
             if (data.length > 0) {
               const buf = Buffer.from(data)
-              ;(pgn.fields as any).data = byteString(buf, ' ')
+              ;(pgn.fields as any).data = binaryText(buf)
               setByteMapping(buf)
             }
 
@@ -812,7 +812,7 @@ export class Parser extends EventEmitter {
           const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
           if (data.length > 0) {
             const buf = Buffer.from(data)
-            ;(res.fields as any).data = byteString(buf, ' ')
+            ;(res.fields as any).data = binaryText(buf)
             //setByteMapping(buf)
           }
         }
@@ -1561,6 +1561,16 @@ function readField(
     ) {
       value = null
     }
+    // What is left in a reserved or spare field is shown as its bytes, as
+    // canboat prints it ("26 02 FF"), not as a number (#572).
+    if (
+      runPostProcessor &&
+      (field.FieldType === 'RESERVED' || field.FieldType === 'SPARE') &&
+      field.BitLength !== undefined &&
+      (typeof value === 'number' || typeof value === 'bigint')
+    ) {
+      value = hexOfBits(value, field.BitLength)
+    }
     if (
       field.FieldType === 'DYNAMIC_FIELD_KEY' ||
       field.FieldType === 'DYNAMIC_FIELD_LENGTH'
@@ -1587,6 +1597,20 @@ function readField(
   } else {
     return [value, refField, bm]
   }
+}
+
+/** Binary data as canboat prints it: upper-case hex bytes (#572). */
+const binaryText = (data: Buffer) => byteString(data, ' ').toUpperCase()
+
+/** A field's bits as its bytes in hex, low byte first, as canboat prints them. */
+function hexOfBits(value: number | bigint, bitLength: number): string {
+  let rest = BigInt(value)
+  const bytes: string[] = []
+  for (let i = 0; i < Math.ceil(bitLength / 8); i++) {
+    bytes.push((rest & 0xffn).toString(16).padStart(2, '0').toUpperCase())
+    rest >>= 8n
+  }
+  return bytes.join(' ')
 }
 
 function convertField(
@@ -1784,7 +1808,7 @@ function readValue(
       ) {
         bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
         const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
-        return [byteString(Buffer.from(data), ' '), undefined]
+        return [binaryText(Buffer.from(data)), undefined]
       } else if (bitLength === 8) {
         if (signed) {
           value = bs.readInt8()
@@ -1875,15 +1899,7 @@ function readValue(
           }
         }
 
-        value = bs.readArrayBuffer(bitLength / 8) //, field.Signed)
-        const arr: string[] = []
-        value = new Uint32Array(value)
-          .reduce(function (acc, i) {
-            acc.push(i.toString(16))
-            return acc
-          }, arr)
-          .map((x) => (x.length === 1 ? '0' + x : x))
-          .join(' ')
+        value = binaryText(Buffer.from(bs.readArrayBuffer(bitLength / 8)))
 
         return [value, undefined]
       }
@@ -2032,7 +2048,7 @@ function readVariableLengthField(
     ) {
       const bytes = Math.floor(bs.bitsLeft / 8)
       const buf = Buffer.from(bs.readArrayBuffer(bytes))
-      return [byteString(buf, ' '), refField]
+      return [binaryText(buf), refField]
     }
 
     if (refField) {
@@ -2485,7 +2501,7 @@ function readDynamicBinaryValue(raw: number, bits: number): string {
   for (let i = 0; i < Math.ceil(bits / 8); i++) {
     bytes.push(Math.floor(raw / 2 ** (8 * i)) & 0xff)
   }
-  return byteString(Buffer.from(bytes), ' ')
+  return binaryText(Buffer.from(bytes))
 }
 
 function readDynamicBinary(bs: BitStream, bits: number): string | null {
@@ -2494,7 +2510,7 @@ function readDynamicBinary(bs: BitStream, bits: number): string | null {
   if (bits % 8 > 0) {
     bs.readBits(bits % 8, false)
   }
-  return bytes > 0 ? byteString(data, ' ') : null
+  return bytes > 0 ? binaryText(data) : null
 }
 
 function scaleDynamicNumber(raw: number, entry: DynamicFieldType): number {

@@ -27,7 +27,7 @@ describe('reserved and spare fields', function () {
   })
 
   it('shows a 1-bit reserved field that is clear', function () {
-    decode(xantrex('7f')).reserved9.should.equal(0)
+    decode(xantrex('7f')).reserved9.should.equal('00')
   })
 
   it('leaves out a spare field that is clear', function () {
@@ -35,12 +35,38 @@ describe('reserved and spare fields', function () {
   })
 
   it('shows a spare field that is set', function () {
-    decode(claim('a1')).spare.should.equal(1)
+    decode(claim('a1')).spare.should.equal('01')
   })
 
   it('writes a spare field without a value as zeros', function () {
     Buffer.from(toPgn({ pgn: 60928, fields: decode(claim('a0')) }))
       .toString('hex')
       .should.equal('4a2a1f00ff82a0c0')
+  })
+})
+
+describe('a reserved field shown as its bytes (#572)', function () {
+  // 127251 Rate of Turn: reserved is the last 24 bits.
+  const rot =
+    '2026-07-10T06:27:57.513Z,2,127251,27,255,8,ff,8c,f4,fe,ff,26,02,ff'
+
+  it('gives its bytes low first, as canboat prints them', function () {
+    decode(rot).reserved.should.equal('26 02 FF')
+  })
+
+  it('writes them back', function () {
+    Buffer.from(toPgn({ pgn: 127251, fields: decode(rot) }))
+      .toString('hex')
+      .should.equal('ff8cf4feff2602ff')
+  })
+
+  it('still writes a reserved field given as a number', function () {
+    const fields = {
+      ...decode(rot),
+      reserved: 0x26 | (0x02 << 8) | (0xff << 16)
+    }
+    Buffer.from(toPgn({ pgn: 127251, fields }))
+      .toString('hex')
+      .should.equal('ff8cf4feff2602ff')
   })
 })
