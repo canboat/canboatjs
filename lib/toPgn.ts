@@ -473,6 +473,14 @@ function writeField(
 
     if (field.FieldType === 'NUMBER' && typeof value === 'number') {
       checkRange(field, given, value)
+    } else if (
+      field.FieldType === 'NUMBER' &&
+      typeof value === 'string' &&
+      typeof given === 'number'
+    ) {
+      // A 64-bit count worked out in decimal (decimalCount) is checked as
+      // a number, as close as the range is; its digits are what is written.
+      checkRange(field, given, Number(value))
     }
 
     if (field.FieldType && fieldTypeWriters[field.FieldType]) {

@@ -45,6 +45,16 @@ describe('toPgn and 64-bit values', function () {
   })
 })
 
+describe('toPgn and the range of a 64-bit count', function () {
+  it('refuses a longitude outside its range, worked out in decimal too', function () {
+    ;(() =>
+      toPgn({
+        pgn: 129029,
+        fields: { sid: 0, latitude: 1, longitude: 181 }
+      })).should.throw(/Longitude/)
+  })
+})
+
 describe('toPgn and a STRING_LZ', function () {
   it('writes one not given as its length byte alone', function () {
     // 130847 Navico ASCII Identifier, empty: 13 99 00, as canboat writes it.
