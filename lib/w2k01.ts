@@ -39,11 +39,12 @@ const N2K_ACTISENSE = 1
 /**
  * An Actisense W2K-1 gateway, in N2K ASCII or Actisense (`type`) format.
  *
- * In N2K ASCII format, frames to send arrive as app events: Actisense
+ * In either format, frames to send arrive as app events: Actisense
  * strings or canboat JSON on `options.outEvent` (default `nmea2000out`),
  * canboat JSON on `options.jsonOutEvent` (default `nmea2000JsonOut`); both
- * take a comma-separated list. The encoded output goes to the transport on
- * `options.txEvent`, else the `outEvent` argument (default `w2k-1-out`).
+ * take a comma-separated list. They are encoded as N2K ASCII lines or as
+ * BST-D0 messages, and go to the transport on `options.txEvent`, else the
+ * `outEvent` argument (default `w2k-1-out`).
  */
 export function W2K01Stream(
   this: any,
@@ -70,40 +71,40 @@ export function W2K01Stream(
 
   this.format = type === 'ascii' ? N2K_ASCII : N2K_ACTISENSE
 
-  if (this.format === N2K_ASCII) {
-    if (options.app) {
-      const outEvents = listenEvents(
-        this.options.outEvent,
-        'nmea2000out',
-        this.outEvent
-      )
-      outEvents.forEach((event: string) => {
-        subscribeApp(this, options.app, event, (msg: string) => {
-          if (typeof msg === 'string') {
-            this.sendW2KPGN(msg)
-          } else {
-            this.sendPGN(msg)
-          }
-          options.app.emit('connectionwrite', {
-            providerId: options.providerId
-          })
-        })
-      })
-
-      const jsonOutEvents = listenEvents(
-        options.jsonOutEvent,
-        'nmea2000JsonOut',
-        this.outEvent
-      )
-      jsonOutEvents.forEach((event: string) => {
-        subscribeApp(this, options.app, event, (msg: PGN) => {
+  // Output is subscribed in both formats; sendPGN and sendW2KPGN encode it
+  // as N2K ASCII or as BST-D0 (#511).
+  if (options.app) {
+    const outEvents = listenEvents(
+      this.options.outEvent,
+      'nmea2000out',
+      this.outEvent
+    )
+    outEvents.forEach((event: string) => {
+      subscribeApp(this, options.app, event, (msg: string) => {
+        if (typeof msg === 'string') {
+          this.sendW2KPGN(msg)
+        } else {
           this.sendPGN(msg)
-          options.app.emit('connectionwrite', {
-            providerId: options.providerId
-          })
+        }
+        options.app.emit('connectionwrite', {
+          providerId: options.providerId
         })
       })
-    }
+    })
+
+    const jsonOutEvents = listenEvents(
+      options.jsonOutEvent,
+      'nmea2000JsonOut',
+      this.outEvent
+    )
+    jsonOutEvents.forEach((event: string) => {
+      subscribeApp(this, options.app, event, (msg: PGN) => {
+        this.sendPGN(msg)
+        options.app.emit('connectionwrite', {
+          providerId: options.providerId
+        })
+      })
+    })
   }
 
   this.debug('started')
@@ -156,7 +157,7 @@ W2K01Stream.prototype._transform = function (
   encoding: string,
   done: any
 ) {
-  if (!this.sentAvailable && this.format === N2K_ASCII) {
+  if (!this.sentAvailable) {
     this.debug('emit nmea2000OutAvailable')
     this.options.app.emit('nmea2000OutAvailable')
     this.sentAvailable = true

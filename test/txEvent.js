@@ -64,6 +64,11 @@ describe('Gateway transmit event', function () {
       name: 'W2k01',
       create: (options) => new W2K01Stream(options, 'ascii'),
       defaultEvent: 'w2k-1-out'
+    },
+    {
+      name: 'W2k01 in Actisense format',
+      create: (options) => new W2K01Stream(options, 'actisense'),
+      defaultEvent: 'w2k-1-out'
     }
   ]
 
