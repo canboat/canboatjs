@@ -1579,6 +1579,25 @@ function readField(
     return [null, undefined, bm]
   }
 
+  // Binary data the message ends inside: the whole bytes that are there,
+  // as canboat gives them (262384's reset status, #567).
+  if (
+    field.FieldType === 'BINARY' &&
+    field.BitLength !== undefined &&
+    bs.bitsLeft < field.BitLength &&
+    bs.bitsLeft >= 8 &&
+    bs.index % 8 === 0
+  ) {
+    const bytes = Math.floor(bs.bitsLeft / 8)
+    const data = Buffer.from(bs.readArrayBuffer(bytes))
+    bs.readBits(bs.bitsLeft, false)
+    const text = binaryText(data)
+    if (options.includeByteMapping) {
+      bm = { bytes: Array.from(data), value: text }
+    }
+    return [text, undefined, bm]
+  }
+
   const reader = fieldTypeReaders[field.FieldType]
   if (reader) {
     value = reader(pgn, field, bs)
@@ -1725,15 +1744,21 @@ function hexOfBits(value: number | bigint, bitLength: number): string {
 
 /**
  * Whether every value of a field is a reading, its all-ones top value too:
- * its range reaches the top value it can hold, so it has no value for "not
- * available", as canboat reads it. An ADDRESS (0-255, where 255 is the
- * global address) is one (#566).
+ * binary data or a spare field (#567), or a field whose range reaches the
+ * top value it can hold, so it has no value for "not available", as
+ * canboat reads it. An ADDRESS (0-255, where 255 is the global address)
+ * is one (#566).
  */
 function allValuesValid(
   field: Field,
   bitLength: number,
   signed: boolean
 ): boolean {
+  // Binary data and a spare field have no value for "not available": all
+  // ones is data too, at any width, as canboat gives it (#567).
+  if (field.FieldType === 'BINARY' || field.FieldType === 'SPARE') {
+    return true
+  }
   // canboat checks the range only below 64 bits: at 64 the top value is
   // always "not available" (129029's altitude; an ISO NAME of all ones).
   if (bitLength >= 64 || field.RangeMax === undefined || !field.Resolution) {

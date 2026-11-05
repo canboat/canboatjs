@@ -87,3 +87,52 @@ describe('a field whose range reaches the top of its width', function () {
       .should.equal('419fffff01ff074500012d7d1014')
   })
 })
+
+describe('fields without a value for "not available" (#567)', function () {
+  const parse = (line) =>
+    new FromPgn({ useCamel: true, format: 1 }).parseString(line)
+  const back = (pgn) => Buffer.from(toPgn(pgn)).toString('hex')
+
+  it('gives binary data that is all ones', function () {
+    const pgn = parse(
+      '2022-09-10T12:06:57.789Z,5,65317,8,255,8,13,99,ff,ff,ff,ff,ff,ff'
+    )
+    pgn.fields.should.have.property('data')
+    back(pgn).should.equal('1399ffffffffffff')
+  })
+
+  it('gives a spare field that is all ones', function () {
+    const pgn = parse(
+      '2016-04-09T16:41:11.608Z,7,129793,0,255,26,04,28,43,25,00,a5,f1,09,03,c3,dc,60,1f,fd,ff,ff,ff,ff,67,c1,0b,ff,ff,7f,ff,ff'
+    )
+    pgn.fields.spare15.should.equal('FF 03')
+  })
+
+  it('gives a group function parameter whose binary value is all ones', function () {
+    // 126208 Command of 65379 Seatalk Pilot Mode: parameter 5, the 16-bit
+    // binary sub mode, is ff ff. Without it the command could not be
+    // written back.
+    const pgn = parse(
+      '2024-02-17T03:46:04.576Z,3,126208,0,204,17,01,63,ff,00,f8,04,01,3b,07,03,04,04,00,00,05,ff,ff'
+    )
+    pgn.fields.list[3].should.include({ parameter: 5 })
+    pgn.fields.list[3].should.have.property('value')
+    back(pgn).should.equal('0163ff00f804013b07030404000005ffff')
+  })
+
+  it('gives the bytes there are of binary data the message ends inside', function () {
+    // 262384 Actisense Startup Status: 1 of the reset status's 4 bytes.
+    const pgn = parse(
+      '2011-04-25-06:24:59.786,0,262384,0,0,14,01,0e,00,ab,b0,01,00,00,00,00,00,8e,08,00'
+    )
+    pgn.fields.resetStatus.should.equal('00')
+    back(pgn).should.equal('010e00abb00100000000008e0800')
+  })
+
+  it('still leaves out a NAME that is all ones', function () {
+    const pgn = parse(
+      '2026-06-08T01:52:44.336,3,130840,48,255,17,41,9f,ff,13,01,fe,ff,6b,ff,ff,ff,ff,ff,ff,ff,ff,ff'
+    )
+    pgn.fields.should.not.have.property('source')
+  })
+})
