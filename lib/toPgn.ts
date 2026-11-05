@@ -759,7 +759,8 @@ function writeVariableLengthField(
  * An INDIRECT_LOOKUP name's code, under the value of the field it is named
  * by (60928's device function under its device class), which the record
  * gives as a number or as its own lookup name. In a repeating set the key
- * may be in the same record or in the message.
+ * may be in the same record or in the message. A code given as text is
+ * read as the code; a name that does not resolve throws.
  */
 function indirectLookupValue(
   field: Field,
@@ -768,27 +769,38 @@ function indirectLookupValue(
   data: any,
   name: string
 ) {
+  // A code given as text is the code.
+  if (name.trim() !== '' && !Number.isNaN(Number(name))) {
+    return Number(name)
+  }
   const keyField = fields.find(
     (f) => f.Order === field.LookupIndirectEnumerationFieldOrder
   )
-  if (keyField === undefined || field.LookupIndirectEnumeration === undefined) {
-    return name
-  }
   let key =
-    record[keyField.Name] ??
-    record[keyField.Id] ??
-    data[keyField.Name] ??
-    data[keyField.Id]
-  if (_.isString(key)) {
+    keyField === undefined
+      ? undefined
+      : (record[keyField.Name] ??
+        record[keyField.Id] ??
+        data[keyField.Name] ??
+        data[keyField.Id])
+  if (keyField !== undefined && _.isString(key)) {
     key = lookup(keyField, key)
   }
-  if (typeof key !== 'number') {
-    return name
+  const code =
+    typeof key === 'number' && field.LookupIndirectEnumeration !== undefined
+      ? getIndirectEnumerationValue(field.LookupIndirectEnumeration, key, name)
+      : undefined
+  if (code === undefined) {
+    // Written as it is, a name would become whatever bits the writer makes
+    // of text. canboat's encoder refuses an unknown name too.
+    throw new Error(
+      `field '${field.Name}': '${name}' is not a name of ${field.LookupIndirectEnumeration}` +
+        (keyField !== undefined
+          ? ` under ${keyField.Name} ${JSON.stringify(key)}`
+          : '')
+    )
   }
-  return (
-    getIndirectEnumerationValue(field.LookupIndirectEnumeration, key, name) ??
-    name
-  )
+  return code
 }
 
 function lookup(field: Field, stringValue: string) {

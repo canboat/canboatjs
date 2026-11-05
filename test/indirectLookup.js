@@ -65,4 +65,29 @@ describe('INDIRECT_LOOKUP fields', () => {
       'a39915800200000001000000050000000700000002000000'
     )
   })
+
+  it('reads the key from the message data when the stream has a header', () => {
+    // parseBuffer's stream holds an 11-byte header before the data, and a
+    // key's BitOffset counts from the data.
+    const data = Buffer.from('ef04e0b300af78c0', 'hex')
+    const header = Buffer.from([6, 0x00, 0xee, 0x00, 255, 178, 0, 0, 0, 0, 8])
+    new FromPgn({ useCamel: true })
+      .parseBuffer(Buffer.concat([header, data]))
+      .fields.deviceFunction.should.equal('Integrated Navigation System')
+  })
+
+  it('refuses a name that is not one under the key', () => {
+    const pgn = decode(claim)
+    pgn.fields.deviceFunction = 'No such function'
+    ;(() => toPgn(pgn)).should.throw(/No such function/)
+    pgn.fields.deviceClass = 120 // Display has no "Integrated Navigation System"
+    pgn.fields.deviceFunction = 'Integrated Navigation System'
+    ;(() => toPgn(pgn)).should.throw(/under Device Class 120/)
+  })
+
+  it('writes a code given as text as the code', () => {
+    const pgn = decode(claim)
+    pgn.fields.deviceFunction = '175'
+    hex(pgn).should.equal('ef04e0b300af78c0')
+  })
 })

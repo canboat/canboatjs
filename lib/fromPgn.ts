@@ -667,6 +667,9 @@ export class Parser extends EventEmitter {
     if (!bs) {
       return [false, undefined, undefined]
     }
+    // Where the message's data starts in the stream: parseBuffer's stream
+    // still holds its header, and a field's BitOffset counts from here.
+    payloadStarts.set(pgn, bs.index)
 
     if (pgnList.length > 1) {
       const variant = matchingVariant(pgnList, bs)
@@ -1176,6 +1179,9 @@ export class Parser extends EventEmitter {
   }
 }
 
+// Where each message's data starts in its bit stream (see readPGN).
+const payloadStarts = new WeakMap<PGN, number>()
+
 // The definition a group function's parameters address, resolved once
 // per message from its raw parameter block.
 const targetDefinitions = new WeakMap<
@@ -1589,7 +1595,13 @@ function readField(
       runPostProcessor &&
       (_.isUndefined(options.resolveEnums) || options.resolveEnums)
     ) {
-      const key = indirectKey(definition, field, bs, start)
+      const key = indirectKey(
+        definition,
+        field,
+        bs,
+        start,
+        payloadStarts.get(pgn) ?? 0
+      )
       const name =
         key !== undefined && field.LookupIndirectEnumeration
           ? getIndirectEnumerationName(
@@ -1613,12 +1625,15 @@ function readField(
  * the message where it is, as canboat reads it: it may come after the field
  * (60928's device class follows its device function). Where both are in
  * the same repeating set, the key is the one in this field's own set.
+ * `start` is where this field begins in the stream, and `payloadStart`
+ * where the message's data does: a key's BitOffset counts from there.
  */
 function indirectKey(
   definition: Definition,
   field: Field,
   bs: BitStream,
-  start: number
+  start: number,
+  payloadStart: number
 ): number | undefined {
   const order = field.LookupIndirectEnumerationFieldOrder
   const key = definition.Fields.find((f) => f.Order === order)
@@ -1632,13 +1647,14 @@ function indirectKey(
   }
   const at = inSameRepeatingSet(definition, field.Order ?? 0, key.Order ?? 0)
     ? start - (field.BitOffset - key.BitOffset)
-    : key.BitOffset
+    : payloadStart + key.BitOffset
   if (at < 0 || at + key.BitLength > bs.view.byteLength * 8) {
     return undefined
   }
   return bs.view.getBits(at, key.BitLength, false)
 }
 
+/** Whether the fields of orders `a` and `b` are in the same repeating set. */
 function inSameRepeatingSet(definition: Definition, a: number, b: number) {
   const d = definition as any
   return [
