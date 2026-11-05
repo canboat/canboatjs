@@ -458,10 +458,17 @@ function writeField(
 
     if (field.Resolution && typeof value === 'number') {
       // A FLOAT carries its fraction on the wire: no rounding to a count.
+      // A 64-bit count is worked out in decimal, as a number divided by
+      // 1e-16 is not exact (129029's longitude, #571).
+      const exact =
+        field.FieldType !== 'FLOAT' && bitLength === 64
+          ? decimalCount(value, field.Resolution)
+          : undefined
       value =
-        field.FieldType === 'FLOAT'
+        exact ??
+        (field.FieldType === 'FLOAT'
           ? value / field.Resolution
-          : Number((value / field.Resolution).toFixed(0))
+          : Number((value / field.Resolution).toFixed(0)))
     }
 
     if (field.FieldType === 'NUMBER' && typeof value === 'number') {
@@ -889,6 +896,49 @@ function fromNvValue(value: any): any {
   return value.value
 }
 
+/**
+ * The count a 64-bit field holds for `value` at `resolution`, worked out in
+ * decimal from the digits of `value` (the shortest that read back as it),
+ * for a resolution that is a power of ten: a number divided by 1e-16 is
+ * not exact. The digits, for Int64LE and Uint64LE to read, or undefined
+ * when the division as numbers is the better answer.
+ */
+function decimalCount(value: number, resolution: number): string | undefined {
+  const places = -Math.log10(resolution)
+  if (
+    !Number.isFinite(value) ||
+    !Number.isInteger(Math.round(places * 1e9) / 1e9)
+  ) {
+    return undefined
+  }
+  const decimals = Math.round(places)
+  if (decimals < 0) {
+    return undefined
+  }
+  const m = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]\d+))?$/.exec(String(value))
+  if (!m) {
+    return undefined
+  }
+  const [, sign, int, frac = '', exp = '0'] = m
+  // Only a value whose digits say what it is: up to 15 significant digits
+  // (the decoder rounds a 1e-16 longitude to 7 decimals). One with more
+  // digits than a number holds is not that decimal; its binary value,
+  // divided as a number, is the best there is (129029's altitude).
+  if ((int + frac).replace(/^0+/, '').length > 15) {
+    return undefined
+  }
+  // value = sign int.frac * 10^exp; count = value * 10^decimals
+  const shift = decimals + Number(exp) - frac.length
+  let count = BigInt(int + frac)
+  if (shift >= 0) {
+    count *= 10n ** BigInt(shift)
+  } else {
+    const div = 10n ** BigInt(-shift)
+    count = (count + div / 2n) / div
+  }
+  return (sign === '-' && count !== 0n ? '-' : '') + count.toString()
+}
+
 function lookup(field: Field, stringValue: string) {
   let res
   if (field.LookupEnumeration) {
@@ -1008,8 +1058,17 @@ function dynamicScaledValue(data: any, fields: Field[], value: number) {
  * no type for ("2d 7d 10 14"). Anything else would reach the bit writer,
  * which turns a string into 0, so it is refused.
  */
-function dynamicStringValue(record: any, value: string): number | Buffer {
+function dynamicStringValue(
+  record: any,
+  value: string
+): number | string | Buffer {
   const text = value.trim()
+  // A whole number past what a number holds exactly (a 64-bit value, which
+  // the decoder gives as its digits) stays its digits: the 64-bit writer
+  // takes them exactly (130822's value, #571).
+  if (/^-?\d+$/.test(text) && !Number.isSafeInteger(Number(text))) {
+    return text
+  }
   if (text !== '' && Number.isFinite(Number(text))) {
     return Number(text)
   }
@@ -1346,6 +1405,13 @@ fieldTypeWriters['STRING_FIX'] = (pgn, field, value, bs) => {
 }
 
 fieldTypeWriters[RES_STRINGLZ] = (pgn, field, value, bs) => {
+  // A variable-width string not given is its length byte alone, 0, as
+  // canboat writes it and as the decoder reads an empty one back (130847,
+  // #571); a given empty string keeps its NUL.
+  if (value == null && field.BitLength === undefined) {
+    bs.writeUint8(0)
+    return
+  }
   if (value == null) {
     value = ''
   }
