@@ -19,6 +19,7 @@ import {
   Field,
   PGN,
   getEnumerationValue,
+  getIndirectEnumerationValue,
   getFieldTypeEnumerationValue,
   getFieldTypeEnumeration,
   getBitEnumerationName,
@@ -412,6 +413,9 @@ function writeField(
         value = dynamicScaledValue(record, fields, value)
       }
     }
+    if (field.FieldType === 'INDIRECT_LOOKUP' && _.isString(value)) {
+      value = indirectLookupValue(field, fields, record, data, value)
+    }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {
       value = fieldTypeMappers[type](field, value)
@@ -757,6 +761,63 @@ function writeVariableLengthField(
 
     return writeField(bs, pgn_number, refField, pgn, value, fields, bits)
   }
+}
+
+/**
+ * An INDIRECT_LOOKUP name's code, under the value of the field it is named
+ * by (60928's device function under its device class), which the record
+ * gives as a number or as its own lookup name. In a repeating set the key
+ * may be in the same record or in the message. A code given as text is
+ * read as the code; a name that does not resolve throws.
+ */
+function indirectLookupValue(
+  field: Field,
+  fields: Field[],
+  record: any,
+  data: any,
+  name: string
+) {
+  // A code given as text is the code, if it fits the field: one that does
+  // not would be written as some other code.
+  if (name.trim() !== '' && !Number.isNaN(Number(name))) {
+    const code = Number(name)
+    const max =
+      field.BitLength !== undefined ? 2 ** field.BitLength - 1 : Infinity
+    if (!Number.isInteger(code) || code < 0 || code > max) {
+      throw new Error(
+        `field '${field.Name}': ${name} is not a code of its ${field.BitLength} bits`
+      )
+    }
+    return code
+  }
+  const keyField = fields.find(
+    (f) => f.Order === field.LookupIndirectEnumerationFieldOrder
+  )
+  let key =
+    keyField === undefined
+      ? undefined
+      : (record[keyField.Name] ??
+        record[keyField.Id] ??
+        data[keyField.Name] ??
+        data[keyField.Id])
+  if (keyField !== undefined && _.isString(key)) {
+    key = lookup(keyField, key)
+  }
+  const code =
+    typeof key === 'number' && field.LookupIndirectEnumeration !== undefined
+      ? getIndirectEnumerationValue(field.LookupIndirectEnumeration, key, name)
+      : undefined
+  if (code === undefined) {
+    // Written as it is, a name would become whatever bits the writer makes
+    // of text. canboat's encoder refuses an unknown name too.
+    throw new Error(
+      `field '${field.Name}': '${name}' is not a name of ${field.LookupIndirectEnumeration}` +
+        (keyField !== undefined
+          ? ` under ${keyField.Name} ${JSON.stringify(key)}`
+          : '')
+    )
+  }
+  return code
 }
 
 function lookup(field: Field, stringValue: string) {
