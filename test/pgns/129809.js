@@ -12,7 +12,7 @@ module.exports = [
         userId: '338184312',
         name: 'WILHELM',
         aisTransceiverInformation: 'Channel A VDL transmission',
-        reserved: 0,
+        reserved: '00',
         sequenceId: null
       },
       description: 'AIS Class B static data (msg 24 Part A)'

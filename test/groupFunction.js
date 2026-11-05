@@ -110,7 +110,7 @@ describe('126208 parameters addressing a variant, as canboat reads them', () => 
     decode(line)[2].should.deep.equal({
       parameter: 4,
       parameterId: 'data',
-      value: '5c 05 0f'
+      value: '5C 05 0F'
     })
     reencode(line).should.equal(wire(line))
   })
@@ -119,7 +119,7 @@ describe('126208 parameters addressing a variant, as canboat reads them', () => 
     // Constructed from the Raymarine line above, with one byte of data.
     const line =
       '2024-02-17T05:15:49.768Z,3,126208,204,172,18,00,00,ef,01,ff,ff,ff,ff,ff,ff,03,01,3b,07,03,04,04,5c'
-    decode(line)[2].value.should.equal('5c')
+    decode(line)[2].value.should.equal('5C')
     reencode(line).should.equal(wire(line))
   })
 
@@ -153,7 +153,7 @@ describe('126208 parameters addressing a variant, as canboat reads them', () => 
       .fields.list[2].should.deep.equal({
         parameter: 4,
         parameterId: 'data',
-        value: '5c 05 0f'
+        value: '5C 05 0F'
       })
   })
 
@@ -182,7 +182,7 @@ describe('126208 parameters addressing a variant, as canboat reads them', () => 
       {
         parameter: 4,
         parameterId: 'data',
-        value: '00 05 64 06 04 00 07 17 08 0d 50'
+        value: '00 05 64 06 04 00 07 17 08 0D 50'
       }
     ])
   })

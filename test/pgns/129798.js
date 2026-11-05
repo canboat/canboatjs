@@ -22,7 +22,7 @@ module.exports = [
         altitude: 796,
         reservedForRegionalApplications: 0,
         dte: 'Not available',
-        reserved17: 0,
+        reserved17: '00',
         spare: null
       },
       description: 'AIS SAR Aircraft Position Report'

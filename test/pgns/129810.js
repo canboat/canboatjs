@@ -18,10 +18,10 @@ module.exports = [
         positionReferenceFromStarboard: 25,
         positionReferenceFromBow: 6,
         mothershipUserId: '338254262',
-        reserved: 0,
+        reserved: '00',
         spare13: null,
         aisTransceiverInformation: 'Channel B VDL reception',
-        reserved16: 0,
+        reserved16: '00',
         sequenceId: null,
         gnssType: 'GLONASS'
       },
@@ -55,11 +55,11 @@ module.exports = [
         positionReferenceFromStarboard: 4,
         positionReferenceFromBow: 6,
         mothershipUserId: null,
-        reserved: 0,
+        reserved: '00',
         spare13: null,
         gnssType: 'Default: undefined',
         aisTransceiverInformation: 'Channel A VDL reception',
-        reserved16: 0,
+        reserved16: '00',
         sequenceId: null
       },
       description: 'AIS Class B static data (msg 24 Part B)'

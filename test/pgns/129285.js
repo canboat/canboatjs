@@ -32,7 +32,7 @@ module.exports = [
         databaseId: 0,
         routeId: 0,
         supplementaryRouteWpDataAvailable: 'Off',
-        reserved: 0,
+        reserved: '00',
         routeName: 'Route',
         reserved9: null,
         navigationDirectionInRoute: null
@@ -77,7 +77,7 @@ module.exports = [
         databaseId: 0,
         routeId: 0,
         supplementaryRouteWpDataAvailable: 'Off',
-        reserved: 0,
+        reserved: '00',
         routeName: 'Route',
         navigationDirectionInRoute: null,
         reserved9: null
