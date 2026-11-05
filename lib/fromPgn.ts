@@ -1697,15 +1697,28 @@ function hexOfBits(value: number | bigint, bitLength: number): string {
 
 /**
  * Whether every value of a field is a reading, its all-ones top value too:
- * its range reaches the top of its width, so it has no value for "not
+ * its range reaches the top value it can hold, so it has no value for "not
  * available", as canboat reads it. An ADDRESS (0-255, where 255 is the
  * global address) is one (#566).
  */
-function allValuesValid(field: Field, bitLength: number): boolean {
+function allValuesValid(
+  field: Field,
+  bitLength: number,
+  signed: boolean
+): boolean {
+  // canboat checks the range only below 64 bits: at 64 the top value is
+  // always "not available" (129029's altitude; an ISO NAME of all ones).
+  if (bitLength >= 64 || field.RangeMax === undefined || !field.Resolution) {
+    return false
+  }
+  // The top raw value of the field as it is read: a signed field's is
+  // 0x7f..., an Excess-K field's (read unsigned) all ones. The range is
+  // taken to a raw value as convertField does: Offset off, then rounded.
+  const top = signed ? 2 ** (bitLength - 1) - 1 : 2 ** bitLength - 1
+  const offset = field.Offset ? Number(field.Offset) : 0
   return (
-    field.RangeMax !== undefined &&
-    !!field.Resolution &&
-    field.RangeMax / field.Resolution >= 2 ** bitLength - 1
+    Math.round((Number(field.RangeMax) - offset) / Number(field.Resolution)) >=
+    top
   )
 }
 
@@ -1906,18 +1919,26 @@ function readValue(
       } else if (bitLength === 8) {
         if (signed) {
           value = bs.readInt8()
-          value = value === 0x7f && !allValuesValid(field, 8) ? null : value
+          value =
+            value === 0x7f && !allValuesValid(field, 8, signed) ? null : value
         } else {
           value = bs.readUint8()
-          value = value === 0xff && !allValuesValid(field, 8) ? null : value
+          value =
+            value === 0xff && !allValuesValid(field, 8, signed) ? null : value
         }
       } else if (bitLength == 16) {
         if (signed) {
           value = bs.readInt16()
-          value = value === 0x7fff && !allValuesValid(field, 16) ? null : value
+          value =
+            value === 0x7fff && !allValuesValid(field, 16, signed)
+              ? null
+              : value
         } else {
           value = bs.readUint16()
-          value = value === 0xffff && !allValuesValid(field, 16) ? null : value
+          value =
+            value === 0xffff && !allValuesValid(field, 16, signed)
+              ? null
+              : value
         }
       } else if (bitLength == 24) {
         const b1 = bs.readUint8()
@@ -1934,10 +1955,14 @@ function readValue(
             value = value - 0x1000000
           }
           value =
-            value === 0x7fffff && !allValuesValid(field, 24) ? null : value
+            value === 0x7fffff && !allValuesValid(field, 24, signed)
+              ? null
+              : value
         } else {
           value =
-            value === 0xffffff && !allValuesValid(field, 24) ? null : value
+            value === 0xffffff && !allValuesValid(field, 24, signed)
+              ? null
+              : value
         }
 
         //debug(`value ${value.toString(16)}`)
@@ -1945,20 +1970,30 @@ function readValue(
         if (signed) {
           value = bs.readInt32()
           value =
-            value === 0x7fffffff && !allValuesValid(field, 32) ? null : value
+            value === 0x7fffffff && !allValuesValid(field, 32, signed)
+              ? null
+              : value
         } else {
           value = bs.readUint32()
           value =
-            value === 0xffffffff && !allValuesValid(field, 32) ? null : value
+            value === 0xffffffff && !allValuesValid(field, 32, signed)
+              ? null
+              : value
         }
       } else if (bitLength == 48) {
         const a = bs.readUint32()
         const b = bs.readUint16()
 
         if (signed) {
-          value = a == 0xffffffff && b == 0x7fff ? null : new Int64LE(b, a)
+          value =
+            a == 0xffffffff && b == 0x7fff && !allValuesValid(field, 48, signed)
+              ? null
+              : new Int64LE(b, a)
         } else {
-          value = a == 0xffffffff && b == 0xffff ? null : new Int64LE(b, a)
+          value =
+            a == 0xffffffff && b == 0xffff && !allValuesValid(field, 48, signed)
+              ? null
+              : new Int64LE(b, a)
         }
       } else if (bitLength == 64) {
         const x = bs.readUint32()
@@ -1966,12 +2001,16 @@ function readValue(
 
         if (signed) {
           value =
-            (x === 0xffffffff || x === 0xfffffffe) && y == 0x7fffffff
+            (x === 0xffffffff || x === 0xfffffffe) &&
+            y == 0x7fffffff &&
+            !allValuesValid(field, 64, signed)
               ? null
               : new Int64LE(y, x)
         } else {
           value =
-            (x === 0xffffffff || x === 0xfffffffe) && y == 0xffffffff
+            (x === 0xffffffff || x === 0xfffffffe) &&
+            y == 0xffffffff &&
+            !allValuesValid(field, 64, signed)
               ? null
               : new Uint64LE(y, x)
         }
@@ -1982,7 +2021,7 @@ function readValue(
           field.FieldType !== 'LOOKUP' &&
           bitLength > 1 &&
           wide.isMax &&
-          !allValuesValid(field, bitLength)
+          !allValuesValid(field, bitLength, signed)
         ) {
           value = null
         }
