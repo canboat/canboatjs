@@ -682,11 +682,15 @@ function sendNgt(that: any, msg: Uint8Array) {
  * in non-volatile memory.
  */
 function setUpGateway(that: any) {
-  if (that.canPacket && that.options.app && !that.candevice) {
-    // Its address claim is held with any other frame until the gateway is
-    // in CAN Packet Mode.
+  if (that.canPacket && that.options.app) {
+    // A new connection claims an address anew, on the bus it is on now.
+    // The claim starts once the gateway is in CAN Packet Mode and passes
+    // the bus's frames (startCanDevice).
+    if (that.candevice) {
+      that.candevice.stop()
+    }
     that.candevice = new CanDevice(that, that.options)
-    that.candevice.start()
+    that.candeviceStarted = false
   }
   readGatewaySettings(that)
   const now = Date.now()
@@ -707,6 +711,7 @@ function readGatewaySettings(that: any) {
   that.txKnown = undefined
   clearTimeout(that.txListTimer)
   clearTimeout(that.pcodeTimer)
+  that.inCanPacketMode = false
   if (that.canPacket) {
     // In CAN Packet Mode canboatjs sends as a CAN device itself: the
     // gateway's transmit list and P-Codes do not apply.
@@ -801,7 +806,26 @@ function holdOutput(that: any, until: number) {
 function releaseHold(that: any) {
   clearTimeout(that.setUpTimer)
   that.hold = { state: 'settled' }
+  startCanDevice(that)
   updateOutput(that)
+}
+
+/**
+ * Start claiming an address in CAN Packet Mode once the gateway has said
+ * it is in that mode and has settled, so the claim's scan hears the bus:
+ * not while it is in another mode, or restarting after Set Operating Mode.
+ */
+function startCanDevice(that: any) {
+  if (
+    that.canPacket &&
+    that.candevice &&
+    !that.candeviceStarted &&
+    that.inCanPacketMode &&
+    that.hold.state === 'settled'
+  ) {
+    that.candeviceStarted = true
+    that.candevice.start()
+  }
 }
 
 /**
@@ -1000,7 +1024,12 @@ function onOperatingMode(that: any, bem: any) {
   that.modeAsked = undefined
   clearTimeout(that.modeTimer)
   // A file being read is only reported on.
-  if (mode !== that.wantedMode && that.modeSetAt === undefined && that.serial) {
+  if (
+    mode !== that.wantedMode &&
+    (that.modeSetAt === undefined || that.modeRetry) &&
+    that.serial
+  ) {
+    that.modeRetry = false
     that.debug(
       'the gateway is in %s; setting %s',
       operatingModeName(mode),
@@ -1012,6 +1041,8 @@ function onOperatingMode(that: any, bem: any) {
     holdFor(that, Math.max(now + MODE_SETTLE_MS, heldUntil(that)))
     return
   }
+  that.inCanPacketMode =
+    that.canPacket && mode === OPERATING_MODE_CAN_PACKET && bem.error === 0
   // Nothing is set now, so the frames held for the mode wait only for the
   // hold after a restart, if any.
   if (that.hold.state === 'awaitMode') {
@@ -1678,8 +1709,11 @@ function leaveCanPacketMode(that: any) {
   that.canPacket = false
   that.wantedMode = OPERATING_MODE_RX_ALL
   // modeSetAt stays: the gateway restarts after the Set it refused, as
-  // after any, and that restart is not a surprise. Frames held meanwhile
-  // are BST-95, which the gateway would refuse now: dropped.
+  // after any, and that restart is not a surprise. One more Set is let
+  // through, for a gateway in yet another mode to be set to Rx All Mode.
+  that.modeRetry = true
+  // Frames held meanwhile are BST-95, which the gateway would refuse now:
+  // dropped.
   if (that.held.length) {
     that.debug('dropping %d BST-95 frames held', that.held.length)
     that.held = []

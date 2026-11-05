@@ -173,6 +173,15 @@ describe('an NGX in CAN Packet Mode (#514)', () => {
     expect(sent()).not.toContain(SET_RX_ALL)
   })
 
+  test('sets a gateway in yet another mode to Rx All Mode after refusing CAN Packet Mode', () => {
+    open({}, 1)
+    expect(sent()).toContain(SET_CAN_PACKET)
+    port.emit('data', bem(0x11, 1, Buffer.from([5, 0]), -1091))
+    // After its restart it says it is in mode 1 still: set to 2 now.
+    port.emit('data', modeAnswer(1))
+    expect(sent()).toContain(SET_RX_ALL)
+  })
+
   describe('as a CAN device', () => {
     test('claims an address, and sends nothing else until it has', () => {
       open()
@@ -181,6 +190,30 @@ describe('an NGX in CAN Packet Mode (#514)', () => {
       stream.sendPGN({ pgn: 127250, prio: 2, dst: 255, fields: { heading: 1 } })
       expect(sent()).toEqual([])
       expect(stream.candevice).toBeDefined()
+    })
+
+    test('starts claiming only once the gateway is in CAN Packet Mode and settled', () => {
+      open({}, 2)
+      // Set to 5, and waiting: no claim yet.
+      jest.advanceTimersByTime(100)
+      expect(stream.candeviceStarted).toBe(false)
+      // It says it is in CAN Packet Mode now, and settles.
+      port.emit('data', modeAnswer(5))
+      jest.advanceTimersByTime(1000)
+      expect(stream.candeviceStarted).toBe(true)
+    })
+
+    test('claims anew after a reconnect', () => {
+      open()
+      jest.advanceTimersByTime(1000)
+      const first = stream.candevice
+      expect(stream.candeviceStarted).toBe(true)
+      port.emit('open')
+      expect(stream.candevice).not.toBe(first)
+      expect(stream.candeviceStarted).toBe(false)
+      port.emit('data', modeAnswer(5))
+      jest.advanceTimersByTime(1000)
+      expect(stream.candeviceStarted).toBe(true)
     })
 
     test('writes a message as BST-95 frames from its own address, a fast-packet one split', () => {
