@@ -1607,11 +1607,13 @@ function readField(
     // also when it is a single bit, and a spare field when they are all
     // clear (fieldPrintReserved and fieldPrintSpare in canboat's print.c).
     // Anything else in them is shown: the definition may be wrong.
+    // A field wider than 53 bits is a bigint (readValue), compared as one.
     if (
-      typeof value === 'number' &&
+      (typeof value === 'number' || typeof value === 'bigint') &&
       field.BitLength !== undefined &&
-      ((field.FieldType === 'RESERVED' && value === 2 ** field.BitLength - 1) ||
-        (field.FieldType === 'SPARE' && value === 0))
+      ((field.FieldType === 'RESERVED' &&
+        BigInt(value) === (1n << BigInt(field.BitLength)) - 1n) ||
+        (field.FieldType === 'SPARE' && BigInt(value) === 0n))
     ) {
       value = null
     }

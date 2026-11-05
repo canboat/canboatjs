@@ -121,6 +121,12 @@ describe('a field whose range reaches its top raw value', function () {
 
   it('keeps all the bits of a 64-bit spare field, and writes them back', function () {
     const { toPgn } = require('../dist/toPgn')
+    // all clear: left out, as a narrower spare field is
+    fromPgn
+      .parseString(
+        '2026-11-05T00:00:00.000Z,3,127996,1,255,8,00,00,00,00,00,00,00,00'
+      )
+      .fields.should.not.have.property('spare')
     for (const bytes of ['0123456789abcdef', 'ffffffffffffffff']) {
       const line =
         '2026-11-05T00:00:00.000Z,3,127996,1,255,8,' +
