@@ -311,9 +311,9 @@ describe('a message decoded with a catch-all', () => {
     })
   })
 
-  it('is written with a variant when it names none', () => {
-    // Without an id, toPgn picks a variant by the fields, as before; the
-    // catch-all is only ever written when the message names it.
+  it('is written with the catch-all its description names, as canboat writes it', () => {
+    // canboat's JSON names the definition by its description, not an id
+    // (#579): without the id, the catch-all's description still says it.
     const { pgn } = roundTrip(
       '2026-07-07T18:51:24.255Z,7,126720,0,255,13,e5,98,10,17,04,04,0b,02,0a,6e,0c,11,00'
     )
@@ -321,7 +321,38 @@ describe('a message decoded with a catch-all', () => {
     id.should.match(/^0x/)
     Buffer.from(toPgn(unnamed))
       .toString('hex')
+      .should.equal('e598101704040b020a6e0c1100')
+  })
+
+  it('is written with a variant when it names neither', () => {
+    // Without id or description, a manufacturer that has variants takes
+    // one its given values do not contradict, as before.
+    const { pgn } = roundTrip(
+      '2026-07-07T18:51:24.255Z,7,126720,0,255,13,e5,98,10,17,04,04,0b,02,0a,6e,0c,11,00'
+    )
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, description, ...unnamed } = pgn
+    Buffer.from(toPgn(unnamed))
+      .toString('hex')
       .should.not.equal('e598101704040b020a6e0c1100')
+  })
+
+  it('is written with the catch-all when every variant is contradicted', () => {
+    // canboat's JSON of a 130817 from manufacturer 256, which no 130817
+    // variant is for: susteranna2020.raw.
+    Buffer.from(
+      toPgn({
+        pgn: 130817,
+        fields: {
+          manufacturerCode: 256,
+          reserved: '02',
+          industryCode: 'Construction',
+          data: '8C 80 93 02 54 65'
+        }
+      })
+    )
+      .toString('hex')
+      .should.equal('00718c8093025465')
   })
 })
 
