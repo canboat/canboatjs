@@ -1962,9 +1962,13 @@ function readValue(
     const excessK = !!field.Signed && !!field.Offset
     const signed = !!field.Signed && !excessK
     try {
+      // A catch-all's data, and binary data wider than a number holds
+      // exactly (53 bits: 60160's 56, 126720 Hull Type's 64), are their
+      // bytes, as canboat gives them.
       if (
         field.FieldType === FieldType.Binary &&
-        definition.Fallback === true
+        (definition.Fallback === true ||
+          (bitLength > 53 && bitLength % 8 === 0 && bs.index % 8 === 0))
       ) {
         bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
         const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
@@ -2131,7 +2135,12 @@ function readValue(
       value =
         field.FieldType === 'ISO_NAME' && bitLength === 64
           ? value.toString()
-          : Number(value)
+          : // A reserved or spare field is shown as its bits (readField),
+            // so all of them are kept.
+            (field.FieldType === 'RESERVED' || field.FieldType === 'SPARE') &&
+              bitLength > 53
+            ? BigInt(value.toString())
+            : Number(value)
     }
 
     return [value, undefined]

@@ -135,4 +135,19 @@ describe('fields without a value for "not available" (#567)', function () {
     )
     pgn.fields.should.not.have.property('source')
   })
+
+  it('keeps all the bits of 64-bit binary data, and writes them back', function () {
+    // 126720 Seatalk1 Pilot Hull Type: unknown2 is 64 bits, more than a
+    // number holds exactly.
+    for (const bytes of ['0123456789abcdef', 'ffffffffffffffff']) {
+      const pgn = parse(
+        '2024-02-17T05:15:49.807Z,7,126720,204,255,14,3b,9f,6c,16,00,05,' +
+          bytes.match(/../g).join(',')
+      )
+      pgn.fields.unknown2.should.equal(
+        bytes.toUpperCase().match(/../g).join(' ')
+      )
+      back(pgn).should.equal('3b9f6c160005' + bytes)
+    }
+  })
 })
