@@ -1695,6 +1695,20 @@ function hexOfBits(value: number | bigint, bitLength: number): string {
   return bytes.join(' ')
 }
 
+/**
+ * Whether every value of a field is a reading, its all-ones top value too:
+ * its range reaches the top of its width, so it has no value for "not
+ * available", as canboat reads it. An ADDRESS (0-255, where 255 is the
+ * global address) is one (#566).
+ */
+function allValuesValid(field: Field, bitLength: number): boolean {
+  return (
+    field.RangeMax !== undefined &&
+    !!field.Resolution &&
+    field.RangeMax / field.Resolution >= 2 ** bitLength - 1
+  )
+}
+
 function convertField(
   field: Field,
   value: any,
@@ -1892,18 +1906,18 @@ function readValue(
       } else if (bitLength === 8) {
         if (signed) {
           value = bs.readInt8()
-          value = value === 0x7f ? null : value
+          value = value === 0x7f && !allValuesValid(field, 8) ? null : value
         } else {
           value = bs.readUint8()
-          value = value === 0xff ? null : value
+          value = value === 0xff && !allValuesValid(field, 8) ? null : value
         }
       } else if (bitLength == 16) {
         if (signed) {
           value = bs.readInt16()
-          value = value === 0x7fff ? null : value
+          value = value === 0x7fff && !allValuesValid(field, 16) ? null : value
         } else {
           value = bs.readUint16()
-          value = value === 0xffff ? null : value
+          value = value === 0xffff && !allValuesValid(field, 16) ? null : value
         }
       } else if (bitLength == 24) {
         const b1 = bs.readUint8()
@@ -1919,19 +1933,23 @@ function readValue(
             // Convert to signed 24-bit value by sign extending
             value = value - 0x1000000
           }
-          value = value === 0x7fffff ? null : value
+          value =
+            value === 0x7fffff && !allValuesValid(field, 24) ? null : value
         } else {
-          value = value === 0xffffff ? null : value
+          value =
+            value === 0xffffff && !allValuesValid(field, 24) ? null : value
         }
 
         //debug(`value ${value.toString(16)}`)
       } else if (bitLength == 32) {
         if (signed) {
           value = bs.readInt32()
-          value = value === 0x7fffffff ? null : value
+          value =
+            value === 0x7fffffff && !allValuesValid(field, 32) ? null : value
         } else {
           value = bs.readUint32()
-          value = value === 0xffffffff ? null : value
+          value =
+            value === 0xffffffff && !allValuesValid(field, 32) ? null : value
         }
       } else if (bitLength == 48) {
         const a = bs.readUint32()
@@ -1960,16 +1978,13 @@ function readValue(
       } else if (bitLength <= 64) {
         const wide = readWideBits(bs, bitLength, signed)
         value = wide.value
-        if (field.FieldType !== 'LOOKUP' && bitLength > 1 && wide.isMax) {
-          const fullRange =
-            //field.FieldType !== 'LOOKUP' &&
-            field.RangeMax !== undefined &&
-            field.Resolution &&
-            field.RangeMax / field.Resolution >=
-              (bitLength > 32 ? 2 ** bitLength : 1 << bitLength) - 1
-          if (!fullRange) {
-            value = null
-          }
+        if (
+          field.FieldType !== 'LOOKUP' &&
+          bitLength > 1 &&
+          wide.isMax &&
+          !allValuesValid(field, bitLength)
+        ) {
+          value = null
         }
       } else {
         if (bs.bitsLeft < bitLength) {

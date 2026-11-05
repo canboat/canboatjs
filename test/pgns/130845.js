@@ -14,7 +14,7 @@ module.exports = [
         key: 'Backlight level',
         operation: 'Set',
         value: '90%',
-        address: null,
+        address: 255,
         instance: null,
         source: null,
         reserved: null
@@ -38,7 +38,7 @@ module.exports = [
         key: 'Backlight level',
         operation: 'Set',
         value: '90%',
-        address: null,
+        address: 255,
         instance: null,
         source: null,
         reserved: null

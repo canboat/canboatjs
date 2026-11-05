@@ -70,3 +70,20 @@ describe('a reserved field shown as its bytes (#572)', function () {
       .should.equal('ff8cf4feff2602ff')
   })
 })
+
+describe('a field whose range reaches the top of its width', function () {
+  // 130845 Simnet Key Value: an ADDRESS, 0-255, where 255 is the global
+  // address, as canboat reads it (#566).
+  const kv =
+    '2026-06-08T01:52:14.727,2,130845,13,255,14,41,9f,ff,ff,01,ff,07,45,00,01,2d,7d,10,14'
+
+  it('gives its all-ones value, which is a reading', function () {
+    decode(kv).address.should.equal(255)
+  })
+
+  it('writes it back', function () {
+    Buffer.from(toPgn({ pgn: 130845, fields: decode(kv) }))
+      .toString('hex')
+      .should.equal('419fffff01ff074500012d7d1014')
+  })
+})
