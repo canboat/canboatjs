@@ -19,6 +19,7 @@ import {
   Field,
   PGN,
   getEnumerationValue,
+  getIndirectEnumerationValue,
   getFieldTypeEnumerationValue,
   getFieldTypeEnumeration,
   getBitEnumerationName,
@@ -412,6 +413,9 @@ function writeField(
         value = dynamicScaledValue(record, fields, value)
       }
     }
+    if (field.FieldType === 'INDIRECT_LOOKUP' && _.isString(value)) {
+      value = indirectLookupValue(field, fields, record, data, value)
+    }
     const type = field.FieldType
     if (type && fieldTypeMappers[type]) {
       value = fieldTypeMappers[type](field, value)
@@ -749,6 +753,42 @@ function writeVariableLengthField(
 
     return writeField(bs, pgn_number, refField, pgn, value, fields, bits)
   }
+}
+
+/**
+ * An INDIRECT_LOOKUP name's code, under the value of the field it is named
+ * by (60928's device function under its device class), which the record
+ * gives as a number or as its own lookup name. In a repeating set the key
+ * may be in the same record or in the message.
+ */
+function indirectLookupValue(
+  field: Field,
+  fields: Field[],
+  record: any,
+  data: any,
+  name: string
+) {
+  const keyField = fields.find(
+    (f) => f.Order === field.LookupIndirectEnumerationFieldOrder
+  )
+  if (keyField === undefined || field.LookupIndirectEnumeration === undefined) {
+    return name
+  }
+  let key =
+    record[keyField.Name] ??
+    record[keyField.Id] ??
+    data[keyField.Name] ??
+    data[keyField.Id]
+  if (_.isString(key)) {
+    key = lookup(keyField, key)
+  }
+  if (typeof key !== 'number') {
+    return name
+  }
+  return (
+    getIndirectEnumerationValue(field.LookupIndirectEnumeration, key, name) ??
+    name
+  )
 }
 
 function lookup(field: Field, stringValue: string) {

@@ -26,6 +26,7 @@ import {
   getBitEnumerationName,
   getFieldTypeEnumerationName,
   getFieldTypeEnumeration,
+  getIndirectEnumerationName,
   findFallBackPGN
 } from '@canboat/ts-pgns'
 import { createDebug, byteString, isPGNProprietary } from './utilities'
@@ -1579,14 +1580,79 @@ function readField(
   }
 
   if (refField === undefined) {
-    return [
-      convertField(field, value, runPostProcessor, options, pgn),
-      undefined,
-      bm
-    ]
+    let converted = convertField(field, value, runPostProcessor, options, pgn)
+    // An INDIRECT_LOOKUP is named by its own value under another field's,
+    // as canboat names it: 60928's device function under its device class.
+    if (
+      field.FieldType === 'INDIRECT_LOOKUP' &&
+      typeof converted === 'number' &&
+      runPostProcessor &&
+      (_.isUndefined(options.resolveEnums) || options.resolveEnums)
+    ) {
+      const key = indirectKey(definition, field, bs, start)
+      const name =
+        key !== undefined && field.LookupIndirectEnumeration
+          ? getIndirectEnumerationName(
+              field.LookupIndirectEnumeration,
+              key,
+              converted
+            )
+          : undefined
+      if (name !== undefined) {
+        converted = name
+      }
+    }
+    return [converted, undefined, bm]
   } else {
     return [value, refField, bm]
   }
+}
+
+/**
+ * The raw value of the field an INDIRECT_LOOKUP is named under, read from
+ * the message where it is, as canboat reads it: it may come after the field
+ * (60928's device class follows its device function). Where both are in
+ * the same repeating set, the key is the one in this field's own set.
+ */
+function indirectKey(
+  definition: Definition,
+  field: Field,
+  bs: BitStream,
+  start: number
+): number | undefined {
+  const order = field.LookupIndirectEnumerationFieldOrder
+  const key = definition.Fields.find((f) => f.Order === order)
+  if (
+    key === undefined ||
+    key.BitLength === undefined ||
+    key.BitOffset === undefined ||
+    field.BitOffset === undefined
+  ) {
+    return undefined
+  }
+  const at = inSameRepeatingSet(definition, field.Order ?? 0, key.Order ?? 0)
+    ? start - (field.BitOffset - key.BitOffset)
+    : key.BitOffset
+  if (at < 0 || at + key.BitLength > bs.view.byteLength * 8) {
+    return undefined
+  }
+  return bs.view.getBits(at, key.BitLength, false)
+}
+
+function inSameRepeatingSet(definition: Definition, a: number, b: number) {
+  const d = definition as any
+  return [
+    [d.RepeatingFieldSet1StartField, d.RepeatingFieldSet1Size],
+    [d.RepeatingFieldSet2StartField, d.RepeatingFieldSet2Size]
+  ].some(
+    ([first, size]) =>
+      first !== undefined &&
+      size > 0 &&
+      a >= first &&
+      a < first + size &&
+      b >= first &&
+      b < first + size
+  )
 }
 
 function convertField(
