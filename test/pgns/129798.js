@@ -14,7 +14,7 @@ module.exports = [
         latitude: 39.6475617,
         positionAccuracy: 'High',
         raim: 'in use',
-        timeStamp: '10',
+        timeStamp: 10,
         cog: 2.227,
         sog: 694.4,
         communicationState: 33188,
@@ -22,7 +22,7 @@ module.exports = [
         altitude: 796,
         reservedForRegionalApplications: 0,
         dte: 'Not available',
-        reserved17: 0,
+        reserved17: '00',
         spare: null
       },
       description: 'AIS SAR Aircraft Position Report'

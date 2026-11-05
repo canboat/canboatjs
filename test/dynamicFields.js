@@ -56,7 +56,7 @@ describe('dynamic field values', () => {
       '2024-01-01T00:00:01.000Z,3,130845,2,255,14,41,9f,ff,ff,01,ff,07,45,00,01,2d,7d,10,14'
     )
     fields.key.should.equal(17671)
-    fields.value.should.equal('2d 7d 10 14')
+    fields.value.should.equal('2D 7D 10 14')
   })
 
   it('takes the record header off a length that counts it', () => {
@@ -68,7 +68,7 @@ describe('dynamic field values', () => {
     )
     fields.list
       .map((r) => r.value)
-      .should.deep.equal(['34 12', undefined, 'aa bb'])
+      .should.deep.equal(['34 12', undefined, 'AA BB'])
   })
 
   it('encodes each record of a repeating set against its own key, from SI', () => {

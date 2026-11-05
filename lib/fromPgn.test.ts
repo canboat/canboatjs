@@ -202,7 +202,7 @@ describe('a message that no definition describes', () => {
     expect(pgn.fields).toEqual({
       manufacturerCode: 'Northern Lights',
       industryCode: 'Marine Industry',
-      data: 'c6 96 00 00 00 2d ff 00 00 dc d3 00 08 00 20 ff a0 0d'
+      data: 'C6 96 00 00 00 2D FF 00 00 DC D3 00 08 00 20 FF A0 0D'
     })
   })
 
@@ -225,7 +225,7 @@ describe('a message that no definition describes', () => {
     expect(pgn.fields).toEqual({
       manufacturerCode: 'Fusion Electronics',
       industryCode: 'Marine Industry',
-      data: 'ee 7f 01 02 03 04 05 06'
+      data: 'EE 7F 01 02 03 04 05 06'
     })
   })
 

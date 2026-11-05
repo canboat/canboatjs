@@ -16,7 +16,7 @@ module.exports = [
         deviceClass: 'Sensor Communication Interface',
         systemInstance: 0,
         industryGroup: 'Marine Industry',
-        spare: 1,
+        spare: '01',
         arbitraryAddressCapable: 'Yes'
       }
     },

@@ -15,7 +15,7 @@ const expected = (peukertExponent) => ({
     instance: 0,
     batteryType: 'AGM',
     supportsEqualization: 'Yes',
-    reserved: 0,
+    reserved: '00',
     nominalVoltage: '12V',
     chemistry: 'Pb (Lead)',
     capacity: 360000,

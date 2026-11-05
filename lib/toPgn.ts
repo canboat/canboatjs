@@ -494,6 +494,14 @@ function writeField(
         (bitLength > 64 || isHexBytes(value))
       ) {
         writeBinary(bs, field, value, bitLength)
+      } else if (
+        (field.FieldType === 'RESERVED' || field.FieldType === 'SPARE') &&
+        bitLength !== undefined &&
+        hexBytes(value) !== undefined
+      ) {
+        // As the decoder gives it, and canboat prints it: its bytes (#572).
+        // A number is still read as the field's bits.
+        writeBinary(bs, field, value, bitLength)
       } else if (bitLength !== undefined) {
         // An Excess-K field (Signed with an Offset) holds an unsigned raw
         // value, as the decoder reads it.
