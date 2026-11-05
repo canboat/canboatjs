@@ -101,6 +101,14 @@ const fieldTypePostProcessors: {
 
 const FORMAT_PLAIN = 0
 const FORMAT_COALESCED = 1
+// The `# format=` names whose lines are CAN frames, not whole messages.
+const FRAME_FORMATS = new Set([
+  'PLAIN',
+  'PLAIN_OR_FAST',
+  'PLAIN_MIX_FAST',
+  'YDWG02',
+  'CANDUMP'
+])
 const RES_BINARY = 'Binary data'
 
 export type ByteMapping = {
@@ -127,6 +135,8 @@ export class Parser extends EventEmitter {
   devices: { [key: number]: { [key: number]: any } }
   private reassembler: Reassembler
   mixedFormat: boolean
+  // A `# format=` header said the lines are whole messages (#569).
+  headerCoalesced = false
   // PGNs dropped before reassembly and decoding (excludePgns).
   private excludedPgns: Set<number>
 
@@ -249,6 +259,7 @@ export class Parser extends EventEmitter {
     if (
       coalesced ||
       len > 0x8 ||
+      (!rawFrame && this.headerCoalesced) ||
       (!rawFrame && this.format == FORMAT_COALESCED && !this.mixedFormat)
     ) {
       this.format = FORMAT_COALESCED
@@ -1106,8 +1117,17 @@ export class Parser extends EventEmitter {
   }
 
   parseString(pgn_data: string, cb: FromPgnCallback | undefined = undefined) {
-    // skip format-banner lines emitted by canboat tools since canboat#573
+    // A comment, or the format banner canboat tools write (canboat#573).
+    // `# format=FAST` (or any other coalesced format) says every line is a
+    // whole message, also one of 8 bytes or less of a fast-packet PGN,
+    // which would otherwise be taken for a frame (#569); a frame format
+    // says the lines are frames. As canboat's header_implies_coalesced.
     if (pgn_data.startsWith('#')) {
+      const header = /^#\s*format=(\S+)/.exec(pgn_data)
+      if (header) {
+        this.headerCoalesced = !FRAME_FORMATS.has(header[1].toUpperCase())
+        this.format = this.headerCoalesced ? FORMAT_COALESCED : FORMAT_PLAIN
+      }
       return
     }
     try {
