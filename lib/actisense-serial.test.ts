@@ -360,7 +360,7 @@ describe('BEM answers to Set Operating Mode and Get Product Info (#502)', () => 
     // error -1159 (0xfffffb79), "command data out of range"
     receive(hex('11 01 0e 00 ab b0 01 00 79 fb ff ff 05 00'))
     expect(warn).toHaveBeenCalledWith(
-      'actisense: the gateway refused NGT Transfer Rx All Mode (error -1159 (command data out of range)); it stays in CAN Packet Mode'
+      'actisense: the gateway refused NGT Transfer Rx All Mode (error -1159 (command data out of range))'
     )
   })
 
