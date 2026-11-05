@@ -90,7 +90,15 @@ export function toPgn(data: any): Buffer | undefined {
         (fallback?.Id === data.id ? fallback : undefined))
       : undefined
 
-  if (pgnList.length === 0 && !named) {
+  // The description a message was decoded with, which canboat's JSON gives
+  // where canboatjs's gives an id: it may name the catch-all of a PGN that
+  // has no definition of its own.
+  const description = data.description
+  if (
+    pgnList.length === 0 &&
+    !named &&
+    !(fallback !== undefined && description === fallback.Description)
+  ) {
     debug('no pgn found: ' + data.pgn)
     return undefined
   }
@@ -105,9 +113,6 @@ export function toPgn(data: any): Buffer | undefined {
 
   const bs = new BitStream(Buffer.alloc(500))
 
-  // The description a message was decoded with, which canboat's JSON gives
-  // where canboatjs's gives an id.
-  const description = data.description
   if (data.fields) {
     data = data.fields
   }
@@ -167,6 +172,22 @@ export function toPgn(data: any): Buffer | undefined {
     if (variant) {
       pgnList = [variant]
       pgnData = variant
+      if (!catchAll) {
+        // A match value the message leaves out (an industry code, say) is
+        // the variant's own: written as not available, it would not say
+        // which variant this is.
+        const filled = { ...data }
+        variant.Fields.forEach((field: Field) => {
+          if (
+            field.Match !== undefined &&
+            filled[field.Name] === undefined &&
+            filled[field.Id] === undefined
+          ) {
+            filled[field.Id] = field.Match
+          }
+        })
+        data = filled
+      }
     }
   }
 

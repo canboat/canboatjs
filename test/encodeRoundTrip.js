@@ -337,6 +337,40 @@ describe('a message decoded with a catch-all', () => {
       .should.not.equal('e598101704040b020a6e0c1100')
   })
 
+  it('is written with the catch-all its description names, for a PGN with no definition', () => {
+    // 65307 has no definition of its own: canboat's JSON names its range's
+    // catch-all by description only.
+    Buffer.from(
+      toPgn({
+        pgn: 65307,
+        description:
+          '0xFF00-0xFFFF: Manufacturer Proprietary single-frame non-addressed',
+        fields: {
+          manufacturerCode: 'Garmin',
+          industryCode: 'Marine Industry',
+          data: '01 02 03 04 05 06'
+        }
+      })
+    )
+      .toString('hex')
+      .should.equal('e598010203040506')
+  })
+
+  it('gets the match values it leaves out from the variant it is written with', () => {
+    // No industry code: written as the Seatalk1 variant's own (4), so the
+    // bytes still say which variant it is.
+    const data = toPgn({
+      pgn: 126720,
+      fields: {
+        manufacturerCode: 'Raymarine',
+        proprietaryId: 'Seatalk 1 Encoded',
+        command: 'Seatalk1',
+        seatalk1Command: 'Compass heading Autopilot course and Rudder position'
+      }
+    })
+    Buffer.from(data).toString('hex').slice(0, 4).should.equal('3b9f')
+  })
+
   it('is written with the catch-all when every variant is contradicted', () => {
     // canboat's JSON of a 130817 from manufacturer 256, which no 130817
     // variant is for: susteranna2020.raw.
