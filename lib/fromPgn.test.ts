@@ -382,7 +382,9 @@ describe('a line whose length is 0 (#570)', () => {
     expect(
       parser.parseString('2016-04-09T16:41:09.092Z,3,126208,32,255,0')
     ).toBeUndefined()
-    expect(errors).toHaveLength(2)
+    // A relative time and spaces around the fields, as canboat reads it.
+    expect(parser.parseString('481.876, 3, 126208, 32, 255, 0')).toBeUndefined()
+    expect(errors).toHaveLength(3)
     expect(
       parser.parseString(
         '2016-04-09T16:41:31.214Z,3,126208,32,255,19,00,01,ff,01,ff,ff,ff,ff,ff,ff,03,01,13,01,03,04,04,80,bd'

@@ -90,9 +90,10 @@ export const RAW_FRAME_FORMATS = new Set([
   'candump3'
 ])
 
-/** `<timestamp>,<prio>,<pgn>,<src>,<dst>,<len>,<payload>` */
+/** `<timestamp>,<prio>,<pgn>,<src>,<dst>,<len>,<payload>`; a line that
+    ends at its length has no payload. */
 const PLAIN_LINE =
-  /^[^,]*,( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *),(.*)$/s
+  /^[^,]*,( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *),( *\d+ *)(?:,(.*))?$/s
 
 /**
  * Is `input` a canboat PLAIN/FAST line, as canboat's own parser
@@ -117,6 +118,11 @@ const isPlainLine = (input: string): boolean => {
     len > PLAIN_MAX_LEN
   ) {
     return false
+  }
+  // A line that ends at a length of 0 is still a PLAIN line, a broken one,
+  // which parseActisense refuses (#570); another parser would read it.
+  if (m[6] === undefined) {
+    return len === 0
   }
   const bytes = m[6].split(',', len)
   return (
