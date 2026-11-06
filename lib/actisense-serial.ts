@@ -15,12 +15,20 @@
  */
 
 import { PGN } from '@canboat/ts-pgns'
-import { createDebug, subscribeApp, unsubscribeApp } from './utilities'
+import {
+  createDebug,
+  getPlainPGNs,
+  subscribeApp,
+  unsubscribeApp
+} from './utilities'
 import { inherits } from 'util'
 import { Transform } from 'stream'
 import { BitStream, BitView } from 'bit-buffer'
 import { toPgn } from './toPgn'
-import { encodeActisense } from './stringMsg'
+import { encodeActisense, parseActisense } from './stringMsg'
+import { bst95Frame, encodeBst95 } from './bst95'
+import { CanDevice } from './candevice'
+import { isFastPacket } from './pgns'
 import { defaultTransmitPGNs } from './codes'
 import _ from 'lodash'
 import { Parser as FromPgn } from './fromPgn'
@@ -50,6 +58,7 @@ const ESC = 0x1b /* Escape */
 const N2K_MSG_RECEIVED = 0x93 /* Receive standard N2K message */
 const N2K_MSG_SEND = 0x94 /* Send N2K message */
 const NGT_MSG_RECEIVED = 0xa0 /* Receive NGT specific message */
+const BST_95 = 0x95 /* A CAN frame, in CAN Packet mode (#514) */
 const NGT_MSG_SEND = 0xa1 /* Send NGT message */
 
 const MSG_START = 1
@@ -107,8 +116,13 @@ const BEM_ERRORS: { [code: number]: string } = {
 
 /* The operating modes of an NGT / NGX, numbered and named as in the SDK.
    canboatjs sets NGT Transfer Rx All Mode, which forwards every received
-   PGN; it does not touch the transmit list. */
+   PGN; it does not touch the transmit list. With canPacketMode an NGX is
+   set to CAN Packet Mode instead (#514): it passes raw CAN frames as BST-95
+   both ways, and canboatjs is a CAN device on the bus itself. The NGT-1
+   has no such mode. Either is kept in the gateway's NVRAM, so a gateway
+   left in the other is set back. */
 const OPERATING_MODE_RX_ALL = 2
+const OPERATING_MODE_CAN_PACKET = 5
 const OPERATING_MODES: { [code: number]: string } = {
   1: 'NGT Transfer Normal Mode',
   2: 'NGT Transfer Rx All Mode',
@@ -118,11 +132,8 @@ const OPERATING_MODES: { [code: number]: string } = {
   6: 'CAN Packet ASCII Mode'
 }
 
-const SET_OPERATING_MODE_MSG = new Uint8Array([
-  BEM_OPERATING_MODE,
-  OPERATING_MODE_RX_ALL & 0xff,
-  OPERATING_MODE_RX_ALL >> 8
-])
+const setOperatingModeMsg = (mode: number) =>
+  new Uint8Array([BEM_OPERATING_MODE, mode & 0xff, mode >> 8])
 /* Operating Mode with no data asks for the mode in force. */
 const GET_OPERATING_MODE_MSG = new Uint8Array([BEM_OPERATING_MODE])
 const GET_PRODUCT_INFO_MSG = new Uint8Array([BEM_PRODUCT_INFO])
@@ -185,6 +196,12 @@ export function ActisenseStream(this: any, options: any) {
   this.reconnect = options.reconnect || true
   this.serial = null
   this.options = options
+  // CAN Packet Mode (an NGX): raw CAN frames as BST-95, and canboatjs a CAN
+  // device on the bus (#514).
+  this.canPacket = options.canPacketMode === true
+  this.wantedMode = this.canPacket
+    ? OPERATING_MODE_CAN_PACKET
+    : OPERATING_MODE_RX_ALL
 
   this.transmitPGNs = defaultTransmitPGNs
   if (this.options.transmitPGNs) {
@@ -445,13 +462,30 @@ ActisenseStream.prototype.start = function (this: any) {
 }
 
 ActisenseStream.prototype.sendString = function (this: any, msg: string) {
+  if (this.canPacket) {
+    const parsed = parseActisense(msg)
+    if (parsed.error) {
+      this.debug('cannot send %s: %s', msg, parsed.error)
+      return
+    }
+    sendCanPacket(this, { ...parsed, data: parsed.data }, false)
+    return
+  }
   this.debugOut(`sending ${msg}`)
   let buf = parseInput(msg)
   buf = composeMessage(N2K_MSG_SEND, buf, buf.length)
   sendFrame(this, buf, msg, Number(msg.split(',')[2]))
 }
 
-ActisenseStream.prototype.sendPGN = function (this: any, pgn: PGN) {
+ActisenseStream.prototype.sendPGN = function (
+  this: any,
+  pgn: PGN,
+  force?: boolean
+) {
+  if (this.canPacket) {
+    sendCanPacket(this, pgn, force === true)
+    return
+  }
   const data = toPgn(pgn)
   const actisense = encodeActisense({
     pgn: pgn.pgn,
@@ -509,6 +543,9 @@ function writeFrame(that: any, buf: Buffer, actisense: string, pgn: number) {
  * been read; a Format 1 read can miss PGNs, so then it may be dropped.
  */
 function warnIfNotOnTxList(that: any, pgn: number) {
+  if (that.canPacket) {
+    return
+  }
   const known = that.txKnown
   if (!Number.isFinite(pgn) || that.warnedNotOnTxList.has(pgn)) {
     return
@@ -577,6 +614,8 @@ function read1Byte(that: any, c: any) {
           processN2KMessage(that, that.buffer, that.bufferOffset)
         } else if (that.buffer[0] == NGT_MSG_RECEIVED) {
           processNGTMessage(that, that.buffer, that.bufferOffset)
+        } else if (that.buffer[0] == BST_95 && that.canPacket) {
+          processBst95(that, that.buffer, that.bufferOffset)
         }
       }
       that.bufferOffset = 0
@@ -643,6 +682,16 @@ function sendNgt(that: any, msg: Uint8Array) {
  * in non-volatile memory.
  */
 function setUpGateway(that: any) {
+  if (that.canPacket && that.options.app) {
+    // A new connection claims an address anew, on the bus it is on now.
+    // The claim starts once the gateway is in CAN Packet Mode and passes
+    // the bus's frames (startCanDevice).
+    if (that.candevice) {
+      that.candevice.stop()
+    }
+    that.candevice = new CanDevice(that, that.options)
+    that.candeviceStarted = false
+  }
   readGatewaySettings(that)
   const now = Date.now()
   holdUntilMode(that, now, now + MODE_ANSWER_MS)
@@ -661,9 +710,17 @@ function readGatewaySettings(that: any) {
   // The list is read again, so it is not known until then.
   that.txKnown = undefined
   clearTimeout(that.txListTimer)
-  that.txList = { step: 'awaitStartup' }
   clearTimeout(that.pcodeTimer)
-  that.pcode = { state: 'idle' }
+  that.inCanPacketMode = false
+  if (that.canPacket) {
+    // In CAN Packet Mode canboatjs sends as a CAN device itself: the
+    // gateway's transmit list and P-Codes do not apply.
+    that.txList = { step: 'done' }
+    that.pcode = { state: 'done' }
+  } else {
+    that.txList = { step: 'awaitStartup' }
+    that.pcode = { state: 'idle' }
+  }
   sendNgt(that, GET_PRODUCT_INFO_MSG)
   sendNgt(that, GET_OPERATING_MODE_MSG)
   that.debug('sent Get Product Info and Get Operating Mode')
@@ -749,7 +806,26 @@ function holdOutput(that: any, until: number) {
 function releaseHold(that: any) {
   clearTimeout(that.setUpTimer)
   that.hold = { state: 'settled' }
+  startCanDevice(that)
   updateOutput(that)
+}
+
+/**
+ * Start claiming an address in CAN Packet Mode once the gateway has said
+ * it is in that mode and has settled, so the claim's scan hears the bus:
+ * not while it is in another mode, or restarting after Set Operating Mode.
+ */
+function startCanDevice(that: any) {
+  if (
+    that.canPacket &&
+    that.candevice &&
+    !that.candeviceStarted &&
+    that.inCanPacketMode &&
+    that.hold.state === 'settled'
+  ) {
+    that.candeviceStarted = true
+    that.candevice.start()
+  }
 }
 
 /**
@@ -949,21 +1025,24 @@ function onOperatingMode(that: any, bem: any) {
   clearTimeout(that.modeTimer)
   // A file being read is only reported on.
   if (
-    mode !== OPERATING_MODE_RX_ALL &&
-    that.modeSetAt === undefined &&
+    mode !== that.wantedMode &&
+    (that.modeSetAt === undefined || that.modeRetry) &&
     that.serial
   ) {
+    that.modeRetry = false
     that.debug(
       'the gateway is in %s; setting %s',
       operatingModeName(mode),
-      operatingModeName(OPERATING_MODE_RX_ALL)
+      operatingModeName(that.wantedMode)
     )
     that.modeSetAt = now
-    sendNgt(that, SET_OPERATING_MODE_MSG)
+    sendNgt(that, setOperatingModeMsg(that.wantedMode))
     // Frames already held keep their place, ahead of new ones.
     holdFor(that, Math.max(now + MODE_SETTLE_MS, heldUntil(that)))
     return
   }
+  that.inCanPacketMode =
+    that.canPacket && mode === OPERATING_MODE_CAN_PACKET && bem.error === 0
   // Nothing is set now, so the frames held for the mode wait only for the
   // hold after a restart, if any.
   if (that.hold.state === 'awaitMode') {
@@ -974,12 +1053,23 @@ function onOperatingMode(that: any, bem: any) {
     }
   }
   if (bem.error !== 0) {
+    // A refusal gives back the mode asked for, not the one in force: the
+    // next Get says which that is.
+    if (that.canPacket) {
+      // An NGT-1 has no CAN Packet Mode (error -1091): go on as with any
+      // other gateway, in NGT Transfer Rx All Mode.
+      console.warn(
+        `actisense: the gateway refused ${operatingModeName(that.wantedMode)} (error ${describeError(bem.error)}), which only an NGX has; going on in ${operatingModeName(OPERATING_MODE_RX_ALL)}`
+      )
+      leaveCanPacketMode(that)
+    } else {
+      console.warn(
+        `actisense: the gateway refused ${operatingModeName(that.wantedMode)} (error ${describeError(bem.error)})`
+      )
+    }
+  } else if (mode !== that.wantedMode) {
     console.warn(
-      `actisense: the gateway refused ${operatingModeName(OPERATING_MODE_RX_ALL)} (error ${describeError(bem.error)}); it stays in ${operatingModeName(mode)}`
-    )
-  } else if (mode !== OPERATING_MODE_RX_ALL) {
-    console.warn(
-      `actisense: the gateway is in ${operatingModeName(mode)}, not ${operatingModeName(OPERATING_MODE_RX_ALL)}`
+      `actisense: the gateway is in ${operatingModeName(mode)}, not ${operatingModeName(that.wantedMode)}`
     )
   }
   that.debug(
@@ -1610,6 +1700,100 @@ function addUInt8(num: number, add: number) {
   return num
 }
 
+/**
+ * Go on without CAN Packet Mode, which the gateway refused: in NGT Transfer
+ * Rx All Mode, set on the next answer, with the gateway's transmit list and
+ * P-Codes, and no CAN device of our own.
+ */
+function leaveCanPacketMode(that: any) {
+  that.canPacket = false
+  that.wantedMode = OPERATING_MODE_RX_ALL
+  // modeSetAt stays: the gateway restarts after the Set it refused, as
+  // after any, and that restart is not a surprise. One more Set is let
+  // through, for a gateway in yet another mode to be set to Rx All Mode.
+  that.modeRetry = true
+  // Frames held meanwhile are BST-95, which the gateway would refuse now:
+  // dropped.
+  if (that.held.length) {
+    that.debug('dropping %d BST-95 frames held', that.held.length)
+    that.held = []
+  }
+  if (that.candevice) {
+    that.candevice.stop()
+    that.candevice = undefined
+  }
+  that.txList = { step: 'awaitStartup' }
+  that.pcode = { state: 'idle' }
+}
+
+/**
+ * A CAN frame from the bus, in CAN Packet Mode (#514): handed on as one
+ * frame, which the analyzer joins into fast-packet messages. Our own frames
+ * coming back are left out.
+ */
+function processBst95(that: any, buffer: Buffer, len: number) {
+  const frame = bst95Frame(buffer.subarray(0, len))
+  if (!frame) {
+    return
+  }
+  const candevice = that.candevice
+  if (candevice && candevice.cansend && frame.src === candevice.address) {
+    return
+  }
+  const { data, ...id } = frame
+  const actisense = encodeActisense({ ...id, data })
+  if (that.options.app.listenerCount('canboatjs:rawoutput') > 0) {
+    that.options.app.emit('canboatjs:rawoutput', actisense)
+  }
+  that.push(
+    that.options.plainText ? actisense : { pgn: id, length: data.length, data }
+  )
+}
+
+/**
+ * Send a message in CAN Packet Mode (#514): as the CAN device's frames,
+ * a fast-packet message split into them, each a BST-95 message. Until the
+ * CAN device has claimed its address only its own frames (`force`) go out.
+ */
+function sendCanPacket(that: any, pgn: any, force: boolean) {
+  const candevice = that.candevice
+  if (candevice && !candevice.cansend && !force) {
+    that.debug('address not claimed yet, not sending PGN %d', pgn.pgn)
+    return
+  }
+  const data: Buffer | undefined = Buffer.isBuffer(pgn.data)
+    ? pgn.data
+    : toPgn(pgn)
+  if (!data) {
+    that.debug("can't convert %j", pgn)
+    return
+  }
+  const id = {
+    pgn: pgn.pgn,
+    prio: pgn.prio ?? 3,
+    dst: pgn.dst ?? 255,
+    src: candevice && !pgn.forceSrc ? candevice.address : (pgn.src ?? 0)
+  }
+  const frames =
+    !pgn.frame && isFastPacket(id.pgn, data.length)
+      ? getPlainPGNs(data, id.pgn, id.src)
+      : [data]
+  frames.forEach((frame: Buffer) => {
+    const actisense = encodeActisense({ ...id, data: frame })
+    that.debugOut(`sending ${actisense}`)
+    sendFrame(that, encodeBst95(id, frame), actisense, id.pgn)
+    // The server sees its own device on the bus as any other, as from
+    // CanbusStream and N2kIpGateway: frame by frame.
+    if (id.pgn === 60928 || id.pgn === 126996 || id.pgn === 126998) {
+      that.push(
+        that.options.plainText
+          ? actisense
+          : { pgn: { ...id }, length: frame.length, data: frame }
+      )
+    }
+  })
+}
+
 function processN2KMessage(that: any, buffer: Buffer, len: number) {
   // N2K received payloads must include the fixed 11-byte prefix that
   // binToActisense reads, and the buffered frame must match the Actisense
@@ -1771,6 +1955,10 @@ ActisenseStream.prototype.end = function () {
     this.reconnectTimer = undefined
   }
   unsubscribeApp(this)
+  if (this.candevice) {
+    this.candevice.stop()
+    this.candevice = undefined
+  }
   if (this.serial) {
     this.serial.close()
   }

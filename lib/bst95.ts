@@ -115,6 +115,24 @@ export function readBst95(
 }
 
 /**
+ * The CAN frame received from the bus in one unframed BST-95 message, as
+ * a serial driver that does its own BDTP unframing has it: undefined for
+ * another message, a malformed one, or one on its way to the bus (the
+ * gateway echoing a frame we sent).
+ */
+export function bst95Frame(m: Buffer | number[]): Bst95Frame | undefined {
+  const frame = toFrame(Array.from(m))
+  if (!frame || frame.toBus) {
+    return undefined
+  }
+  return {
+    ...parseCanId(frame.canId),
+    data: frame.data,
+    timestamp: new Date().toISOString()
+  }
+}
+
+/**
  * One CAN frame, `data` of at most 8 bytes, as a BDTP-framed BST-95
  * message from the host to the bus. The time is left 0.
  */
