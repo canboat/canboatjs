@@ -27,7 +27,12 @@ module.exports = [
       }
     },
     input:
-      '2017-04-15T14:57:58.470Z,3,129029,3,255,43,9b,77,43,36,f6,1c,20,00,2e,cf,33,60,0c,6c,05,ff,49,10,5d,ae,73,63,f5,ff,ff,ff,ff,ff,ff,ff,7f,23,fc,12,41,00,ff,7f,ff,ff,ff,7f,00'
+      '2017-04-15T14:57:58.470Z,3,129029,3,255,43,9b,77,43,36,f6,1c,20,00,2e,cf,33,60,0c,6c,05,ff,49,10,5d,ae,73,63,f5,ff,ff,ff,ff,ff,ff,ff,7f,23,fc,12,41,00,ff,7f,ff,ff,ff,7f,00',
+    // The longitude's raw value is -76.46403189999999999, decoded at its 7
+    // decimals as -76.4640319, which is written back as -76.4640319000...,
+    // as canboat writes it (#571).
+    encoded:
+      '2017-04-15T14:57:58.470Z,3,129029,3,255,43,9b,77,43,36,f6,1c,20,00,2e,cf,33,60,0c,6c,05,00,4a,10,5d,ae,73,63,f5,ff,ff,ff,ff,ff,ff,ff,7f,23,fc,12,41,00,ff,7f,ff,ff,ff,7f,00'
   },
   {
     expected: {
