@@ -90,7 +90,15 @@ export function toPgn(data: any): Buffer | undefined {
         (fallback?.Id === data.id ? fallback : undefined))
       : undefined
 
-  if (pgnList.length === 0 && !named) {
+  // The description a message was decoded with, which canboat's JSON gives
+  // where canboatjs's gives an id: it may name the catch-all of a PGN that
+  // has no definition of its own.
+  const description = data.description
+  if (
+    pgnList.length === 0 &&
+    !named &&
+    !(fallback !== undefined && description === fallback.Description)
+  ) {
     debug('no pgn found: ' + data.pgn)
     return undefined
   }
@@ -131,6 +139,59 @@ export function toPgn(data: any): Buffer | undefined {
   if (selected) {
     pgnList = [selected]
     pgnData = selected
+  } else {
+    // No variant has all the match values the message gives. canboat's JSON
+    // names no definition with an id, but it does with the description it
+    // decoded with; a message whose given match values every variant
+    // contradicts (a manufacturer none is for) is the range's catch-all
+    // too, as canboat writes it (canboat#1138, #579). Otherwise a variant
+    // the given values do not contradict, a match value left out, before
+    // the first one.
+    const consistent = (pgn: Definition) =>
+      pgn.Fields.every((field) => {
+        if (field.Match === undefined) {
+          return true
+        }
+        // Read as selectDefinition and the writer read it: an explicit
+        // null is given, and contradicts the variant's value.
+        const value =
+          data[field.Name] !== undefined ? data[field.Name] : data[field.Id]
+        return (
+          value === undefined ||
+          (_.isString(value) ? isMatchName(field, value) : field.Match == value)
+        )
+      })
+    const catchAll =
+      fallback !== undefined &&
+      (description === fallback.Description ||
+        (givesMatchValues(pgnList, data) && !pgnList.some(consistent)))
+    const variant = catchAll
+      ? fallback
+      : pgnList.find(
+          (pgn) =>
+            pgn.Fields.some((f: Field) => f.Match !== undefined) &&
+            consistent(pgn)
+        )
+    if (variant) {
+      pgnList = [variant]
+      pgnData = variant
+      if (!catchAll) {
+        // A match value the message leaves out (an industry code, say) is
+        // the variant's own: written as not available, it would not say
+        // which variant this is.
+        const filled = { ...data }
+        variant.Fields.forEach((field: Field) => {
+          if (
+            field.Match !== undefined &&
+            filled[field.Name] === undefined &&
+            filled[field.Id] === undefined
+          ) {
+            filled[field.Id] = field.Match
+          }
+        })
+        data = filled
+      }
+    }
   }
 
   if (pgn_number === 126208 && !data[a126208_newKey] && data[a126208_oldKey]) {
@@ -335,6 +396,21 @@ function selectDefinition<T extends { Fields: Field[] }>(
         : value !== undefined && field.Match == value
     })
   return pgnList.find((pgn) => hasMatch(pgn) && fits(pgn)) ?? pgnList.find(fits)
+}
+
+/**
+ * Whether `data` gives a value for any field the definitions in `pgnList`
+ * tell their variants apart by (a Match field).
+ */
+function givesMatchValues(pgnList: Definition[], data: any): boolean {
+  return pgnList.some((pgn) =>
+    pgn.Fields.some(
+      (field) =>
+        field.Match !== undefined &&
+        (data[field.Name] !== undefined ? data[field.Name] : data[field.Id]) !==
+          undefined
+    )
+  )
 }
 
 function writeField(
