@@ -413,6 +413,10 @@ function givesMatchValues(pgnList: Definition[], data: any): boolean {
   )
 }
 
+/**
+ * Writes one field's value; a field without one as not available (all
+ * ones) or, a spare field, as zeros.
+ */
 function writeField(
   bs: BitStream,
   pgn_number: number,

@@ -1530,6 +1530,10 @@ const READS_WHAT_IS_THERE = new Set<string>([
   'String with start/stop byte'
 ])
 
+/**
+ * Reads one field: its value (null when not available), the description of
+ * a lookup value, and its byte mapping when asked for.
+ */
 function readField(
   definition: Definition,
   options: any,
@@ -1736,7 +1740,6 @@ function inSameRepeatingSet(definition: Definition, a: number, b: number) {
 /** Binary data as canboat prints it: upper-case hex bytes (#572). */
 const binaryText = (data: Buffer) => byteString(data, ' ').toUpperCase()
 
-/** A field's bits as its bytes in hex, low byte first, as canboat prints them. */
 /**
  * Whether binary data is all ones: not available, as in any other field
  * (#567).
@@ -1745,6 +1748,7 @@ function allOnes(data: Buffer): boolean {
   return data.length > 0 && data.every((b) => b === 0xff)
 }
 
+/** A field's bits as its bytes in hex, low byte first, as canboat prints them. */
 function hexOfBits(value: number | bigint, bitLength: number): string {
   let rest = BigInt(value)
   const bytes: string[] = []
@@ -1912,6 +1916,10 @@ function trailingZeroIsDigit(
   return bs.view.getBits(key.BitOffset, key.BitLength, false) === value
 }
 
+/**
+ * Reads a number field's raw value at its width, null when it is not
+ * available, and binary data as its bytes.
+ */
 function readValue(
   definition: Definition,
   options: any,
