@@ -445,9 +445,27 @@ function writeField(
     field.FieldType === 'VARIABLE'
   ) {
     // A group function parameter's value: its width comes from the target
-    // field, so without a value nothing would be written and every later
-    // byte would shift (#458). canboat's encoder refuses it too.
+    // field. A fixed-width field without a value is not available, all
+    // ones, as the decoder leaves out (binary data of all ones: 65379's
+    // sub mode, #567). Otherwise nothing would be written and every later
+    // byte would shift (#458), so it is refused, as canboat's encoder does.
     const target = data.pgn ?? data.PGN
+    const def = targetDefinition(target, data)
+    const refField = def
+      ? parameterField(def, bs.view.buffer[bs.byteIndex - 1])
+      : null
+    if (
+      refField &&
+      refField.FieldType !== 'DYNAMIC_FIELD_VALUE' &&
+      !refField.BitLengthVariable &&
+      refField.BitLength !== undefined &&
+      refField.BitLength % 8 === 0
+    ) {
+      for (let i = 0; i < refField.BitLength / 8; i++) {
+        bs.writeUint8(0xff)
+      }
+      return
+    }
     const parameter = record.parameter ?? record.Parameter
     throw new Error(`Parameter ${parameter} of PGN ${target} has no value`)
   }

@@ -68,10 +68,25 @@ describe('126208 group function to a PGN with several variants', () => {
     )
   })
 
-  it('refuses a parameter without a value instead of dropping its bytes', () => {
+  it('writes a fixed-width parameter without a value as not available', () => {
+    // All ones, as for any other field, and as the decoder leaves it out
+    // (#567); dropping its bytes would shift every later one (#458).
     const list = [...maretron, ...alarm]
     list[4] = { parameter: 6, value: undefined }
-    ;(() => pgnToActisenseSerialFormat(command(list))).should.throw(
+    data(pgnToActisenseSerialFormat(command(list))).should.equal(
+      '01,08,ff,01,f8,07,01,89,00,03,04,04,00,05,64,06,ff,ff,07,17,08,0d,50'
+    )
+  })
+
+  it('refuses a parameter without a value whose width it cannot know', () => {
+    // The B&G variant's parameter 6 is a key/value field: its width is in
+    // its key.
+    const bandg = [
+      { parameter: 1, value: 381 },
+      { parameter: 3, value: 4 },
+      { parameter: 6, value: undefined }
+    ]
+    ;(() => pgnToActisenseSerialFormat(command(bandg))).should.throw(
       'Parameter 6 of PGN 130824 has no value'
     )
   })

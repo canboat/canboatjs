@@ -1591,6 +1591,9 @@ function readField(
     const bytes = Math.floor(bs.bitsLeft / 8)
     const data = Buffer.from(bs.readArrayBuffer(bytes))
     bs.readBits(bs.bitsLeft, false)
+    if (allOnes(data)) {
+      return [null, undefined, bm]
+    }
     const text = binaryText(data)
     if (options.includeByteMapping) {
       bm = { bytes: Array.from(data), value: text }
@@ -1734,6 +1737,10 @@ function inSameRepeatingSet(definition: Definition, a: number, b: number) {
 const binaryText = (data: Buffer) => byteString(data, ' ').toUpperCase()
 
 /** A field's bits as its bytes in hex, low byte first, as canboat prints them. */
+function allOnes(data: Buffer): boolean {
+  return data.length > 0 && data.every((b) => b === 0xff)
+}
+
 function hexOfBits(value: number | bigint, bitLength: number): string {
   let rest = BigInt(value)
   const bytes: string[] = []
@@ -1746,7 +1753,7 @@ function hexOfBits(value: number | bigint, bitLength: number): string {
 
 /**
  * Whether every value of a field is a reading, its all-ones top value too:
- * binary data or a spare field (#567), or a field whose range reaches the
+ * a spare field (#567), or a field whose range reaches the
  * top value it can hold, so it has no value for "not available", as
  * canboat reads it. An ADDRESS (0-255, where 255 is the global address)
  * is one (#566).
@@ -1756,9 +1763,11 @@ function allValuesValid(
   bitLength: number,
   signed: boolean
 ): boolean {
-  // Binary data and a spare field have no value for "not available": all
-  // ones is data too, at any width, as canboat gives it (#567).
-  if (field.FieldType === 'BINARY' || field.FieldType === 'SPARE') {
+  // A spare field has no value for "not available": all ones is shown, at
+  // any width, as canboat shows it (#567). Binary data of all ones is not
+  // available, as for any other field: a writer that has no value for it
+  // sends all ones (an AIS Communication State, an AtoN Status).
+  if (field.FieldType === 'SPARE') {
     return true
   }
   // canboat checks the range only below 64 bits: at 64 the top value is
@@ -1973,8 +1982,13 @@ function readValue(
           (bitLength > 53 && bitLength % 8 === 0 && bs.index % 8 === 0))
       ) {
         bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
-        const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
-        return [binaryText(Buffer.from(data)), undefined]
+        const data = Buffer.from(bs.readArrayBuffer(Math.floor(bitLength / 8)))
+        // Binary data of all ones is not available, as for any other field
+        // (#567); a catch-all's data is given whatever it holds.
+        if (definition.Fallback !== true && allOnes(data)) {
+          return [null, undefined]
+        }
+        return [binaryText(data), undefined]
       } else if (bitLength === 8) {
         if (signed) {
           value = bs.readInt8()

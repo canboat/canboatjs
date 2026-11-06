@@ -93,12 +93,25 @@ describe('fields without a value for "not available" (#567)', function () {
     new FromPgn({ useCamel: true, format: 1 }).parseString(line)
   const back = (pgn) => Buffer.from(toPgn(pgn)).toString('hex')
 
-  it('gives binary data that is all ones', function () {
+  it('leaves out binary data that is all ones, and writes it back', function () {
+    // A writer without a value sends all ones, as for any other field: an
+    // AIS Communication State, an AtoN Status.
     const pgn = parse(
       '2022-09-10T12:06:57.789Z,5,65317,8,255,8,13,99,ff,ff,ff,ff,ff,ff'
     )
-    pgn.fields.should.have.property('data')
+    pgn.fields.should.not.have.property('data')
     back(pgn).should.equal('1399ffffffffffff')
+  })
+
+  it('leaves out an AIS communication state that is all ones', function () {
+    const pgn = parse(
+      '2026-11-06T00:00:00.000Z,4,129038,0,255,28,01,a0,86,01,00,00,00,00,00,00,00,00,00,00,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff,ff'
+    )
+    pgn.fields.should.not.have.property('communicationState')
+    pgn.fields.timeStamp.should.equal(0)
+    back(pgn).should.equal(
+      '01a0860100000000000000000000ffffffffffffffffffffffffffff'
+    )
   })
 
   it('gives a spare field that is all ones', function () {
@@ -108,15 +121,14 @@ describe('fields without a value for "not available" (#567)', function () {
     pgn.fields.spare15.should.equal('FF 03')
   })
 
-  it('gives a group function parameter whose binary value is all ones', function () {
+  it('writes back a group function parameter whose binary value is all ones', function () {
     // 126208 Command of 65379 Seatalk Pilot Mode: parameter 5, the 16-bit
-    // binary sub mode, is ff ff. Without it the command could not be
-    // written back.
+    // binary sub mode, is ff ff: not available, and written back as such.
     const pgn = parse(
       '2024-02-17T03:46:04.576Z,3,126208,0,204,17,01,63,ff,00,f8,04,01,3b,07,03,04,04,00,00,05,ff,ff'
     )
     pgn.fields.list[3].should.include({ parameter: 5 })
-    pgn.fields.list[3].should.have.property('value')
+    pgn.fields.list[3].should.not.have.property('value')
     back(pgn).should.equal('0163ff00f804013b07030404000005ffff')
   })
 
@@ -129,6 +141,13 @@ describe('fields without a value for "not available" (#567)', function () {
     back(pgn).should.equal('010e00abb00100000000008e0800')
   })
 
+  it('leaves out 64-bit binary data that is all ones', function () {
+    const pgn = parse(
+      '2024-02-17T05:15:49.807Z,7,126720,204,255,14,3b,9f,6c,16,00,05,ff,ff,ff,ff,ff,ff,ff,ff'
+    )
+    pgn.fields.should.not.have.property('unknown2')
+  })
+
   it('still leaves out a NAME that is all ones', function () {
     const pgn = parse(
       '2026-06-08T01:52:44.336,3,130840,48,255,17,41,9f,ff,13,01,fe,ff,6b,ff,ff,ff,ff,ff,ff,ff,ff,ff'
@@ -139,7 +158,7 @@ describe('fields without a value for "not available" (#567)', function () {
   it('keeps all the bits of 64-bit binary data, and writes them back', function () {
     // 126720 Seatalk1 Pilot Hull Type: unknown2 is 64 bits, more than a
     // number holds exactly.
-    for (const bytes of ['0123456789abcdef', 'ffffffffffffffff']) {
+    for (const bytes of ['0123456789abcdef', 'fffffffffffffffe']) {
       const pgn = parse(
         '2024-02-17T05:15:49.807Z,7,126720,204,255,14,3b,9f,6c,16,00,05,' +
           bytes.match(/../g).join(',')
