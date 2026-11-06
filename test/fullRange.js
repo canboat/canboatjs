@@ -47,6 +47,25 @@ const definitions = {
       ]
     },
     {
+      PGN: 127996,
+      Id: 'testSpare64',
+      Description: 'Test: a 64-bit spare field',
+      Type: 'Single',
+      Complete: true,
+      Length: 8,
+      Fields: [
+        {
+          Order: 1,
+          Id: 'spare',
+          Name: 'Spare',
+          BitLength: 64,
+          BitOffset: 0,
+          BitStart: 0,
+          FieldType: 'SPARE'
+        }
+      ]
+    },
+    {
       PGN: 127997,
       Id: 'testFullRange64',
       Description: 'Test: full range, 64 bits',
@@ -98,5 +117,23 @@ describe('a field whose range reaches its top raw value', function () {
         '2026-11-05T00:00:00.000Z,3,127997,1,255,8,ff,ff,ff,ff,ff,ff,ff,ff'
       )
       .fields.should.not.have.property('unsigned64')
+  })
+
+  it('keeps all the bits of a 64-bit spare field, and writes them back', function () {
+    const { toPgn } = require('../dist/toPgn')
+    // all clear: left out, as a narrower spare field is
+    fromPgn
+      .parseString(
+        '2026-11-05T00:00:00.000Z,3,127996,1,255,8,00,00,00,00,00,00,00,00'
+      )
+      .fields.should.not.have.property('spare')
+    for (const bytes of ['0123456789abcdef', 'ffffffffffffffff']) {
+      const line =
+        '2026-11-05T00:00:00.000Z,3,127996,1,255,8,' +
+        bytes.match(/../g).join(',')
+      const pgn = fromPgn.parseString(line)
+      pgn.fields.spare.should.equal(bytes.toUpperCase().match(/../g).join(' '))
+      Buffer.from(toPgn(pgn)).toString('hex').should.equal(bytes)
+    }
   })
 })

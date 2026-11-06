@@ -1530,6 +1530,10 @@ const READS_WHAT_IS_THERE = new Set<string>([
   'String with start/stop byte'
 ])
 
+/**
+ * Reads one field: its value (null when not available), the description of
+ * a lookup value, and its byte mapping when asked for.
+ */
 function readField(
   definition: Definition,
   options: any,
@@ -1579,6 +1583,28 @@ function readField(
     return [null, undefined, bm]
   }
 
+  // Binary data the message ends inside: the whole bytes that are there,
+  // as canboat gives them (262384's reset status, #567).
+  if (
+    field.FieldType === 'BINARY' &&
+    field.BitLength !== undefined &&
+    bs.bitsLeft < field.BitLength &&
+    bs.bitsLeft >= 8 &&
+    bs.index % 8 === 0
+  ) {
+    const bytes = Math.floor(bs.bitsLeft / 8)
+    const data = Buffer.from(bs.readArrayBuffer(bytes))
+    bs.readBits(bs.bitsLeft, false)
+    if (allOnes(data)) {
+      return [null, undefined, bm]
+    }
+    const text = binaryText(data)
+    if (options.includeByteMapping) {
+      bm = { bytes: Array.from(data), value: text }
+    }
+    return [text, undefined, bm]
+  }
+
   const reader = fieldTypeReaders[field.FieldType]
   if (reader) {
     value = reader(pgn, field, bs)
@@ -1588,11 +1614,13 @@ function readField(
     // also when it is a single bit, and a spare field when they are all
     // clear (fieldPrintReserved and fieldPrintSpare in canboat's print.c).
     // Anything else in them is shown: the definition may be wrong.
+    // A field wider than 53 bits is a bigint (readValue), compared as one.
     if (
-      typeof value === 'number' &&
+      (typeof value === 'number' || typeof value === 'bigint') &&
       field.BitLength !== undefined &&
-      ((field.FieldType === 'RESERVED' && value === 2 ** field.BitLength - 1) ||
-        (field.FieldType === 'SPARE' && value === 0))
+      ((field.FieldType === 'RESERVED' &&
+        BigInt(value) === (1n << BigInt(field.BitLength)) - 1n) ||
+        (field.FieldType === 'SPARE' && BigInt(value) === 0n))
     ) {
       value = null
     }
@@ -1712,6 +1740,14 @@ function inSameRepeatingSet(definition: Definition, a: number, b: number) {
 /** Binary data as canboat prints it: upper-case hex bytes (#572). */
 const binaryText = (data: Buffer) => byteString(data, ' ').toUpperCase()
 
+/**
+ * Whether binary data is all ones: not available, as in any other field
+ * (#567).
+ */
+function allOnes(data: Buffer): boolean {
+  return data.length > 0 && data.every((b) => b === 0xff)
+}
+
 /** A field's bits as its bytes in hex, low byte first, as canboat prints them. */
 function hexOfBits(value: number | bigint, bitLength: number): string {
   let rest = BigInt(value)
@@ -1725,15 +1761,23 @@ function hexOfBits(value: number | bigint, bitLength: number): string {
 
 /**
  * Whether every value of a field is a reading, its all-ones top value too:
- * its range reaches the top value it can hold, so it has no value for "not
- * available", as canboat reads it. An ADDRESS (0-255, where 255 is the
- * global address) is one (#566).
+ * a spare field (#567), or a field whose range reaches the
+ * top value it can hold, so it has no value for "not available", as
+ * canboat reads it. An ADDRESS (0-255, where 255 is the global address)
+ * is one (#566).
  */
 function allValuesValid(
   field: Field,
   bitLength: number,
   signed: boolean
 ): boolean {
+  // A spare field has no value for "not available": all ones is shown, at
+  // any width, as canboat shows it (#567). Binary data of all ones is not
+  // available, as for any other field: a writer that has no value for it
+  // sends all ones (an AIS Communication State, an AtoN Status).
+  if (field.FieldType === 'SPARE') {
+    return true
+  }
   // canboat checks the range only below 64 bits: at 64 the top value is
   // always "not available" (129029's altitude; an ISO NAME of all ones).
   if (bitLength >= 64 || field.RangeMax === undefined || !field.Resolution) {
@@ -1872,6 +1916,10 @@ function trailingZeroIsDigit(
   return bs.view.getBits(key.BitOffset, key.BitLength, false) === value
 }
 
+/**
+ * Reads a number field's raw value at its width, null when it is not
+ * available, and binary data as its bytes.
+ */
 function readValue(
   definition: Definition,
   options: any,
@@ -1937,13 +1985,22 @@ function readValue(
     const excessK = !!field.Signed && !!field.Offset
     const signed = !!field.Signed && !excessK
     try {
+      // A catch-all's data, and binary data wider than a number holds
+      // exactly (53 bits: 60160's 56, 126720 Hull Type's 64), are their
+      // bytes, as canboat gives them.
       if (
         field.FieldType === FieldType.Binary &&
-        definition.Fallback === true
+        (definition.Fallback === true ||
+          (bitLength > 53 && bitLength % 8 === 0 && bs.index % 8 === 0))
       ) {
         bitLength = bs.bitsLeft < bitLength ? bs.bitsLeft : bitLength
-        const data = bs.readArrayBuffer(Math.floor(bitLength / 8))
-        return [binaryText(Buffer.from(data)), undefined]
+        const data = Buffer.from(bs.readArrayBuffer(Math.floor(bitLength / 8)))
+        // Binary data of all ones is not available, as for any other field
+        // (#567); a catch-all's data is given whatever it holds.
+        if (definition.Fallback !== true && allOnes(data)) {
+          return [null, undefined]
+        }
+        return [binaryText(data), undefined]
       } else if (bitLength === 8) {
         if (signed) {
           value = bs.readInt8()
@@ -2106,7 +2163,12 @@ function readValue(
       value =
         field.FieldType === 'ISO_NAME' && bitLength === 64
           ? value.toString()
-          : Number(value)
+          : // A reserved or spare field is shown as its bits (readField),
+            // so all of them are kept.
+            (field.FieldType === 'RESERVED' || field.FieldType === 'SPARE') &&
+              bitLength > 53
+            ? BigInt(value.toString())
+            : Number(value)
     }
 
     return [value, undefined]
