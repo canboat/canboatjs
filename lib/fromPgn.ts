@@ -1737,6 +1737,10 @@ function inSameRepeatingSet(definition: Definition, a: number, b: number) {
 const binaryText = (data: Buffer) => byteString(data, ' ').toUpperCase()
 
 /** A field's bits as its bytes in hex, low byte first, as canboat prints them. */
+/**
+ * Whether binary data is all ones: not available, as in any other field
+ * (#567).
+ */
 function allOnes(data: Buffer): boolean {
   return data.length > 0 && data.every((b) => b === 0xff)
 }
