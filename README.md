@@ -474,7 +474,9 @@ A message goes by the manufacturer of the device that sent it:
   claim.
 - Nothing from an address is passed on until its manufacturer is known.
 - Network management PGNs (as listed for `excludePgns`) are always passed
-  on, so canboatjs's own device still hears every claim and request.
+  on, so canboatjs's own device still hears every claim and request. So
+  are a gateway's pseudo PGNs (262144 and up, such as Actisense's 262384),
+  which come from no device on the bus.
 
 Like `excludePgns`, this is done before fast-packet reassembly and
 decoding. `analyzerjs` and `candumpjs` take `--manufacturer-allow` and
