@@ -756,7 +756,12 @@ export class Parser extends EventEmitter {
       !this.manufacturerFilter.passes(
         pgn.pgn,
         pgn.src,
-        packetBs.view.buffer.subarray(0, Math.min(len, dataLength)),
+        // The message's own bytes: parseBuffer's stream still holds its
+        // header before them.
+        packetBs.view.buffer.subarray(
+          packetBs.byteIndex,
+          packetBs.byteIndex + len
+        ),
         !this.isWholeMessage(len, coalesced, rawFrame)
       )
     ) {

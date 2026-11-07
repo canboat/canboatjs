@@ -118,6 +118,26 @@ describe('parseManufacturers', () => {
     ])
   })
 
+  test('splits comma separated array entries, as one CLI flag gives them', () => {
+    expect(parseManufacturers(['garmin,victron', 'furuno'])).toEqual([
+      GARMIN,
+      VICTRON,
+      1855
+    ])
+  })
+
+  test('keeps a name that holds a comma together', () => {
+    const tohatsu = resolveManufacturer('Tohatsu Co, JP')
+    expect(parseManufacturers('Tohatsu Co, JP, garmin')).toEqual([
+      tohatsu,
+      GARMIN
+    ])
+    expect(parseManufacturers(['garmin', 'Tohatsu Co, JP'])).toEqual([
+      GARMIN,
+      tohatsu
+    ])
+  })
+
   test('nothing to filter', () => {
     for (const option of [undefined, null, '', [], ['']]) {
       expect(parseManufacturers(option)).toEqual([])
@@ -252,6 +272,44 @@ describe('FromPgn with allowManufacturers or denyManufacturers', () => {
     ).toEqual([
       [65305, 20],
       [60928, 20]
+    ])
+  })
+
+  test('reads the message, not the header, of a buffer', () => {
+    // parseBuffer's input: prio, PGN (3 bytes), dst, src, a timestamp
+    // (4 bytes), the length, then the data.
+    const buffer = (line: string) => {
+      const [, prio, pgn, src, dst, len, ...bytes] = line.split(',')
+      const n = Number(pgn)
+      return Buffer.from([
+        Number(prio),
+        n & 0xff,
+        (n >> 8) & 0xff,
+        n >> 16,
+        Number(dst),
+        Number(src),
+        0,
+        0,
+        0,
+        0,
+        Number(len),
+        ...bytes.map((b) => parseInt(b, 16))
+      ])
+    }
+    const parser = new FromPgn({ allowManufacturers: 'victron' })
+    const passed = [
+      claim(10, VICTRON),
+      heading(10),
+      claim(11, GARMIN),
+      heading(11)
+    ]
+      .map((line) => parser.parse(buffer(line)))
+      .filter((pgn) => pgn)
+      .map((pgn: any) => [pgn.pgn, pgn.src])
+    expect(passed).toEqual([
+      [60928, 10],
+      [127250, 10],
+      [60928, 11]
     ])
   })
 

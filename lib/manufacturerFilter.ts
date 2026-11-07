@@ -137,21 +137,55 @@ export function resolveManufacturer(
 }
 
 /**
+ * The entries of an allowManufacturers or denyManufacturers option: an
+ * array, or a comma separated string, of names and codes; an array's
+ * entries may be comma separated too (one --manufacturer-allow a,b). A few
+ * manufacturer names hold a comma ("Tohatsu Co, JP"): comma separated
+ * parts that together are exactly such a name stay together.
+ */
+function manufacturerEntries(
+  option: unknown,
+  lookup: Record<string, number>
+): string[] {
+  const list: unknown[] = Array.isArray(option)
+    ? option
+    : typeof option === 'string' || typeof option === 'number'
+      ? [option]
+      : []
+  const names = new Set(Object.keys(lookup).map(normalize))
+  const entries: string[] = []
+  for (const item of list) {
+    const parts = String(item).split(',')
+    let i = 0
+    while (i < parts.length) {
+      let end = i + 1
+      for (let k = parts.length; k > i + 1; k--) {
+        if (names.has(normalize(parts.slice(i, k).join(',')))) {
+          end = k
+          break
+        }
+      }
+      entries.push(parts.slice(i, end).join(',').trim())
+      i = end
+    }
+  }
+  return entries.filter((entry) => entry !== '')
+}
+
+/**
  * The codes of an allowManufacturers or denyManufacturers option: an array,
  * or a comma separated string, of names and codes.
  */
-export function parseManufacturers(option: unknown): number[] {
-  const entries = Array.isArray(option)
-    ? option
-    : typeof option === 'string' || typeof option === 'number'
-      ? String(option).split(',')
-      : []
+export function parseManufacturers(
+  option: unknown,
+  lookup: Record<string, number> = ManufacturerCodeValues as Record<
+    string,
+    number
+  >
+): number[] {
   const codes: number[] = []
-  for (const entry of entries) {
-    if (String(entry).trim() === '') {
-      continue
-    }
-    const code = resolveManufacturer(entry)
+  for (const entry of manufacturerEntries(option, lookup)) {
+    const code = resolveManufacturer(entry, lookup)
     if (!codes.includes(code)) {
       codes.push(code)
     }

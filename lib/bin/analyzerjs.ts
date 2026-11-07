@@ -117,7 +117,7 @@ try {
   process.exit(1)
 }
 
-const manufacturerOptions = manufacturerFilterOptions(argv)
+const manufacturerOptions = manufacturerFilterOptions(argv).options
 
 const parser = new Parser({
   ...manufacturerOptions,

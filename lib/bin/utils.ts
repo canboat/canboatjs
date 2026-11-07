@@ -20,7 +20,8 @@ export const MANUFACTURER_FILTER_HELP = `  --manufacturer-allow <name|code>
 
 /**
  * The allowManufacturers and denyManufacturers options from
- * --manufacturer-allow and --manufacturer-deny. Stops the program with a
+ * --manufacturer-allow and --manufacturer-deny, and a filter for a program
+ * that shows frames without decoding them (undefined without either flag). Stops the program with a
  * clear message when a name matches no manufacturer or several, or both
  * flags are given.
  */
@@ -32,8 +33,20 @@ export const manufacturerFilterOptions = (argv: { [key: string]: any }) => {
     allowManufacturers: list(argv['manufacturer-allow']),
     denyManufacturers: list(argv['manufacturer-deny'])
   }
+  // A flag given without a manufacturer would quietly filter nothing.
+  for (const flag of ['manufacturer-allow', 'manufacturer-deny']) {
+    const values = list(argv[flag])
+    if (
+      values !== undefined &&
+      values.every((value: unknown) => String(value).trim() === '')
+    ) {
+      console.error(`--${flag} needs a manufacturer name or code`)
+      process.exit(1)
+    }
+  }
+  let filter: ManufacturerFilter | undefined
   try {
-    ManufacturerFilter.fromOptions(options)
+    filter = ManufacturerFilter.fromOptions(options)
   } catch (e: any) {
     console.error(
       e.message
@@ -46,5 +59,5 @@ export const manufacturerFilterOptions = (argv: { [key: string]: any }) => {
     )
     process.exit(1)
   }
-  return options
+  return { options, filter }
 }

@@ -82,7 +82,8 @@ const canDevice = argv['_'][0]
 
 const filter = setupFilters(argv as unknown as FilterOptions)
 
-const manufacturerOptions = manufacturerFilterOptions(argv)
+const { options: manufacturerOptions, filter: manufacturerFilter } =
+  manufacturerFilterOptions(argv)
 
 const parser = new FromPgn({
   ...manufacturerOptions,
@@ -134,6 +135,14 @@ channel.addListener('onMessage', (msg: any) => {
   if (format === 'json') {
     parser.parse({ pgn, length: msg.data.length, data: msg.data })
   } else {
+    // Frames are shown without decoding: filter them here, as FromPgn
+    // filters what it decodes.
+    if (
+      manufacturerFilter &&
+      !manufacturerFilter.passes(pgn.pgn, pgn.src, msg.data, true)
+    ) {
+      return
+    }
     const sourceString = encodeCandump2({
       ...pgn,
       data: msg.data,
