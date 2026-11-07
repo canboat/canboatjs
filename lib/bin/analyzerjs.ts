@@ -5,7 +5,11 @@ import { Parser } from '../fromPgn'
 import { parseQuirks } from '../quirks'
 import minimist from 'minimist'
 import readline from 'readline'
-import { printVersion } from './utils'
+import {
+  printVersion,
+  manufacturerFilterOptions,
+  MANUFACTURER_FILTER_HELP
+} from './utils'
 import { setupFilters, filterPGN, FilterOptions } from '../utilities'
 import fs from 'fs'
 import util from 'util'
@@ -15,6 +19,8 @@ const argv = minimist(process.argv.slice(2), {
   string: [
     'pgn',
     'manufacturer',
+    'manufacturer-allow',
+    'manufacturer-deny',
     'src',
     'file',
     'dst',
@@ -73,6 +79,7 @@ Options:
   --dst <number>            filter for the given destination address
   --manufacturer <str>      filter for pgns from the given manufacturer
   --filter <js>             filter for the given JavaScript expression
+${MANUFACTURER_FILTER_HELP}
   --quirk <name>            enable a device quirk (repeatable). gps-rollover
                             corrects GNSS dates from a receiver that never
                             handled the GPS week rollover;
@@ -110,7 +117,10 @@ try {
   process.exit(1)
 }
 
+const manufacturerOptions = manufacturerFilterOptions(argv).options
+
 const parser = new Parser({
+  ...manufacturerOptions,
   returnNulls: argv['n'] === true,
   checkForInvalidFields: argv['c'] !== true,
   useCamel: argv['camel'],

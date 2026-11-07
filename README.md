@@ -441,6 +441,46 @@ once it is complete. The input line itself is still read.
 `canbus` takes the same option and lets the kernel drop them on its read
 socket, so they cost no JavaScript at all (see below).
 
+#### Filtering devices by manufacturer
+
+`allowManufacturers` keeps only the messages of devices of the given
+manufacturers; `denyManufacturers` drops those of the given ones. Give
+one or the other, not both:
+
+```javascript
+const parser = new FromPgn({ allowManufacturers: ['Victron Energy', 'garmin'] })
+const other = new FromPgn({ denyManufacturers: 'Furuno, 1857' })
+```
+
+Each takes an array or a comma separated string of names and codes. A
+name is looked up in canboat's manufacturer list, ignoring case, spaces
+and punctuation (`b&g`, `B & G` and `b and g` are all B & G); an exact
+name wins, and otherwise a unique prefix is enough. A name that matches
+no manufacturer or several is refused when the parser is made, naming
+the candidates: `unknown manufacturer 'vicron'; did you mean Victron
+Energy (358)?`. `resolveManufacturer(name)` does the same lookup.
+
+A message goes by the manufacturer of the device that sent it:
+
+- The ISO Address Claim (60928) decides, and a new claim replaces what
+  was known about the address. A device that moves to another address is
+  followed by its NAME.
+- Before an address has claimed, its first proprietary PGN (61184,
+  65280-65535, 126720, 130816-131071) gives its manufacturer
+  provisionally. That code is whose message format it is, not who built
+  the sender: once the address sends a proprietary PGN with another code
+  (a B&G display sending Simrad PGNs, a gateway controlling another make's
+  devices), proprietary PGNs no longer count for it, and it waits for its
+  claim.
+- Nothing from an address is passed on until its manufacturer is known.
+- Network management PGNs (as listed for `excludePgns`) are always passed
+  on, so canboatjs's own device still hears every claim and request.
+
+Like `excludePgns`, this is done before fast-packet reassembly and
+decoding. `analyzerjs` and `candumpjs` take `--manufacturer-allow` and
+`--manufacturer-deny` (repeatable, or comma separated), and stop with the
+same message when a name can't be resolved.
+
 #### `canbus` - CAN Bus Interface
 ```javascript
 const canbus = new canbus(options)

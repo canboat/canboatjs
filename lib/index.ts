@@ -27,6 +27,11 @@ export {
 export type { Device, Target, Quirks } from './quirks'
 export { setupFilters, filterPGN } from './utilities'
 export { parseExcludePgns, NETWORK_MANAGEMENT_PGNS } from './excludePgns'
+export {
+  ManufacturerFilter,
+  parseManufacturers,
+  resolveManufacturer
+} from './manufacturerFilter'
 export type { FilterConfig, FilterOptions } from './utilities'
 export { CanbusStream as canbus } from './canbus'
 export { addCustomPgns } from './pgns'

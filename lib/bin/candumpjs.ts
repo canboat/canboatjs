@@ -5,7 +5,11 @@ import { parseCanId } from '../canId'
 import minimist from 'minimist'
 import { setupFilters, filterPGN, FilterOptions } from '../utilities'
 import { encodeCandump2 } from '../stringMsg'
-import { printVersion } from './utils'
+import {
+  printVersion,
+  manufacturerFilterOptions,
+  MANUFACTURER_FILTER_HELP
+} from './utils'
 import util from 'util'
 import { CanChannel } from '../canSocket'
 
@@ -13,7 +17,17 @@ const argv = minimist(process.argv.slice(2), {
   alias: {
     h: 'help'
   },
-  string: ['format', 'manufacturer', 'src', 'pgn', 'dst', 'filter', 'id'],
+  string: [
+    'format',
+    'manufacturer',
+    'manufacturer-allow',
+    'manufacturer-deny',
+    'src',
+    'pgn',
+    'dst',
+    'filter',
+    'id'
+  ],
   boolean: [
     'n',
     'r',
@@ -54,6 +68,7 @@ Options:
   --dst <number>            filter for the given destination address
   --manufacturer <str>      filter for pgns from the given manufacturer
   --filter <js>             filter for the given JavaScript expression
+${MANUFACTURER_FILTER_HELP}
   -h, --help                output usage information`)
   process.exit(1)
 }
@@ -67,7 +82,11 @@ const canDevice = argv['_'][0]
 
 const filter = setupFilters(argv as unknown as FilterOptions)
 
+const { options: manufacturerOptions, filter: manufacturerFilter } =
+  manufacturerFilterOptions(argv)
+
 const parser = new FromPgn({
+  ...manufacturerOptions,
   returnNulls: argv['n'] === true,
   checkForInvalidFields: argv['c'] !== true,
   useCamel: argv['camel'],
@@ -116,6 +135,14 @@ channel.addListener('onMessage', (msg: any) => {
   if (format === 'json') {
     parser.parse({ pgn, length: msg.data.length, data: msg.data })
   } else {
+    // Frames are shown without decoding: filter them here, as FromPgn
+    // filters what it decodes.
+    if (
+      manufacturerFilter &&
+      !manufacturerFilter.passes(pgn.pgn, pgn.src, msg.data, true)
+    ) {
+      return
+    }
     const sourceString = encodeCandump2({
       ...pgn,
       data: msg.data,

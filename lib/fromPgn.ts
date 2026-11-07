@@ -51,6 +51,7 @@ import { rdsG0Char } from './charsets'
 import { Reassembler, PGN_ISO_TP_CM, PGN_ISO_TP_DT } from './reassembly'
 import { parseQuirks, Quirks } from './quirks'
 import { parseExcludePgns } from './excludePgns'
+import { ManufacturerFilter } from './manufacturerFilter'
 import {
   roundToDecimals,
   scaleOf,
@@ -142,6 +143,9 @@ export class Parser extends EventEmitter {
   readingLine = false
   // PGNs dropped before reassembly and decoding (excludePgns).
   private excludedPgns: Set<number>
+  // Devices dropped by manufacturer (allowManufacturers or
+  // denyManufacturers), before reassembly and decoding too.
+  readonly manufacturerFilter?: ManufacturerFilter
 
   constructor(opts: any = {}) {
     super()
@@ -202,6 +206,10 @@ export class Parser extends EventEmitter {
       console.warn(`canboatjs: excludePgns: ignoring ${ignored.join(', ')}`)
     }
 
+    // Devices to keep or drop by manufacturer (#588). A name that matches no
+    // manufacturer, or several, is refused here, naming the option.
+    this.manufacturerFilter = ManufacturerFilter.fromOptions(this.options)
+
     this.name = pkg.name
     this.version = pkg.version
     this.author = pkg.author
@@ -246,6 +254,21 @@ export class Parser extends EventEmitter {
     return pgnList
   }
 
+  /**
+   * Whether data is a whole message, not one frame of a fast packet. A raw
+   * frame is one CAN frame by definition, so it neither learns nor obeys
+   * the coalesced format: a stream that once carried a whole message would
+   * otherwise decode every later frame as a message.
+   */
+  private isWholeMessage(len: number, coalesced: boolean, rawFrame: boolean) {
+    return (
+      coalesced ||
+      len > 0x8 ||
+      (!rawFrame && this.headerCoalesced && this.readingLine) ||
+      (!rawFrame && this.format == FORMAT_COALESCED && !this.mixedFormat)
+    )
+  }
+
   private readPacket(
     pgn: PGN,
     pgnData: Definition,
@@ -256,15 +279,7 @@ export class Parser extends EventEmitter {
     sourceString: string | undefined = undefined,
     rawFrame = false
   ): BitStream | undefined {
-    // A raw frame is one CAN frame by definition, so it neither learns nor
-    // obeys the coalesced format: a stream that once carried a whole
-    // message would otherwise decode every later frame as a message.
-    if (
-      coalesced ||
-      len > 0x8 ||
-      (!rawFrame && this.headerCoalesced && this.readingLine) ||
-      (!rawFrame && this.format == FORMAT_COALESCED && !this.mixedFormat)
-    ) {
+    if (this.isWholeMessage(len, coalesced, rawFrame)) {
       this.format = FORMAT_COALESCED
       if (sourceString && this.options.includeInputData) {
         pgn.input = [sourceString]
@@ -736,6 +751,22 @@ export class Parser extends EventEmitter {
     if (this.excludedPgns.has(pgn.pgn)) {
       return
     }
+    if (
+      this.manufacturerFilter &&
+      !this.manufacturerFilter.passes(
+        pgn.pgn,
+        pgn.src,
+        // The message's own bytes: parseBuffer's stream still holds its
+        // header before them.
+        packetBs.view.buffer.subarray(
+          packetBs.byteIndex,
+          packetBs.byteIndex + len
+        ),
+        !this.isWholeMessage(len, coalesced, rawFrame)
+      )
+    ) {
+      return
+    }
 
     try {
       // ISO TP transport frames are plumbing for a longer message: hand
@@ -776,6 +807,18 @@ export class Parser extends EventEmitter {
         if (this.options.includeInputData && res.frame.input) {
           ;(pgn as any).input = res.frame.input
           sourceString = undefined
+        }
+        // The message the transport protocol carried, now whole.
+        if (
+          this.manufacturerFilter &&
+          !this.manufacturerFilter.passes(
+            pgn.pgn,
+            pgn.src,
+            res.frame.data,
+            false
+          )
+        ) {
+          return
         }
       }
 
