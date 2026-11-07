@@ -14,7 +14,8 @@
  *
  * Nothing from an address is passed on until its manufacturer is known.
  * Network management PGNs always are: canboatjs's own device must hear every
- * address claim and request to keep its address.
+ * address claim and request to keep its address. So are pseudo PGNs, which
+ * a gateway sends about itself, not a device on the bus.
  *
  * Copyright 2025 Signal K contributors
  * Licensed under the Apache License, Version 2.0
@@ -26,6 +27,8 @@ import { NETWORK_MANAGEMENT_PGNS } from './excludePgns'
 const ADDRESS_CLAIM = 60928
 const NULL_ADDRESS = 254
 const MANUFACTURER_CODE_MAX = 0x7ff
+// Above the 18 bits of a CAN PGN: messages a gateway makes up about itself.
+const PSEUDO_PGN_MIN = 0x40000
 
 /**
  * A manufacturer name as it is compared: lower case, letters and digits,
@@ -276,7 +279,9 @@ export class ManufacturerFilter {
         this.noteProprietary(src, data, 2)
       }
     }
-    if (NETWORK_MANAGEMENT_PGNS.includes(pgn)) {
+    // Network management, and a gateway's own pseudo PGNs (262384, from
+    // no device on the bus), always pass.
+    if (NETWORK_MANAGEMENT_PGNS.includes(pgn) || pgn >= PSEUDO_PGN_MIN) {
       return true
     }
     const code = this.addresses.get(src)?.code

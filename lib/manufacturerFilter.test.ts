@@ -221,6 +221,15 @@ describe('FromPgn with allowManufacturers or denyManufacturers', () => {
     ])
   })
 
+  test("always passes a gateway's pseudo PGNs", () => {
+    // 262384 Actisense Startup Status, from the gateway itself.
+    expect(
+      run({ allowManufacturers: 'victron' }, [
+        '2011-04-25-06:24:59.786,0,262384,0,0,14,01,0e,00,ab,b0,01,00,00,00,00,00,8e,08,00'
+      ])
+    ).toEqual([[262384, 0]])
+  })
+
   test('takes a single-frame proprietary PGN as a provisional claim', () => {
     expect(
       run({ allowManufacturers: 'simrad' }, [single(20, SIMRAD), heading(20)])
