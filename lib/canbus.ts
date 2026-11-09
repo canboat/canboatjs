@@ -32,6 +32,7 @@ import { CanID, encodeCanId, parseCanId } from './canId'
 import { toActisenseSerialFormat, parseActisense } from './stringMsg'
 import { CanChannel, CAN_RAW_FILTER_MAX } from './canSocket'
 import { parseExcludePgns } from './excludePgns'
+import fs from 'fs'
 import util from 'util'
 
 export function CanbusStream(this: any, options: any) {
@@ -115,6 +116,15 @@ export function CanbusStream(this: any, options: any) {
     typeof options.noDataReceivedTimeout !== 'undefined'
       ? options.noDataReceivedTimeout
       : -1
+
+  if (options.enableFile) {
+    // A stat poll, not fs.watch: it also sees the file appear with its
+    // directory, and a rewrite with the same content, after which the
+    // interface may have been down and up. Any change closes the port and
+    // opens it again if the file says on.
+    this.onEnableFile = () => this.connect()
+    fs.watchFile(options.enableFile, { interval: 1000 }, this.onEnableFile)
+  }
 
   if (this.connect() == false) {
     return
@@ -203,6 +213,13 @@ CanbusStream.prototype.connect = function () {
 
     // Reset stopping flag
     this.stoppingChannel = false
+
+    const off = this._enableFileOffReason()
+    if (off) {
+      this.setProviderStatus(off)
+      this.reconnecting = false
+      return false
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const that = this
@@ -353,6 +370,21 @@ CanbusStream.prototype.connect = function () {
   }
 }
 
+// With enableFile, the port is only read while that file's first line is
+// `on`; otherwise its second line says why not, for the provider status.
+CanbusStream.prototype._enableFileOffReason = function (): string | undefined {
+  if (!this.options.enableFile) {
+    return
+  }
+  let lines: string[] = []
+  try {
+    lines = fs.readFileSync(this.options.enableFile, 'utf8').split('\n')
+  } catch (_e) {
+    // No file: off
+  }
+  return lines[0]?.trim() === 'on' ? undefined : lines[1]?.trim() || 'Off'
+}
+
 util.inherits(CanbusStream, Transform)
 
 CanbusStream.prototype.start = function () {}
@@ -494,6 +526,9 @@ CanbusStream.prototype._transform = function (
 
 CanbusStream.prototype.end = function () {
   unsubscribeApp(this)
+  if (this.options.enableFile) {
+    fs.unwatchFile(this.options.enableFile, this.onEnableFile)
+  }
   if (this.candevice) {
     try {
       this.candevice.stop()

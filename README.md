@@ -507,6 +507,14 @@ can't be set, every PGN is read, with a warning, and the status says
 (before Linux 4.1), or with a native addon built before this option
 (rebuild canboatjs).
 
+With `enableFile`, a path, as in `{ canDevice: 'can1', enableFile:
+'/run/signalk-n2k/can1' }`, the port is read only while that file's first
+line is `on`. Otherwise, or without the file, the port is closed, nothing
+is sent and the provider status shows the file's second line (the reason),
+or `Off`. The file is checked every second: a change closes the port and, if
+the file says `on`, opens it again. Venus OS keeps such a file for each
+CAN port, from the port's profile in the GX settings.
+
 #### Device-Specific Streams
 - `Ydwg02` - Yacht Devices YDWG-02 interface
 - `W2k01` - Actisense W2K-1 interface  
