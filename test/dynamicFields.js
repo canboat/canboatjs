@@ -60,11 +60,12 @@ describe('dynamic field values', () => {
   })
 
   it('takes the record header off a length that counts it', () => {
-    // Navico object dump records: length 5 is a class byte, a 16-bit data
+    // Navico object dump records (not Section 10, which canboat 10 reads as
+    // the settings dump): length 5 is a class byte, a 16-bit data
     // type and 2 value bytes; length 3 leaves no value; length 1, shorter
     // than the header, takes the rest of the message.
     const fields = decode(
-      '2024-01-01T00:00:02.000Z,3,130822,3,255,30,13,99,00,c6,00,0a,01,00,00,ff,ff,ff,00,00,05,00,01,00,34,12,03,00,02,00,01,00,03,00,aa,bb'
+      '2024-01-01T00:00:02.000Z,3,130822,3,255,30,13,99,00,c6,00,05,01,00,00,ff,ff,ff,00,00,05,00,01,00,34,12,03,00,02,00,01,00,03,00,aa,bb'
     )
     fields.list
       .map((r) => r.value)
