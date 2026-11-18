@@ -108,6 +108,23 @@ const actisenseString = pgnToActisenseSerialFormat(message)
 console.log('Generated:', actisenseString)
 ```
 
+### Repeating Fields
+
+A PGN's repeating fields come as records: `list` holds the records of its first repeating set, and `list2` those of its second. When the second set follows the first, `list2` is beside `list` in `fields`. Since canboat 10, a second set can be nested in the first (`RepeatingFieldSet2Parent` in the definition), as in Navico's UDB table dumps: then each record of `list` holds its own `list2`.
+
+```javascript
+// PGN 130822, Navico: UDB Database, Table Dump
+fields: {
+  // ...
+  list: [
+    { count: 2, list2: [{ length: 4, value: 1.5 }, { length: 4, value: -2.5 }] },
+    { count: 1, list2: [{ length: 4, value: 4 }] }
+  ]
+}
+```
+
+The encoder takes the same form. A nested record's count may be left out: it is then the length of its `list2`.
+
 ## Supported Devices
 
 ### NMEA 2000 Gateways

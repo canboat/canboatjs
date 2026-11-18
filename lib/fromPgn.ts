@@ -119,7 +119,8 @@ export type ByteMapping = {
 }
 
 export type RepeatingByteMapping = {
-  [key: string]: ByteMapping
+  // A record of a nested repeating set holds its records' as list2.
+  [key: string]: ByteMapping | RepeatingByteMapping[]
 }
 
 export type ByteMap = {
@@ -327,130 +328,184 @@ export class Parser extends EventEmitter {
     return bs
   }
 
+  /**
+   * Read one record of a repeating set: `fields` into `group`, and their
+   * byte mapping into `map` when asked for.
+   */
+  private readRecord(
+    pgn: PGN,
+    pgnData: Definition,
+    fields: Field[],
+    bs: BitStream,
+    group: { [key: string]: any },
+    map: RepeatingByteMapping | undefined
+  ) {
+    fields.forEach((field) => {
+      if (bs.bitsLeft > 0) {
+        const [value, refField, byteMapping] = readField(
+          pgnData,
+          this.options,
+          true,
+          pgn,
+          field,
+          bs
+        )
+        if (refField) {
+          group.parameterId = refField.Id
+        }
+        if (
+          value !== undefined &&
+          (value != null || this.options.returnNulls)
+        ) {
+          this.setField(group, field, value)
+        }
+        if (map && byteMapping) {
+          map[field.Id] = byteMapping
+        }
+      }
+    })
+  }
+
+  /** The value of a repeating set's count field, read in `fields`. */
+  private countOf(
+    pgnData: Definition,
+    countField: number | undefined,
+    fields: { [key: string]: any }
+  ): number {
+    if (countField === undefined) {
+      return 2048
+    }
+    const rfield = pgnData.Fields[countField - 1]
+    const count = fields[this.options.useCamel ? rfield.Id : rfield.Name]
+    return typeof count === 'number' ? count : 0
+  }
+
   private readRepeatingFields(pgn: PGN, pgnData: Definition, bs: BitStream) {
-    const RepeatingFields1 = pgnData.RepeatingFieldSet1Size ?? 0
-    const RepeatingFields2 = pgnData.RepeatingFieldSet2Size ?? 0
-    const totalRepeating = RepeatingFields1 + RepeatingFields2
-
-    const fields = pgnData.Fields
-
-    const set1Fields: Field[] = (fields as any).slice(
-      fields.length - totalRepeating,
-      fields.length - totalRepeating + RepeatingFields1
-    )
-
+    const sets = repeatingSets(pgnData)
     const fany = pgn.fields as any
+    const byteMapping = this.options.includeByteMapping
+      ? ((pgn as any).byteMapping as { [key: string]: any })
+      : undefined
+
     fany.list = []
-
-    if (this.options.includeByteMapping) {
-      ;(pgn as any).byteMapping['list'] = []
+    if (byteMapping) {
+      byteMapping.list = []
     }
 
-    let count1
-
-    if (pgnData.RepeatingFieldSet1CountField !== undefined) {
-      const rfield = pgnData.Fields[pgnData.RepeatingFieldSet1CountField - 1]
-      const dataKey = this.options.useCamel ? rfield.Id : rfield.Name
-      count1 = (pgn.fields as any)[dataKey]
-    } else {
-      count1 = 2048
+    if (sets.nested) {
+      this.readNestedFields(pgn, pgnData, bs, sets)
+      return
     }
 
+    let count1 = this.countOf(
+      pgnData,
+      pgnData.RepeatingFieldSet1CountField,
+      pgn.fields
+    )
     while (bs.bitsLeft > 0 && --count1 >= 0) {
       const group: { [key: string]: any } = {}
-      let repeatingMap: RepeatingByteMapping
-      if (this.options.includeByteMapping) {
-        repeatingMap = {}
-        ;(pgn as any).byteMapping['list'].push(repeatingMap)
+      const map: RepeatingByteMapping | undefined = byteMapping ? {} : undefined
+      if (byteMapping) {
+        byteMapping.list.push(map)
       }
-
-      set1Fields.forEach((field) => {
-        if (bs.bitsLeft > 0) {
-          const [value, refField, byteMapping] = readField(
-            pgnData!,
-            this.options,
-            true,
-            pgn,
-            field,
-            bs
-          )
-          if (refField) {
-            group.parameterId = refField.Id
-          }
-          if (
-            value !== undefined &&
-            (value != null || this.options.returnNulls)
-          ) {
-            this.setField(group, field, value)
-          }
-          if (this.options.includeByteMapping && byteMapping) {
-            repeatingMap[field.Id] = byteMapping
-          }
-        }
-      })
+      this.readRecord(pgn, pgnData, sets.set1, bs, group, map)
       if (_.keys(group).length > 0) {
         fany.list.push(group)
       }
     }
 
-    // Process RepeatingFieldSet2 if defined
-    if (RepeatingFields2 > 0) {
-      const set2Fields: Field[] = (fields as any).slice(
-        fields.length - RepeatingFields2
-      )
-
+    // RepeatingFieldSet2, after the first
+    if (sets.set2.length > 0) {
       fany.list2 = []
-
-      if (this.options.includeByteMapping) {
-        ;(pgn as any).byteMapping['list2'] = []
+      if (byteMapping) {
+        byteMapping.list2 = []
       }
-
-      let count2
-
-      if (pgnData.RepeatingFieldSet2CountField !== undefined) {
-        const rfield = pgnData.Fields[pgnData.RepeatingFieldSet2CountField - 1]
-        const dataKey = this.options.useCamel ? rfield.Id : rfield.Name
-        count2 = (pgn.fields as any)[dataKey]
-      } else {
-        count2 = 2048
-      }
-
+      let count2 = this.countOf(
+        pgnData,
+        pgnData.RepeatingFieldSet2CountField,
+        pgn.fields
+      )
       while (bs.bitsLeft > 0 && --count2 >= 0) {
         const group: { [key: string]: any } = {}
-        let repeatingMap: RepeatingByteMapping
-        if (this.options.includeByteMapping) {
-          repeatingMap = {}
-          ;(pgn as any).byteMapping['list2'].push(repeatingMap)
+        const map: RepeatingByteMapping | undefined = byteMapping
+          ? {}
+          : undefined
+        if (byteMapping) {
+          byteMapping.list2.push(map)
         }
-
-        set2Fields.forEach((field) => {
-          if (bs.bitsLeft > 0) {
-            const [value, refField, byteMapping] = readField(
-              pgnData!,
-              this.options,
-              true,
-              pgn,
-              field,
-              bs
-            )
-            if (refField) {
-              group.parameterId = refField.Id
-            }
-            if (
-              value !== undefined &&
-              (value != null || this.options.returnNulls)
-            ) {
-              this.setField(group, field, value)
-            }
-            if (this.options.includeByteMapping && byteMapping) {
-              repeatingMap[field.Id] = byteMapping
-            }
-          }
-        })
+        this.readRecord(pgn, pgnData, sets.set2, bs, group, map)
         if (_.keys(group).length > 0) {
           fany.list2.push(group)
         }
       }
+    }
+  }
+
+  /**
+   * The repeating sets of a PGN whose second set is nested in the first
+   * (RepeatingFieldSet2Parent, canboat 10): each record of the first set
+   * holds, as its `list2`, as many records of the second as the count
+   * field in that record says. The first set repeats as often as its count
+   * field says, or until the data runs out. As canboat does.
+   */
+  private readNestedFields(
+    pgn: PGN,
+    pgnData: Definition,
+    bs: BitStream,
+    sets: RepeatingSets
+  ) {
+    const fany = pgn.fields as any
+    const byteMapping = this.options.includeByteMapping
+      ? ((pgn as any).byteMapping as { [key: string]: any })
+      : undefined
+    const before = sets.set1.slice(0, sets.innerStart)
+    const after = sets.set1.slice(sets.innerStart + sets.set2.length)
+
+    let count1 = this.countOf(
+      pgnData,
+      pgnData.RepeatingFieldSet1CountField,
+      pgn.fields
+    )
+    while (bs.bitsLeft > 0 && --count1 >= 0) {
+      if (fieldIsCutShort(sets.set1[0], bs)) {
+        break
+      }
+      const group: { [key: string]: any } = {}
+      const map: RepeatingByteMapping | undefined = byteMapping ? {} : undefined
+      if (byteMapping) {
+        byteMapping.list.push(map)
+      }
+      this.readRecord(pgn, pgnData, before, bs, group, map)
+
+      const list2: { [key: string]: any }[] = []
+      const maps2: RepeatingByteMapping[] = []
+      let count2 = this.countOf(
+        pgnData,
+        pgnData.RepeatingFieldSet2CountField,
+        group
+      )
+      while (
+        bs.bitsLeft > 0 &&
+        --count2 >= 0 &&
+        !fieldIsCutShort(sets.set2[0], bs)
+      ) {
+        const inner: { [key: string]: any } = {}
+        const innerMap: RepeatingByteMapping | undefined = byteMapping
+          ? {}
+          : undefined
+        this.readRecord(pgn, pgnData, sets.set2, bs, inner, innerMap)
+        list2.push(inner)
+        if (innerMap) {
+          maps2.push(innerMap)
+        }
+      }
+      group.list2 = list2
+      if (map) {
+        map.list2 = maps2
+      }
+
+      this.readRecord(pgn, pgnData, after, bs, group, map)
+      fany.list.push(group)
     }
   }
 
@@ -463,9 +518,10 @@ export class Parser extends EventEmitter {
     const start = bs.index
     let pgnData: Definition | undefined = startDef
 
-    let RepeatingFields = pgnData.RepeatingFieldSet1Size ?? 0
     let totalRepeatingFields =
-      RepeatingFields + (pgnData.RepeatingFieldSet2Size ?? 0)
+      (pgnData.RepeatingFieldSet1Size ?? 0) +
+      (pgnData.RepeatingFieldSet2Size ?? 0)
+    let fixedFields = repeatingSets(pgnData).fixed
 
     pgn.fields = {}
 
@@ -478,7 +534,7 @@ export class Parser extends EventEmitter {
     let unknownPGN = false
     let previousMatch: Definition | undefined
     let targetPgnForCondition: number | undefined
-    for (let i = 0; i < fields.length - totalRepeatingFields; i++) {
+    for (let i = 0; i < fixedFields; i++) {
       const field = fields[i]
 
       // Skip conditional proprietary fields when target PGN is not proprietary
@@ -572,7 +628,7 @@ export class Parser extends EventEmitter {
             fields = []
             // The variant that just failed may have repeating fields; they
             // must not be read for an unknown PGN.
-            RepeatingFields = 0
+            fixedFields = 0
             totalRepeatingFields = 0
 
             const data = bs.readArrayBuffer(Math.floor(bs.bitsLeft / 8))
@@ -1761,6 +1817,66 @@ function indirectKey(
     return undefined
   }
   return bs.view.getBits(at, key.BitLength, false)
+}
+
+/** The fixed fields and repeating sets of a definition. */
+export interface RepeatingSets {
+  // The number of fields before the first repeating set.
+  fixed: number
+  set1: Field[]
+  set2: Field[]
+  // The second set is nested in the first (RepeatingFieldSet2Parent).
+  nested: boolean
+  // Where the second set starts within the first's fields, when nested.
+  innerStart: number
+}
+
+/**
+ * The repeating sets of a definition, by their start fields. Without start
+ * fields, the sets end the definition, the second after the first.
+ */
+export function repeatingSets(def: Definition): RepeatingSets {
+  const d = def as any
+  const fields = def.Fields
+  const size1 = def.RepeatingFieldSet1Size ?? 0
+  const size2 = def.RepeatingFieldSet2Size ?? 0
+  const nested = size1 > 0 && size2 > 0 && d.RepeatingFieldSet2Parent === 1
+  const start1: number =
+    d.RepeatingFieldSet1StartField ??
+    fields.length - (nested ? size1 : size1 + size2) + 1
+  const start2: number =
+    d.RepeatingFieldSet2StartField ??
+    (nested ? start1 : fields.length - size2 + 1)
+  return {
+    fixed: size1 + size2 > 0 ? start1 - 1 : fields.length,
+    set1: fields.slice(start1 - 1, start1 - 1 + size1),
+    set2: fields.slice(start2 - 1, start2 - 1 + size2),
+    nested,
+    innerStart: nested ? start2 - start1 : 0
+  }
+}
+
+/**
+ * Whether the message ends inside `field`, which then is not read, as
+ * canboat's fieldIsCutShort: a field of a fixed width that is not text or
+ * binary data, which can be cut short.
+ */
+function fieldIsCutShort(field: Field | undefined, bs: BitStream): boolean {
+  if (
+    field === undefined ||
+    !field.BitLength ||
+    field.BitLength <= bs.bitsLeft
+  ) {
+    return false
+  }
+  return ![
+    'BINARY',
+    'STRING_FIX',
+    'STRING_LZ',
+    'STRING_LAU',
+    'VARIABLE',
+    'KEY_VALUE'
+  ].includes(field.FieldType)
 }
 
 /** Whether the fields of orders `a` and `b` are in the same repeating set. */

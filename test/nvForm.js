@@ -266,14 +266,14 @@ describe('canboat --nv JSON', () => {
             }
           },
           {
-            parameter: 5,
-            value: 'FF FF'
+            // Sub Mode, a NUMBER since canboat 10: all ones, not available.
+            parameter: 5
           }
         ]
       }
     }
-    // The message as sent. (canboatjs's own decode leaves out parameter
-    // 5, all ones, so it cannot be written back that way: #567.)
+    // The message as sent: a parameter without a value is written as all
+    // ones, as canboatjs's own decode leaves it out.
     hex(nv).should.equal('0163ff00f804013b07030404000005ffff')
   })
 

@@ -25,7 +25,7 @@ import {
   getBitEnumerationName,
   findFallBackPGN
 } from '@canboat/ts-pgns'
-import { parameterField, targetDefinition } from './fromPgn'
+import { parameterField, repeatingSets, targetDefinition } from './fromPgn'
 import { getPgn, getCustomPgn, isMatchName } from './pgns'
 import _ from 'lodash'
 import { scaleOf, siConversion } from './units'
@@ -202,11 +202,9 @@ export function toPgn(data: any): Buffer | undefined {
   }
 
   let fields = pgnData.Fields
-  let RepeatingFields1 = pgnData.RepeatingFieldSet1Size ?? 0
-  let RepeatingFields2 = pgnData.RepeatingFieldSet2Size ?? 0
-  let totalRepeatingFields = RepeatingFields1 + RepeatingFields2
+  let sets = repeatingSets(pgnData)
   let targetPgnForCondition: number | undefined
-  for (let index = 0; index < fields.length - totalRepeatingFields; index++) {
+  for (let index = 0; index < sets.fixed; index++) {
     const field = fields[index]
 
     // Skip conditional proprietary fields when target PGN is not proprietary
@@ -248,9 +246,7 @@ export function toPgn(data: any): Buffer | undefined {
         pgnData = pgnList[0]
         value = pgnData.Fields[index].Match
         fields = pgnData.Fields
-        RepeatingFields1 = pgnData.RepeatingFieldSet1Size ?? 0
-        RepeatingFields2 = pgnData.RepeatingFieldSet2Size ?? 0
-        totalRepeatingFields = RepeatingFields1 + RepeatingFields2
+        sets = repeatingSets(pgnData)
       }
     }
     // A catch-all's data runs to the end of the message, and so does a
@@ -278,54 +274,49 @@ export function toPgn(data: any): Buffer | undefined {
     }
   }
 
-  // Process RepeatingFieldSet1 from data.list
-  if (data.list) {
-    const set1Start = fields.length - totalRepeatingFields
-    data.list.forEach((repeat: any) => {
-      for (let index = 0; index < RepeatingFields1; index++) {
-        const field = fields[set1Start + index]
-        const value =
-          repeat[field.Name] !== undefined
-            ? repeat[field.Name]
-            : repeat[field.Id]
-
-        writeField(
-          bs,
-          pgn_number,
-          field,
-          data,
-          value,
-          fields,
-          undefined,
-          repeat
-        )
-      }
+  // A repeating set's records, each a record of `data.list` or
+  // `data.list2`, keyed by field name or id.
+  const writeRecord = (setFields: Field[], record: any) => {
+    setFields.forEach((field) => {
+      const value =
+        record[field.Name] !== undefined ? record[field.Name] : record[field.Id]
+      writeField(bs, pgn_number, field, data, value, fields, undefined, record)
     })
   }
 
-  // Process RepeatingFieldSet2 from data.list2
-  if (data.list2 && RepeatingFields2 > 0) {
-    const set2Start = fields.length - RepeatingFields2
-    data.list2.forEach((repeat: any) => {
-      for (let index = 0; index < RepeatingFields2; index++) {
-        const field = fields[set2Start + index]
-        const value =
-          repeat[field.Name] !== undefined
-            ? repeat[field.Name]
-            : repeat[field.Id]
+  if (Array.isArray(data.list)) {
+    if (sets.nested) {
+      // Each record of the first set holds the records of the second as its
+      // list2 (canboat 10's nested repeating sets).
+      const before = sets.set1.slice(0, sets.innerStart)
+      const after = sets.set1.slice(sets.innerStart + sets.set2.length)
+      const countField =
+        pgnData.RepeatingFieldSet2CountField !== undefined
+          ? fields[pgnData.RepeatingFieldSet2CountField - 1]
+          : undefined
+      data.list.forEach((repeat: any) => {
+        const inner: any[] = Array.isArray(repeat.list2) ? repeat.list2 : []
+        let record = repeat
+        // The count of the record's list2, when not given.
+        if (
+          countField !== undefined &&
+          repeat[countField.Name] === undefined &&
+          repeat[countField.Id] === undefined
+        ) {
+          record = { ...repeat, [countField.Id]: inner.length }
+        }
+        writeRecord(before, record)
+        inner.forEach((innerRecord) => writeRecord(sets.set2, innerRecord))
+        writeRecord(after, record)
+      })
+    } else {
+      data.list.forEach((repeat: any) => writeRecord(sets.set1, repeat))
+    }
+  }
 
-        writeField(
-          bs,
-          pgn_number,
-          field,
-          data,
-          value,
-          fields,
-          undefined,
-          repeat
-        )
-      }
-    })
+  // RepeatingFieldSet2, after the first, from data.list2
+  if (Array.isArray(data.list2) && !sets.nested && sets.set2.length > 0) {
+    data.list2.forEach((repeat: any) => writeRecord(sets.set2, repeat))
   }
 
   const bitsLeft = bs.byteIndex * 8 - bs.index
@@ -342,7 +333,7 @@ export function toPgn(data: any): Buffer | undefined {
     fields[fields.length - 1].FieldType !== RES_STRINGLAU &&
     fields[fields.length - 1].FieldType !== RES_STRINGLZ &&
     !openTail(pgnData, fields[fields.length - 1]) &&
-    !totalRepeatingFields
+    sets.set1.length + sets.set2.length === 0
   ) {
     //const len = lengthsOff[pgnData.PGN] || pgnData.Length
     //console.log(`Length ${len}`)
