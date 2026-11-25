@@ -30,6 +30,7 @@ import {
   actisenseToYdgwFullRawFormat
 } from './toPgn'
 import { parseCanIdStr } from './canId'
+import { parseActisense, encodeYDRAWFull } from './stringMsg'
 import { DeviceEmulator } from './index'
 import { PGN, PGN_60928, PGN_126998, PGN_126996 } from '@canboat/ts-pgns'
 import util from 'util'
@@ -212,7 +213,11 @@ Ydgw02Stream.prototype.sendYdgwPGN = function (msg: string) {
   let msgs
 
   if (this.device != undefined) {
-    msgs = actisenseToYdgwFullRawFormat(msg)
+    const pgn = parseActisense(msg)
+    if (pgn.src !== 254) {
+      pgn.src = this.device.address
+    }
+    msgs = encodeYDRAWFull(pgn)
   } else {
     msgs = actisenseToYdgwRawFormat(msg)
   }
