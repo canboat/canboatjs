@@ -195,6 +195,9 @@ iKonvertStream.prototype.getSetupCommands = function () {
   setupCommands.push('$PDGY,N2NET_OFFLINE:$PDGY,TEXT,Digital_Yacht_')
   if (this.isTcp) {
     setupCommands.push('$PDGY,N2NET_MODE,15:$PDGY,ACK,N2NET_MODE')
+    // NavLink2 may already be initialised by its web configuration (#596).
+    // Clear that configuration before setting the transmit list.
+    setupCommands.push('$PDGY,N2NET_RESET:$PDGY,ACK,N2NET_RESET')
   }
   setupCommands.push('$PDGY,TX_LIMIT,OFF:$PDGY,') // NACK is ok with old firmware
   setupCommands.push(`${txPgns}:$PDGY,ACK,TX_LIST`)
